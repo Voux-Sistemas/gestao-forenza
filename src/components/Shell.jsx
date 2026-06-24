@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Layers, LogOut, Moon, Sun } from "lucide-react";
+import { Layers, LogOut, Moon, Sun, LayoutGrid, Users } from "lucide-react";
 import Quadro from "./Quadro.jsx";
+import Cadastros from "./Cadastros.jsx";
 
 const PAPEL_LABEL = {
   funcionario: "Funcionário", chefe_setor: "Chefe de setor",
@@ -12,6 +13,7 @@ const iconBtn = { border: "1px solid var(--border)", borderRadius: 8, padding: 8
 export default function Shell({ session }) {
   const [perfil, setPerfil] = useState(null);
   const [tema, setTema] = useState("light");
+  const [pagina, setPagina] = useState("quadro");
 
   useEffect(() => {
     supabase.from("perfis").select("nome, papel, setor").eq("id", session.user.id).single()
@@ -21,6 +23,12 @@ export default function Shell({ session }) {
   useEffect(() => { document.documentElement.setAttribute("data-theme", tema); }, [tema]);
 
   const subtitulo = perfil ? [PAPEL_LABEL[perfil.papel], perfil.setor].filter(Boolean).join(" · ") : "carregando…";
+  const podeAdministrar = ["master", "chefe_geral"].includes(perfil?.papel);
+
+  const navItens = [
+    { id: "quadro", label: "Quadro", icon: LayoutGrid },
+    { id: "cadastros", label: "Cadastros", icon: Users },
+  ];
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -40,8 +48,33 @@ export default function Shell({ session }) {
           <button onClick={() => supabase.auth.signOut()} aria-label="Sair" style={iconBtn}><LogOut size={16} /></button>
         </div>
       </header>
+
+      {podeAdministrar && (
+        <nav style={{ display: "flex", gap: 4, padding: "0 22px", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
+          {navItens.map((item) => {
+            const Icone = item.icon;
+            const ativo = pagina === item.id;
+            return (
+              <button key={item.id} onClick={() => setPagina(item.id)} style={{
+                display: "inline-flex", alignItems: "center", gap: 7, padding: "11px 14px", fontSize: 13, fontWeight: 500,
+                border: "none", background: "none", cursor: "pointer", color: ativo ? "var(--accent)" : "var(--text-2)",
+                borderBottom: ativo ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1,
+              }}>
+                <Icone size={15} /> {item.label}
+              </button>
+            );
+          })}
+        </nav>
+      )}
+
       <main>
-        {perfil ? <Quadro session={session} perfil={perfil} /> : <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>}
+        {!perfil ? (
+          <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>
+        ) : pagina === "cadastros" && podeAdministrar ? (
+          <Cadastros />
+        ) : (
+          <Quadro session={session} perfil={perfil} />
+        )}
       </main>
     </div>
   );
