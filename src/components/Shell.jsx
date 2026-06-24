@@ -1,37 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
 import { Layers, LogOut, Moon, Sun } from "lucide-react";
+import Quadro from "./Quadro.jsx";
 
 const PAPEL_LABEL = {
   funcionario: "Funcionário", chefe_setor: "Chefe de setor",
   chefe_geral: "Chefe geral", master: "Master", cliente: "Cliente",
 };
-
-const iconBtn = {
-  border: "1px solid var(--border)", borderRadius: 8, padding: 8,
-  color: "var(--text-2)", background: "none", display: "inline-flex",
-};
+const iconBtn = { border: "1px solid var(--border)", borderRadius: 8, padding: 8, color: "var(--text-2)", background: "none", display: "inline-flex" };
 
 export default function Shell({ session }) {
   const [perfil, setPerfil] = useState(null);
   const [tema, setTema] = useState("light");
 
   useEffect(() => {
-    supabase
-      .from("perfis")
-      .select("nome, papel, setor")
-      .eq("id", session.user.id)
-      .single()
+    supabase.from("perfis").select("nome, papel, setor").eq("id", session.user.id).single()
       .then(({ data, error }) => { if (!error) setPerfil(data); });
   }, [session]);
 
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", tema);
-  }, [tema]);
+  useEffect(() => { document.documentElement.setAttribute("data-theme", tema); }, [tema]);
 
-  const subtitulo = perfil
-    ? [PAPEL_LABEL[perfil.papel], perfil.setor].filter(Boolean).join(" · ")
-    : "carregando…";
+  const subtitulo = perfil ? [PAPEL_LABEL[perfil.papel], perfil.setor].filter(Boolean).join(" · ") : "carregando…";
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -48,20 +37,11 @@ export default function Shell({ session }) {
           <button onClick={() => setTema((t) => (t === "light" ? "dark" : "light"))} aria-label="Mudar tema" style={iconBtn}>
             {tema === "light" ? <Moon size={16} /> : <Sun size={16} />}
           </button>
-          <button onClick={() => supabase.auth.signOut()} aria-label="Sair" style={iconBtn}>
-            <LogOut size={16} />
-          </button>
+          <button onClick={() => supabase.auth.signOut()} aria-label="Sair" style={iconBtn}><LogOut size={16} /></button>
         </div>
       </header>
-
-      <main style={{ padding: "28px 22px" }}>
-        <div style={{ maxWidth: 560, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 24 }}>
-          <p style={{ fontSize: 15, fontWeight: 600, margin: "0 0 6px" }}>Login funcionando</p>
-          <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0, lineHeight: 1.55 }}>
-            Você entrou como <strong>{perfil?.nome || "Usuário"}</strong>
-            {perfil ? ` (${subtitulo})` : ""}. O quadro de produção entra na próxima parte, aqui neste espaço.
-          </p>
-        </div>
+      <main>
+        {perfil ? <Quadro session={session} perfil={perfil} /> : <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>}
       </main>
     </div>
   );
