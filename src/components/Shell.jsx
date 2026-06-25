@@ -6,6 +6,7 @@ import Cadastros from "./Cadastros.jsx";
 import Atrasos from "./Atrasos.jsx";
 import Estoque from "./Estoque.jsx";
 import Triagem from "./Triagem.jsx";
+import Portal from "./Portal.jsx";
 
 const PAPEL_LABEL = {
   funcionario: "Funcionário", chefe_setor: "Chefe de setor",
@@ -38,6 +39,7 @@ export default function Shell({ session }) {
 
   function conteudo() {
     if (!perfil) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>;
+    if (perfil.papel === "cliente") return <Portal session={session} perfil={perfil} />;
     if (pagina === "cadastros" && podeAdministrar) return <Cadastros />;
     if (pagina === "atrasos" && podeAdministrar) return <Atrasos />;
     if (pagina === "estoque" && podeAdministrar) return <Estoque session={session} />;
