@@ -19,7 +19,7 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
   const [salvandoFicha, setSalvandoFicha] = useState(false);
   const [fichaSalva, setFichaSalva] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [aprovar, setAprovar] = useState(false);
+  const [gerando, setGerando] = useState(false);
 
   const carregarComentarios = useCallback(async () => {
     const { data } = await supabase.from("comentarios_pilotagem").select("*").eq("solicitacao_id", sol.id).order("id");
@@ -50,6 +50,31 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
     setNovoComent("");
     setEnviando(false);
     carregarComentarios();
+  }
+
+  async function aprovarDireto() {
+    if (gerando) return;
+    if (!sol.quantidade || sol.quantidade < 1) {
+      window.alert("Esta solicitação não tem quantidade definida. Peça a quantidade ao cliente antes de aprovar.");
+      return;
+    }
+    setGerando(true);
+    const { data: peds } = await supabase.from("pedidos").select("referencia");
+    let max = 0;
+    (peds || []).forEach((pp) => { const m = /^PED-(\d+)$/.exec(pp.referencia || ""); if (m) max = Math.max(max, parseInt(m[1], 10)); });
+    const referencia = `PED-${String(max + 1).padStart(3, "0")}`;
+    const ped = await supabase.from("pedidos").insert({
+      cliente_id: sol.cliente_id,
+      solicitacao_id: sol.id,
+      referencia,
+      total: sol.quantidade,
+      prazo: sol.prazo_desejado || null,
+    });
+    if (ped.error) { setGerando(false); window.alert("Erro ao gerar pedido: " + ped.error.message); return; }
+    await supabase.from("solicitacoes").update({ status: "aprovada" }).eq("id", sol.id);
+    setGerando(false);
+    onMudou();
+    onFechar();
   }
 
   return (
@@ -105,11 +130,10 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
 
         <div style={{ display: "flex", gap: 8, padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
           <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Fechar</button>
-          <button onClick={() => setAprovar(true)} style={{ ...btnSuccess, flex: 1 }}>Aprovar piloto → gerar pedido</button>
+          <button onClick={aprovarDireto} disabled={gerando} style={{ ...btnSuccess, flex: 1 }}>{gerando ? "Gerando pedido…" : "Aprovar piloto → gerar pedido"}</button>
         </div>
       </div>
 
-      {aprovar && <ModalAprovar sol={sol} oficinas={oficinas} onFechar={() => setAprovar(false)} onAprovado={() => { setAprovar(false); onMudou(); onFechar(); }} />}
     </div>
   );
 }
