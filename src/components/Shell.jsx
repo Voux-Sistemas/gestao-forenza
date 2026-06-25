@@ -20,7 +20,7 @@ export default function Shell({ session }) {
   const [pagina, setPagina] = useState("quadro");
 
   useEffect(() => {
-    supabase.from("perfis").select("nome, papel, setor").eq("id", session.user.id).single()
+    supabase.from("perfis").select("nome, papel, setor, cliente_id").eq("id", session.user.id).single()
       .then(({ data, error }) => { if (!error) setPerfil(data); });
   }, [session]);
 
