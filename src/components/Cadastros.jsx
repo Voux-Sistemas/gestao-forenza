@@ -136,8 +136,15 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
   const [contato, setContato] = useState(registro?.contato || "");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [login, setLogin] = useState(null);
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    if (novo) return;
+    supabase.from("perfis").select("email").eq("cliente_id", registro.id).eq("papel", "cliente").maybeSingle()
+      .then(({ data }) => setLogin(data && data.email ? data.email : null));
+  }, [novo, registro]);
 
   async function salvar() {
     setErro(null);
@@ -167,7 +174,7 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
         if (error) throw error;
         const id = data.user && data.user.id;
         if (!id) throw new Error("Login não criado.");
-        const { error: e2 } = await supabase.from("perfis").update({ papel: "cliente", cliente_id: ins.data.id, nome: nome.trim() }).eq("id", id);
+        const { error: e2 } = await supabase.from("perfis").update({ papel: "cliente", cliente_id: ins.data.id, nome: nome.trim(), email: email.trim() }).eq("id", id);
         if (e2) throw e2;
       } catch (e) {
         setSalvando(false);
@@ -208,7 +215,15 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
             <Campo rotulo="Contato" valor={registro.contato} />
             <Campo rotulo="Status" valor={registro.ativo ? "Ativo" : "Inativo"} />
           </div>
-          <AcessoPortal cliente={registro} />
+          {login ? (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 4 }}>Acesso ao portal</div>
+              <div style={{ fontSize: 14, color: "var(--text)" }}>{login}</div>
+              <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>Login ativo. A senha não aparece aqui; se o cliente esquecer, recrie o acesso.</div>
+            </div>
+          ) : (
+            <AcessoPortal cliente={registro} onCriado={(em) => setLogin(em)} />
+          )}
         </>
       )}
 
@@ -316,12 +331,11 @@ function DetalheOficina({ registro, onFechar, onSalvo }) {
   );
 }
 
-function AcessoPortal({ cliente }) {
+function AcessoPortal({ cliente, onCriado }) {
   const [abrir, setAbrir] = useState(false);
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState(null);
-  const [ok, setOk] = useState(false);
   const [criando, setCriando] = useState(false);
 
   async function criar() {
@@ -335,22 +349,13 @@ function AcessoPortal({ cliente }) {
       if (error) throw error;
       const id = data.user && data.user.id;
       if (!id) throw new Error("Não foi possível criar o login.");
-      const { error: e2 } = await supabase.from("perfis").update({ papel: "cliente", cliente_id: cliente.id, nome: cliente.nome }).eq("id", id);
+      const { error: e2 } = await supabase.from("perfis").update({ papel: "cliente", cliente_id: cliente.id, nome: cliente.nome, email: email.trim() }).eq("id", id);
       if (e2) throw e2;
-      setOk(true);
+      onCriado(email.trim());
     } catch (e) {
       setErro(e.message || "Erro ao criar login.");
     }
     setCriando(false);
-  }
-
-  if (ok) {
-    return (
-      <div style={{ marginTop: 16, padding: "12px 14px", background: "var(--success-bg)", borderRadius: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--success)" }}>Login criado ✓</div>
-        <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4 }}>O cliente já pode entrar com <strong>{email}</strong> e a senha definida.</div>
-      </div>
-    );
   }
 
   return (
