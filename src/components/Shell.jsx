@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Layers, LogOut, Moon, Sun, LayoutGrid, Users } from "lucide-react";
+import { Layers, LogOut, Moon, Sun, LayoutGrid, Users, AlertTriangle } from "lucide-react";
 import Quadro from "./Quadro.jsx";
 import Cadastros from "./Cadastros.jsx";
+import Atrasos from "./Atrasos.jsx";
 
 const PAPEL_LABEL = {
   funcionario: "Funcionário", chefe_setor: "Chefe de setor",
@@ -27,8 +28,16 @@ export default function Shell({ session }) {
 
   const navItens = [
     { id: "quadro", label: "Quadro", icon: LayoutGrid },
+    { id: "atrasos", label: "Atrasos", icon: AlertTriangle },
     { id: "cadastros", label: "Cadastros", icon: Users },
   ];
+
+  function conteudo() {
+    if (!perfil) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>;
+    if (pagina === "cadastros" && podeAdministrar) return <Cadastros />;
+    if (pagina === "atrasos" && podeAdministrar) return <Atrasos />;
+    return <Quadro session={session} perfil={perfil} />;
+  }
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -67,15 +76,7 @@ export default function Shell({ session }) {
         </nav>
       )}
 
-      <main>
-        {!perfil ? (
-          <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>
-        ) : pagina === "cadastros" && podeAdministrar ? (
-          <Cadastros />
-        ) : (
-          <Quadro session={session} perfil={perfil} />
-        )}
-      </main>
+      <main>{conteudo()}</main>
     </div>
   );
 }
