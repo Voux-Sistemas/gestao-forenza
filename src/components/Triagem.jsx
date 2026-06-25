@@ -1,0 +1,218 @@
+import React, { useEffect, useState, useCallback } from "react";
+import { supabase } from "../supabaseClient.js";
+import { Plus } from "lucide-react";
+
+const STATUS = {
+  em_triagem:      { label: "Em triagem",       cor: "var(--accent)",  bg: "var(--accent-bg)" },
+  info_solicitada: { label: "Informações pedidas", cor: "var(--warning)", bg: "var(--warning-bg)" },
+  em_pilotagem:    { label: "Em pilotagem",      cor: "var(--success)", bg: "var(--success-bg)" },
+  recusada:        { label: "Recusada",          cor: "var(--danger)",  bg: "var(--danger-bg)" },
+};
+
+function formatarData(d) {
+  if (!d) return "—";
+  const [y, m, dd] = d.split("-");
+  return `${dd}/${m}/${y}`;
+}
+
+export default function Triagem() {
+  const [aba, setAba] = useState("aguardando");
+  const [lista, setLista] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [nova, setNova] = useState(false);
+  const [acao, setAcao] = useState(null);
+
+  const carregar = useCallback(async () => {
+    const [s, c] = await Promise.all([
+      supabase.from("solicitacoes").select("*").order("id", { ascending: false }),
+      supabase.from("clientes").select("*"),
+    ]);
+    setLista(s.data || []); setClientes(c.data || []);
+    setCarregando(false);
+  }, []);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  useEffect(() => {
+    const canal = supabase.channel("triagem")
+      .on("postgres_changes", { event: "*", schema: "public", table: "solicitacoes" }, carregar)
+      .subscribe();
+    return () => { supabase.removeChannel(canal); };
+  }, [carregar]);
+
+  const nomeCliente = (id) => clientes.find((c) => c.id === id)?.nome || "—";
+
+  if (carregando) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>;
+
+  const aguardando = lista.filter((s) => s.status === "em_triagem" || s.status === "info_solicitada");
+  const pilotagem = lista.filter((s) => s.status === "em_pilotagem");
+  const recusadas = lista.filter((s) => s.status === "recusada");
+  const atual = aba === "aguardando" ? aguardando : aba === "pilotagem" ? pilotagem : recusadas;
+
+  return (
+    <div style={{ padding: "20px 22px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>Triagem de solicitações</h2>
+        <button onClick={() => setNova(true)} style={btnPrimary}><Plus size={16} /> Nova solicitação</button>
+      </div>
+
+      <div style={{ display: "flex", gap: 4, marginBottom: 18, borderBottom: "1px solid var(--border)" }}>
+        <button onClick={() => setAba("aguardando")} style={subTab(aba === "aguardando")}>Aguardando ({aguardando.length})</button>
+        <button onClick={() => setAba("pilotagem")} style={subTab(aba === "pilotagem")}>Em pilotagem ({pilotagem.length})</button>
+        <button onClick={() => setAba("recusadas")} style={subTab(aba === "recusadas")}>Recusadas ({recusadas.length})</button>
+      </div>
+
+      {atual.length === 0 ? <p style={txtVazio}>Nenhuma solicitação aqui.</p> : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {atual.map((s) => {
+            const st = STATUS[s.status] || STATUS.em_triagem;
+            return (
+              <div key={s.id} style={cartao}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>{nomeCliente(s.cliente_id)}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: st.bg, color: st.cor }}>{st.label}</span>
+                    </div>
+                    <p style={{ fontSize: 13, color: "var(--text)", margin: "0 0 8px", lineHeight: 1.5 }}>{s.descricao}</p>
+                    <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--text-3)" }}>
+                      {s.quantidade != null && <span>Qtd. estimada: {s.quantidade}</span>}
+                      {s.prazo_desejado && <span>Prazo desejado: {formatarData(s.prazo_desejado)}</span>}
+                    </div>
+                    {s.observacao_fabrica && (
+                      <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 8, padding: "8px 10px", background: "var(--surface-2)", borderRadius: 8 }}>
+                        <strong>Obs. da fábrica:</strong> {s.observacao_fabrica}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {(s.status === "em_triagem" || s.status === "info_solicitada") && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                    <button onClick={() => setAcao({ s, tipo: "pilotagem" })} style={btnPrimary}>Iniciar pilotagem</button>
+                    <button onClick={() => setAcao({ s, tipo: "info" })} style={btnGhost}>Pedir informações</button>
+                    <button onClick={() => setAcao({ s, tipo: "recusar" })} style={btnDanger}>Recusar</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {nova && <ModalNova clientes={clientes} onFechar={() => setNova(false)} onOk={() => { setNova(false); carregar(); }} />}
+      {acao && <ModalAcao dados={acao} onFechar={() => setAcao(null)} onOk={() => { setAcao(null); carregar(); }} />}
+    </div>
+  );
+}
+
+function ModalNova({ clientes, onFechar, onOk }) {
+  const [clienteId, setClienteId] = useState(clientes[0]?.id || "");
+  const [descricao, setDescricao] = useState("");
+  const [quantidade, setQuantidade] = useState("");
+  const [prazo, setPrazo] = useState("");
+  const [erro, setErro] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvar() {
+    setErro(null);
+    if (!clienteId) return setErro("Escolha um cliente.");
+    if (!descricao.trim()) return setErro("Descreva a solicitação.");
+    setSalvando(true);
+    const { error } = await supabase.from("solicitacoes").insert({
+      cliente_id: clienteId,
+      descricao: descricao.trim(),
+      quantidade: quantidade ? parseInt(quantidade, 10) : null,
+      prazo_desejado: prazo || null,
+      status: "em_triagem",
+    });
+    setSalvando(false);
+    if (error) return setErro(error.message);
+    onOk();
+  }
+
+  return (
+    <Overlay onFechar={onFechar}>
+      <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Nova solicitação</h3>
+      <label style={lbl}>Cliente</label>
+      <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inp}>
+        {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+      </select>
+      <label style={{ ...lbl, marginTop: 14 }}>Descrição</label>
+      <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="O que o cliente quer produzir…" style={{ ...inp, resize: "vertical" }} />
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        <div style={{ flex: 1 }}><label style={lbl}>Quantidade estimada</label><input type="number" min="0" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} style={inp} /></div>
+        <div style={{ flex: 1 }}><label style={lbl}>Prazo desejado</label><input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} style={inp} /></div>
+      </div>
+      {erro && <p style={erroTxt}>{erro}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Criar"}</button>
+      </div>
+    </Overlay>
+  );
+}
+
+function ModalAcao({ dados, onFechar, onOk }) {
+  const { s, tipo } = dados;
+  const [obs, setObs] = useState("");
+  const [erro, setErro] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const config = {
+    pilotagem: { titulo: "Iniciar pilotagem", texto: "Esta solicitação vai para a etapa de pilotagem.", status: "em_pilotagem", pedeObs: false, botao: "Confirmar" },
+    info: { titulo: "Pedir informações", texto: "Escreva o que falta esclarecer com o cliente.", status: "info_solicitada", pedeObs: true, botao: "Enviar" },
+    recusar: { titulo: "Recusar solicitação", texto: "Escreva o motivo da recusa.", status: "recusada", pedeObs: true, botao: "Recusar" },
+  }[tipo];
+
+  async function confirmar() {
+    setErro(null);
+    if (config.pedeObs && !obs.trim()) return setErro("Escreva uma observação.");
+    setSalvando(true);
+    const dadosUpd = { status: config.status };
+    if (config.pedeObs) dadosUpd.observacao_fabrica = obs.trim();
+    const { error } = await supabase.from("solicitacoes").update(dadosUpd).eq("id", s.id);
+    setSalvando(false);
+    if (error) return setErro(error.message);
+    onOk();
+  }
+
+  return (
+    <Overlay onFechar={onFechar}>
+      <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 6px" }}>{config.titulo}</h3>
+      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{config.texto}</p>
+      {config.pedeObs && (
+        <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} autoFocus placeholder="Escreva aqui…" style={{ ...inp, resize: "vertical" }} />
+      )}
+      {erro && <p style={erroTxt}>{erro}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+        <button onClick={confirmar} disabled={salvando} style={{ ...(tipo === "recusar" ? btnDanger : btnPrimary), flex: 1 }}>{salvando ? "Salvando…" : config.botao}</button>
+      </div>
+    </Overlay>
+  );
+}
+
+function Overlay({ children, onFechar }) {
+  return (
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const subTab = (ativo) => ({
+  padding: "9px 14px", fontSize: 13, fontWeight: 500, border: "none", background: "none", cursor: "pointer",
+  color: ativo ? "var(--accent)" : "var(--text-2)",
+  borderBottom: ativo ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1,
+});
+const txtVazio = { fontSize: 13, color: "var(--text-3)", padding: "16px 2px" };
+const cartao = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" };
+const erroTxt = { fontSize: 12, color: "var(--danger)", margin: "12px 0 0" };
+const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" };
+const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
+const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
+const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
+const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" };

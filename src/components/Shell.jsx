@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Layers, LogOut, Moon, Sun, LayoutGrid, Users, AlertTriangle, Package } from "lucide-react";
+import { Layers, LogOut, Moon, Sun, LayoutGrid, Users, AlertTriangle, Package, Inbox } from "lucide-react";
 import Quadro from "./Quadro.jsx";
 import Cadastros from "./Cadastros.jsx";
 import Atrasos from "./Atrasos.jsx";
 import Estoque from "./Estoque.jsx";
+import Triagem from "./Triagem.jsx";
 
 const PAPEL_LABEL = {
   funcionario: "Funcionário", chefe_setor: "Chefe de setor",
@@ -29,6 +30,7 @@ export default function Shell({ session }) {
 
   const navItens = [
     { id: "quadro", label: "Quadro", icon: LayoutGrid },
+    { id: "triagem", label: "Triagem", icon: Inbox },
     { id: "estoque", label: "Estoque", icon: Package },
     { id: "atrasos", label: "Atrasos", icon: AlertTriangle },
     { id: "cadastros", label: "Cadastros", icon: Users },
@@ -39,6 +41,7 @@ export default function Shell({ session }) {
     if (pagina === "cadastros" && podeAdministrar) return <Cadastros />;
     if (pagina === "atrasos" && podeAdministrar) return <Atrasos />;
     if (pagina === "estoque" && podeAdministrar) return <Estoque session={session} />;
+    if (pagina === "triagem" && podeAdministrar) return <Triagem />;
     return <Quadro session={session} perfil={perfil} />;
   }
 
