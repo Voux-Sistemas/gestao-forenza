@@ -113,6 +113,7 @@ function ModalMover({ dados, session, onFechar, onOk }) {
   const [qtd, setQtd] = useState(saldo);
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const [verResumo, setVerResumo] = useState(false);
 
   async function confirmar() {
     setErro(null);
@@ -145,6 +146,12 @@ function ModalMover({ dados, session, onFechar, onOk }) {
           {salvando ? "Movendo…" : <>Mover <ArrowRight size={15} /></>}
         </button>
       </div>
+      {pedido.solicitacao_id && (
+        <button onClick={() => setVerResumo(true)} style={{ ...btnGhost, width: "100%", marginTop: 10 }}>
+          Ver ficha e histórico da pilotagem
+        </button>
+      )}
+      {verResumo && <ResumoPilotagem solicitacaoId={pedido.solicitacao_id} onFechar={() => setVerResumo(false)} />}
     </Overlay>
   );
 }
@@ -213,6 +220,63 @@ function Overlay({ children, onFechar }) {
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
         {children}
+      </div>
+    </div>
+  );
+}
+
+function ResumoPilotagem({ solicitacaoId, onFechar }) {
+  const [ficha, setFicha] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [comentarios, setComentarios] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const sol = await supabase.from("solicitacoes").select("ficha_tecnica, descricao").eq("id", solicitacaoId).single();
+      const com = await supabase.from("comentarios_pilotagem").select("*").eq("solicitacao_id", solicitacaoId).order("id");
+      setFicha(sol.data?.ficha_tecnica || "");
+      setDescricao(sol.data?.descricao || "");
+      setComentarios(com.data || []);
+      setCarregando(false);
+    })();
+  }, [solicitacaoId]);
+
+  return (
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 70 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "85vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Ficha e histórico da pilotagem</h3>
+        {descricao && <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{descricao}</p>}
+        {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> : (
+          <>
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 5 }}>Ficha técnica</div>
+              <div style={{ fontSize: 13, color: "var(--text)", whiteSpace: "pre-wrap", lineHeight: 1.5, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>
+                {ficha || "— sem ficha técnica —"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>Histórico</div>
+              {comentarios.length === 0 ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Sem registros.</p> : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {comentarios.map((c) => {
+                    const ehFabrica = c.autor === "fabrica";
+                    return (
+                      <div key={c.id} style={{ borderLeft: `3px solid ${ehFabrica ? "var(--accent)" : "var(--success)"}`, padding: "8px 12px", background: "var(--surface-2)", borderRadius: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)" }}>{ehFabrica ? "Fábrica" : "Cliente"}</span>
+                          <span style={{ fontSize: 11, color: "var(--text-3)" }}>{new Date(c.criado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                        </div>
+                        <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+        <button onClick={onFechar} style={{ ...btnGhost, width: "100%", marginTop: 20 }}>Fechar</button>
       </div>
     </div>
   );

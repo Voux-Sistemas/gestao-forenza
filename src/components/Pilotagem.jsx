@@ -131,6 +131,7 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
     setSalvando(true);
     const ped = await supabase.from("pedidos").insert({
       cliente_id: sol.cliente_id,
+      solicitacao_id: sol.id,
       oficina_id: oficinaId || null,
       referencia: referencia.trim(),
       marca: marca.trim() || null,
