@@ -64,7 +64,7 @@ export default function Triagem() {
   return (
     <div style={{ padding: "20px 22px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>Triagem de solicitações</h2>
+        <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>Pilotagem</h2>
         <button onClick={() => setNova(true)} style={btnPrimary}><Plus size={16} /> Nova solicitação</button>
       </div>
 

@@ -79,7 +79,7 @@ export default function Atrasos() {
   return (
     <div style={{ padding: "20px 22px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>Atrasos e alertas</h2>
+        <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>Alertas</h2>
         <button onClick={() => window.print()} style={btnGhost}><Printer size={15} /> Imprimir</button>
       </div>
 

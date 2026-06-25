@@ -30,10 +30,10 @@ export default function Shell({ session }) {
   const podeAdministrar = ["master", "chefe_geral"].includes(perfil?.papel);
 
   const navItens = [
+    { id: "triagem", label: "Pilotagem", icon: Inbox },
     { id: "quadro", label: "Quadro", icon: LayoutGrid },
-    { id: "triagem", label: "Triagem", icon: Inbox },
+    { id: "atrasos", label: "Alertas", icon: AlertTriangle },
     { id: "estoque", label: "Estoque", icon: Package },
-    { id: "atrasos", label: "Atrasos", icon: AlertTriangle },
     { id: "cadastros", label: "Cadastros", icon: Users },
   ];
 
