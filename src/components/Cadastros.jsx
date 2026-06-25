@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
 import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config.js";
-import { Plus, Pencil, Eye } from "lucide-react";
+import { Plus, Pencil, Eye, Trash2 } from "lucide-react";
 
 export default function Cadastros() {
   const [aba, setAba] = useState("clientes");
@@ -24,6 +24,7 @@ function Clientes() {
   const [carregando, setCarregando] = useState(true);
   const [novo, setNovo] = useState(false);
   const [selecionado, setSelecionado] = useState(null);
+  const [editarInicial, setEditarInicial] = useState(false);
 
   const carregar = useCallback(async () => {
     const { data } = await supabase.from("clientes").select("*").order("nome");
@@ -36,6 +37,22 @@ function Clientes() {
     e.stopPropagation();
     await supabase.from("clientes").update({ ativo: !c.ativo }).eq("id", c.id);
     carregar();
+  }
+
+  async function excluir(e, c) {
+    e.stopPropagation();
+    if (!window.confirm(`Excluir o cliente "${c.nome}"? Esta ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.from("clientes").delete().eq("id", c.id);
+    if (error) {
+      window.alert("Não foi possível excluir: este cliente tem pedidos ou solicitações no sistema. Use \"Desativar\" para ocultá-lo sem perder o histórico.");
+      return;
+    }
+    carregar();
+  }
+
+  function abrir(c, editar) {
+    setSelecionado(c);
+    setEditarInicial(editar);
   }
 
   if (carregando) return <p style={txtVazio}>Carregando…</p>;
@@ -51,23 +68,25 @@ function Clientes() {
             <span style={{ flex: 2 }}>Nome</span>
             <span style={{ flex: 2 }}>Contato</span>
             <span style={{ flex: 1 }}>Status</span>
-            <span style={{ width: 150, textAlign: "right" }}></span>
+            <span style={{ width: 210, textAlign: "right" }}></span>
           </div>
           {lista.map((c) => (
             <div key={c.id} onClick={() => setSelecionado(c)} style={{ ...linha, cursor: "pointer" }}>
               <span style={{ flex: 2, fontWeight: 500 }}>{c.nome}</span>
               <span style={{ flex: 2, color: "var(--text-2)" }}>{c.contato || "—"}</span>
               <span style={{ flex: 1 }}><Badge ativo={c.ativo} /></span>
-              <span style={{ width: 150, display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                <button onClick={(e) => { e.stopPropagation(); setSelecionado(c); }} style={btnIcon} aria-label="Ver detalhes"><Eye size={15} /></button>
+              <span style={{ width: 210, display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                <button onClick={(e) => { e.stopPropagation(); abrir(c, false); }} style={btnIcon} aria-label="Ver detalhes"><Eye size={15} /></button>
+                <button onClick={(e) => { e.stopPropagation(); abrir(c, true); }} style={btnIcon} aria-label="Editar"><Pencil size={15} /></button>
                 <button onClick={(e) => alternar(e, c)} style={btnMini}>{c.ativo ? "Desativar" : "Ativar"}</button>
+                <button onClick={(e) => excluir(e, c)} style={btnIconDanger} aria-label="Excluir"><Trash2 size={15} /></button>
               </span>
             </div>
           ))}
         </div>
       )}
       {novo && <DetalheCliente registro={null} onFechar={() => setNovo(false)} onSalvo={() => { setNovo(false); carregar(); }} />}
-      {selecionado && <DetalheCliente registro={selecionado} onFechar={() => setSelecionado(null)} onSalvo={() => { setSelecionado(null); carregar(); }} />}
+      {selecionado && <DetalheCliente registro={selecionado} editarInicial={editarInicial} onFechar={() => { setSelecionado(null); setEditarInicial(false); }} onSalvo={() => { setSelecionado(null); setEditarInicial(false); carregar(); }} />}
     </div>
   );
 }
@@ -106,7 +125,7 @@ function Oficinas() {
             <span style={{ flex: 1 }}>Telefone</span>
             <span style={{ flex: 1 }}>Pessoas</span>
             <span style={{ flex: 1 }}>Status</span>
-            <span style={{ width: 150, textAlign: "right" }}></span>
+            <span style={{ width: 210, textAlign: "right" }}></span>
           </div>
           {lista.map((o) => (
             <div key={o.id} onClick={() => setSelecionado(o)} style={{ ...linha, cursor: "pointer" }}>
@@ -129,9 +148,9 @@ function Oficinas() {
   );
 }
 
-function DetalheCliente({ registro, onFechar, onSalvo }) {
+function DetalheCliente({ registro, editarInicial, onFechar, onSalvo }) {
   const novo = !registro;
-  const [editando, setEditando] = useState(novo);
+  const [editando, setEditando] = useState(novo || editarInicial);
   const [nome, setNome] = useState(registro?.nome || "");
   const [contato, setContato] = useState(registro?.contato || "");
   const [email, setEmail] = useState("");
@@ -149,7 +168,7 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
   async function salvar() {
     setErro(null);
     if (!nome.trim()) return setErro("Informe o nome do cliente.");
-    const querLogin = novo && (email.trim() || senha);
+    const querLogin = !login && (email.trim() || senha);
     if (querLogin) {
       if (!email.includes("@")) return setErro("E-mail de login inválido.");
       if (senha.length < 6) return setErro("A senha do login precisa ter ao menos 6 caracteres.");
@@ -157,15 +176,16 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
     setSalvando(true);
     const dados = { nome: nome.trim(), contato: contato.trim() || null };
 
-    if (!novo) {
+    let clienteId;
+    if (novo) {
+      const ins = await supabase.from("clientes").insert(dados).select().single();
+      if (ins.error) { setSalvando(false); return setErro(ins.error.message); }
+      clienteId = ins.data.id;
+    } else {
       const upd = await supabase.from("clientes").update(dados).eq("id", registro.id);
-      setSalvando(false);
-      if (upd.error) return setErro(upd.error.message);
-      return onSalvo();
+      if (upd.error) { setSalvando(false); return setErro(upd.error.message); }
+      clienteId = registro.id;
     }
-
-    const ins = await supabase.from("clientes").insert(dados).select().single();
-    if (ins.error) { setSalvando(false); return setErro(ins.error.message); }
 
     if (querLogin) {
       try {
@@ -174,11 +194,11 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
         if (error) throw error;
         const id = data.user && data.user.id;
         if (!id) throw new Error("Login não criado.");
-        const { error: e2 } = await supabase.from("perfis").update({ papel: "cliente", cliente_id: ins.data.id, nome: nome.trim(), email: email.trim() }).eq("id", id);
+        const { error: e2 } = await supabase.from("perfis").update({ papel: "cliente", cliente_id: clienteId, nome: nome.trim(), email: email.trim() }).eq("id", id);
         if (e2) throw e2;
       } catch (e) {
         setSalvando(false);
-        return setErro("Cliente salvo, mas o login falhou: " + (e.message || "") + ". Abra o cliente e crie o login de novo.");
+        return setErro("Cliente salvo, mas o login falhou: " + (e.message || "") + ".");
       }
     }
     setSalvando(false);
@@ -198,16 +218,20 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
           <input value={nome} onChange={(e) => setNome(e.target.value)} autoFocus style={inp} />
           <label style={{ ...lbl, marginTop: 14 }}>Contato</label>
           <input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="telefone, e-mail, responsável…" style={inp} />
-          {novo && (
-            <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>Acesso ao portal (opcional)</div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <div style={{ flex: 1 }}><label style={lbl}>E-mail (login)</label><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@email.com" style={inp} /></div>
-                <div style={{ flex: 1 }}><label style={lbl}>Senha</label><input value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="mín. 6 caracteres" style={inp} /></div>
-              </div>
-              <p style={{ fontSize: 11, color: "var(--text-3)", margin: "6px 0 0" }}>Deixe em branco se o cliente não vai acessar o portal.</p>
-            </div>
-          )}
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>Acesso ao portal</div>
+            {login ? (
+              <div style={{ fontSize: 13, color: "var(--text-2)" }}>Login: <strong style={{ color: "var(--text)" }}>{login}</strong> · já criado</div>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1 }}><label style={lbl}>E-mail (login)</label><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@email.com" style={inp} /></div>
+                  <div style={{ flex: 1 }}><label style={lbl}>Senha</label><input value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="mín. 6 caracteres" style={inp} /></div>
+                </div>
+                <p style={{ fontSize: 11, color: "var(--text-3)", margin: "6px 0 0" }}>Deixe em branco se o cliente não vai acessar o portal.</p>
+              </>
+            )}
+          </div>
         </>
       ) : (
         <>
@@ -215,15 +239,12 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
             <Campo rotulo="Contato" valor={registro.contato} />
             <Campo rotulo="Status" valor={registro.ativo ? "Ativo" : "Inativo"} />
           </div>
-          {login ? (
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 4 }}>Acesso ao portal</div>
-              <div style={{ fontSize: 14, color: "var(--text)" }}>{login}</div>
-              <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>Login ativo. A senha não aparece aqui; se o cliente esquecer, recrie o acesso.</div>
-            </div>
-          ) : (
-            <AcessoPortal cliente={registro} onCriado={(em) => setLogin(em)} />
-          )}
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 4 }}>Acesso ao portal</div>
+            {login
+              ? <div style={{ fontSize: 14, color: "var(--text)" }}>{login}</div>
+              : <div style={{ fontSize: 13, color: "var(--text-3)" }}>Sem acesso ainda. Clique em "Editar" para criar o login.</div>}
+          </div>
         </>
       )}
 
@@ -427,3 +448,4 @@ const btnPrimary = { display: "inline-flex", alignItems: "center", justifyConten
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnMini = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 500, padding: "5px 10px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnIcon = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "5px 8px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
+const btnIconDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "5px 8px", borderRadius: 7, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" };
