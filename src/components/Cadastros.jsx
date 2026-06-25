@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
+import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config.js";
 import { Plus, Pencil, Eye } from "lucide-react";
 
 export default function Cadastros() {
@@ -163,10 +165,13 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
           <input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="telefone, e-mail, responsável…" style={inp} />
         </>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Campo rotulo="Contato" valor={registro.contato} />
-          <Campo rotulo="Status" valor={registro.ativo ? "Ativo" : "Inativo"} />
-        </div>
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Campo rotulo="Contato" valor={registro.contato} />
+            <Campo rotulo="Status" valor={registro.ativo ? "Ativo" : "Inativo"} />
+          </div>
+          <AcessoPortal cliente={registro} />
+        </>
       )}
 
       {erro && <p style={erroTxt}>{erro}</p>}
@@ -270,6 +275,65 @@ function DetalheOficina({ registro, onFechar, onSalvo }) {
         )}
       </div>
     </Overlay>
+  );
+}
+
+function AcessoPortal({ cliente }) {
+  const [abrir, setAbrir] = useState(false);
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState(null);
+  const [ok, setOk] = useState(false);
+  const [criando, setCriando] = useState(false);
+
+  async function criar() {
+    setErro(null);
+    if (!email.trim() || !email.includes("@")) return setErro("Informe um e-mail válido.");
+    if (senha.length < 6) return setErro("A senha precisa ter ao menos 6 caracteres.");
+    setCriando(true);
+    try {
+      const temp = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data, error } = await temp.auth.signUp({ email: email.trim(), password: senha, options: { data: { nome: cliente.nome } } });
+      if (error) throw error;
+      const id = data.user && data.user.id;
+      if (!id) throw new Error("Não foi possível criar o login.");
+      const { error: e2 } = await supabase.from("perfis").update({ papel: "cliente", cliente_id: cliente.id, nome: cliente.nome }).eq("id", id);
+      if (e2) throw e2;
+      setOk(true);
+    } catch (e) {
+      setErro(e.message || "Erro ao criar login.");
+    }
+    setCriando(false);
+  }
+
+  if (ok) {
+    return (
+      <div style={{ marginTop: 16, padding: "12px 14px", background: "var(--success-bg)", borderRadius: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--success)" }}>Login criado ✓</div>
+        <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4 }}>O cliente já pode entrar com <strong>{email}</strong> e a senha definida.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>Acesso ao portal</div>
+      {!abrir ? (
+        <button onClick={() => setAbrir(true)} style={btnMini}>Criar login de acesso</button>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}><label style={lbl}>E-mail (login)</label><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@email.com" style={inp} /></div>
+            <div style={{ flex: 1 }}><label style={lbl}>Senha</label><input value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="mín. 6 caracteres" style={inp} /></div>
+          </div>
+          {erro && <p style={erroTxt}>{erro}</p>}
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button onClick={() => setAbrir(false)} style={btnMini}>Cancelar</button>
+            <button onClick={criar} disabled={criando} style={btnPrimary}>{criando ? "Criando…" : "Criar login"}</button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
