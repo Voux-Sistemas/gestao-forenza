@@ -46,6 +46,14 @@ export default function Triagem() {
 
   const nomeCliente = (id) => clientes.find((c) => c.id === id)?.nome || "—";
 
+  async function excluir(e, s) {
+    e.stopPropagation();
+    if (!window.confirm("Excluir esta solicitação? Esta ação não pode ser desfeita.")) return;
+    const { error } = await supabase.from("solicitacoes").delete().eq("id", s.id);
+    if (error) { window.alert("Não foi possível excluir: " + error.message); return; }
+    carregar();
+  }
+
   if (carregando) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>;
 
   const aguardando = lista.filter((s) => s.status === "em_triagem" || s.status === "info_solicitada");
@@ -107,6 +115,10 @@ export default function Triagem() {
                     <button onClick={() => setAcao({ s, tipo: "recusar" })} style={btnDanger}>Recusar</button>
                   </div>
                 )}
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                  <button onClick={(e) => excluir(e, s)} style={btnExcluir}>Excluir</button>
+                </div>
               </div>
             );
           })}
@@ -273,4 +285,5 @@ const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBott
 const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" };
+const btnExcluir = { fontSize: 12, fontWeight: 600, padding: "5px 10px", borderRadius: 7, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" };
 const btnMini = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 500, padding: "6px 10px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };

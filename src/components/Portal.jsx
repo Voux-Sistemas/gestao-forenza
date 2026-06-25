@@ -36,6 +36,7 @@ export default function Portal({ session, perfil }) {
   const [movimentos, setMovimentos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [nova, setNova] = useState(false);
+  const [conversa, setConversa] = useState(null);
 
   const carregar = useCallback(async () => {
     if (!clienteId) { setCarregando(false); return; }
@@ -81,7 +82,7 @@ export default function Portal({ session, perfil }) {
             {solAtivas.map((s) => {
               const st = STATUS_SOL[s.status] || STATUS_SOL.em_triagem;
               return (
-                <div key={s.id} style={cartao}>
+                <div key={s.id} onClick={() => setConversa(s)} style={{ ...cartao, cursor: "pointer" }}>
                   <div style={{ display: "flex", gap: 12 }}>
                     {s.imagem_url && <img src={s.imagem_url} alt="Referência" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />}
                     <div style={{ flex: 1 }}>
@@ -98,6 +99,7 @@ export default function Portal({ session, perfil }) {
                           <strong>Mensagem da fábrica:</strong> {s.observacao_fabrica}
                         </div>
                       )}
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", marginTop: 10 }}>Ver conversa / responder →</div>
                     </div>
                   </div>
                 </div>
@@ -139,6 +141,7 @@ export default function Portal({ session, perfil }) {
       </section>
 
       {nova && <ModalNova clienteId={clienteId} onFechar={() => setNova(false)} onOk={() => { setNova(false); carregar(); }} />}
+      {conversa && <ModalConversa solicitacao={conversa} onFechar={() => setConversa(null)} />}
     </div>
   );
 }
@@ -215,6 +218,74 @@ function ModalNova({ clienteId, onFechar, onOk }) {
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
           <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
           <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Enviando…" : "Enviar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalConversa({ solicitacao, onFechar }) {
+  const sol = solicitacao;
+  const [comentarios, setComentarios] = useState([]);
+  const [texto, setTexto] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    const { data } = await supabase.from("comentarios_pilotagem").select("*").eq("solicitacao_id", sol.id).order("id");
+    setComentarios(data || []);
+    setCarregando(false);
+  }, [sol.id]);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  useEffect(() => {
+    const canal = supabase.channel("conversa-cli-" + sol.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "comentarios_pilotagem", filter: `solicitacao_id=eq.${sol.id}` }, carregar)
+      .subscribe();
+    return () => { supabase.removeChannel(canal); };
+  }, [sol.id, carregar]);
+
+  async function enviar() {
+    if (!texto.trim()) return;
+    setEnviando(true);
+    await supabase.from("comentarios_pilotagem").insert({ solicitacao_id: sol.id, autor: "cliente", texto: texto.trim() });
+    setTexto("");
+    setEnviando(false);
+    carregar();
+  }
+
+  return (
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>Sua solicitação</div>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
+        </div>
+        <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
+          {sol.observacao_fabrica && (
+            <div style={{ fontSize: 13, color: "var(--text)", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8, marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", marginBottom: 3 }}>Fábrica</div>
+              {sol.observacao_fabrica}
+            </div>
+          )}
+          {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> :
+            (comentarios.length === 0 && !sol.observacao_fabrica) ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Nenhuma mensagem ainda. Escreva abaixo para falar com a fábrica.</p> : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {comentarios.map((c) => {
+                  const ehCliente = c.autor === "cliente";
+                  return (
+                    <div key={c.id} style={{ alignSelf: ehCliente ? "flex-end" : "flex-start", maxWidth: "85%", padding: "8px 12px", borderRadius: 10, background: ehCliente ? "var(--accent-bg)" : "var(--surface-2)" }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: ehCliente ? "var(--accent)" : "var(--text-2)", marginBottom: 2 }}>{ehCliente ? "Você" : "Fábrica"}</div>
+                      <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+        </div>
+        <div style={{ display: "flex", gap: 8, padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
+          <input value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviar(); }} placeholder="Escreva sua resposta…" style={{ ...inp, flex: 1 }} />
+          <button onClick={enviar} disabled={enviando} style={btnPrimary}>Enviar</button>
         </div>
       </div>
     </div>
