@@ -114,12 +114,14 @@ function ModalMover({ dados, session, onFechar, onOk }) {
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [verResumo, setVerResumo] = useState(false);
+  const [bloqueado, setBloqueado] = useState(local === "Corte" && !!pedido.descanso_tecido);
 
   async function confirmar() {
     setErro(null);
     const q = parseInt(qtd, 10);
     if (!q || q < 1) return setErro("Quantidade inválida.");
     if (q > saldo) return setErro(`Só há ${saldo} peças em ${local}.`);
+    if (local === "Corte" && bloqueado) return setErro("Tecido em descanso — libere o corte antes de mover.");
     setSalvando(true);
     const { error } = await supabase.from("movimentos").insert({
       pedido_id: pedido.id, de_local: local, para_local: destino, qtd: q, usuario_id: session.user.id,
@@ -133,16 +135,18 @@ function ModalMover({ dados, session, onFechar, onOk }) {
     <Overlay onFechar={onFechar}>
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Mover peças</h3>
       <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pedido.referencia} · {saldo} peças em {local}</p>
+      {local === "Corte" && <PainelCorte pedido={pedido} onDescansoChange={setBloqueado} />}
       <label style={lbl}>Quantidade</label>
       <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
       <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
       <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
         {destinos.map((d) => <option key={d} value={d}>{d}</option>)}
       </select>
+      {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0", fontWeight: 600 }}>Tecido em descanso — não é possível mover até liberar.</p>}
       {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
         <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={confirmar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>
+        <button onClick={confirmar} disabled={salvando || bloqueado} style={{ ...btnPrimary, flex: 1, opacity: bloqueado ? 0.5 : 1, cursor: bloqueado ? "not-allowed" : "pointer" }}>
           {salvando ? "Movendo…" : <>Mover <ArrowRight size={15} /></>}
         </button>
       </div>
@@ -215,10 +219,109 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
   );
 }
 
+const PROCESSOS_CORTE = ["Caseado", "Entretelado", "Estampado", "Travete", "Ilhós", "Estamparia", "Bordado", "Termo Colante"];
+
+function PainelCorte({ pedido, onDescansoChange }) {
+  const [tamanho, setTamanho] = useState(pedido.tamanho || "");
+  const [tecido, setTecido] = useState(pedido.tecido || "");
+  const [descanso, setDescanso] = useState(!!pedido.descanso_tecido);
+  const [processos, setProcessos] = useState(() => {
+    const base = {};
+    const saved = pedido.processos_corte || {};
+    PROCESSOS_CORTE.forEach((nome) => {
+      const sv = saved[nome] || {};
+      base[nome] = { feito: !!sv.feito, obs: sv.obs || "", data: sv.data || "" };
+    });
+    return base;
+  });
+
+  function persist(campos) { supabase.from("pedidos").update(campos).eq("id", pedido.id); }
+
+  function toggleDescanso() {
+    const novo = !descanso;
+    setDescanso(novo);
+    onDescansoChange(novo);
+    persist({ descanso_tecido: novo });
+  }
+  function toggleFeito(nome) {
+    const np = { ...processos, [nome]: { ...processos[nome], feito: !processos[nome].feito } };
+    setProcessos(np);
+    persist({ processos_corte: np });
+  }
+  function mudarObs(nome, obs) {
+    const data = obs.trim() ? (processos[nome].data || new Date().toLocaleDateString("pt-BR")) : "";
+    setProcessos({ ...processos, [nome]: { ...processos[nome], obs, data } });
+  }
+  function salvarObs() { persist({ processos_corte: processos }); }
+  function salvarInfo() { persist({ tamanho: tamanho.trim() || null, tecido: tecido.trim() || null }); }
+
+  const pendentes = PROCESSOS_CORTE.filter((n) => !processos[n].feito);
+
+  return (
+    <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Liberação para o corte</div>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <div style={lblMini}>Referência</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{pedido.referencia}</div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={lblMini}>Tamanho</div>
+          <input value={tamanho} onChange={(e) => setTamanho(e.target.value)} onBlur={salvarInfo} placeholder="P, M, G…" style={inpMini} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={lblMini}>Tecido</div>
+          <input value={tecido} onChange={(e) => setTecido(e.target.value)} onBlur={salvarInfo} placeholder="malha…" style={inpMini} />
+        </div>
+      </div>
+
+      <button onClick={toggleDescanso} style={{
+        width: "100%", padding: "10px 12px", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 14,
+        border: descanso ? "1px solid var(--danger)" : "1px solid var(--border)",
+        background: descanso ? "var(--danger-bg)" : "var(--surface)",
+        color: descanso ? "var(--danger)" : "var(--text-2)",
+      }}>
+        {descanso ? "Tecido em descanso — corte travado (clique para liberar)" : "Marcar tecido em descanso"}
+      </button>
+
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>Processos de corte</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {PROCESSOS_CORTE.map((nome) => {
+          const pr = processos[nome];
+          return (
+            <div key={nome} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input type="checkbox" checked={pr.feito} onChange={() => toggleFeito(nome)} />
+                <span style={{ fontSize: 13, fontWeight: 500, textDecoration: pr.feito ? "line-through" : "none", color: pr.feito ? "var(--text-3)" : "var(--text)" }}>{nome}</span>
+                {pr.feito && <span style={{ fontSize: 11, color: "var(--success)", marginLeft: "auto" }}>concluído</span>}
+              </label>
+              {!pr.feito && (
+                <div style={{ marginTop: 6 }}>
+                  <input value={pr.obs} onChange={(e) => mudarObs(nome, e.target.value)} onBlur={salvarObs} placeholder="Pendente? escreva a observação…" style={{ ...inpMini, fontSize: 12 }} />
+                  {pr.data && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3 }}>desde {pr.data}</div>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {pendentes.length > 0 && (
+        <div style={{ marginTop: 10, fontSize: 12, color: "var(--warning)", padding: "8px 10px", background: "var(--warning-bg)", borderRadius: 8 }}>
+          {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. As peças podem seguir, mas registre as observações.
+        </div>
+      )}
+    </div>
+  );
+}
+
+const lblMini = { fontSize: 11, color: "var(--text-3)", marginBottom: 3 };
+const inpMini = { width: "100%", padding: "7px 9px", fontSize: 13, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
+
 function Overlay({ children, onFechar }) {
   return (
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
         {children}
       </div>
     </div>
