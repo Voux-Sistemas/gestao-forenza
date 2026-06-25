@@ -121,14 +121,14 @@ function ModalMover({ dados, session, onFechar, onOk }) {
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [verResumo, setVerResumo] = useState(false);
-  const [bloqueado, setBloqueado] = useState(local === "Corte" && corteBloqueado(pedido));
+  const [bloqueado, setBloqueado] = useState((local === "Corte" && corteBloqueado(pedido)) || (local === "Acabamento" && acabamentoBloqueado(pedido)));
 
   async function confirmar() {
     setErro(null);
     const q = parseInt(qtd, 10);
     if (!q || q < 1) return setErro("Quantidade inválida.");
     if (q > saldo) return setErro(`Só há ${saldo} peças em ${local}.`);
-    if (local === "Corte" && bloqueado) return setErro("Corte travado: libere o descanso do tecido e conclua os processos pendentes antes de mover.");
+    if (bloqueado) return setErro(local === "Corte" ? "Corte travado: libere o descanso do tecido e conclua os processos pendentes antes de mover." : "Acabamento travado: conclua os processos pendentes antes de mover.");
     setSalvando(true);
     const { error } = await supabase.from("movimentos").insert({
       pedido_id: pedido.id, de_local: local, para_local: destino, qtd: q, usuario_id: session.user.id,
@@ -143,13 +143,14 @@ function ModalMover({ dados, session, onFechar, onOk }) {
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Mover peças</h3>
       <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pedido.referencia} · {saldo} peças em {local}</p>
       {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} />}
+      {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} />}
       <label style={lbl}>Quantidade</label>
       <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
       <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
       <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
         {destinos.map((d) => <option key={d} value={d}>{d}</option>)}
       </select>
-      {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0", fontWeight: 600 }}>Corte travado — conclua todos os processos e libere o descanso para mover.</p>}
+      {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0", fontWeight: 600 }}>{local === "Corte" ? "Corte travado — conclua os processos e libere o descanso para mover." : "Acabamento travado — conclua os processos para mover."}</p>}
       {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
         <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
@@ -227,6 +228,12 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
 }
 
 const PROCESSOS_CORTE = ["Caseado", "Entretelado", "Estampado", "Travete", "Ilhós", "Estamparia", "Bordado", "Termo Colante"];
+const PROCESSOS_ACABAMENTO = ["Caseado", "Estampado", "Travete", "Ilhós", "Termo Colante", "Plaquinha", "Zíper"];
+
+function acabamentoBloqueado(pedido) {
+  const pc = pedido.processos_acabamento || {};
+  return PROCESSOS_ACABAMENTO.some((n) => !(pc[n] && pc[n].feito));
+}
 
 function corteBloqueado(pedido) {
   if (pedido.descanso_tecido) return true;
@@ -248,6 +255,11 @@ function badgesDoCard(pe, local) {
   if (local === "Corte") {
     const pc = pe.processos_corte || {};
     const pend = PROCESSOS_CORTE.filter((n) => !(pc[n] && pc[n].feito)).length;
+    if (pend > 0) bs.push({ label: pend + " pendente(s)", cor: "var(--warning)", bg: "var(--warning-bg)" });
+  }
+  if (local === "Acabamento") {
+    const pc = pe.processos_acabamento || {};
+    const pend = PROCESSOS_ACABAMENTO.filter((n) => !(pc[n] && pc[n].feito)).length;
     if (pend > 0) bs.push({ label: pend + " pendente(s)", cor: "var(--warning)", bg: "var(--warning-bg)" });
   }
   if (local !== "Estoque") {
@@ -358,6 +370,70 @@ function PainelCorte({ pedido, onBloqueioChange }) {
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
           {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. As peças <strong>não podem seguir</strong> até concluir todos — registre a observação do que falta.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PainelAcabamento({ pedido, onBloqueioChange }) {
+  const [processos, setProcessos] = useState(() => {
+    const base = {};
+    const saved = pedido.processos_acabamento || {};
+    PROCESSOS_ACABAMENTO.forEach((nome) => {
+      const sv = saved[nome] || {};
+      base[nome] = { feito: !!sv.feito, obs: sv.obs || "", data: sv.data || "" };
+    });
+    return base;
+  });
+
+  async function persist(campos) {
+    const { error } = await supabase.from("pedidos").update(campos).eq("id", pedido.id);
+    if (error) window.alert("Não foi possível salvar: " + error.message);
+  }
+  function reportar(procs) { onBloqueioChange(PROCESSOS_ACABAMENTO.some((n) => !procs[n].feito)); }
+  useEffect(() => { reportar(processos); }, []);
+
+  function toggleFeito(nome) {
+    const np = { ...processos, [nome]: { ...processos[nome], feito: !processos[nome].feito } };
+    setProcessos(np);
+    persist({ processos_acabamento: np });
+    reportar(np);
+  }
+  function mudarObs(nome, obs) {
+    const data = obs.trim() ? (processos[nome].data || new Date().toLocaleDateString("pt-BR")) : "";
+    setProcessos({ ...processos, [nome]: { ...processos[nome], obs, data } });
+  }
+  function salvarObs() { persist({ processos_acabamento: processos }); }
+
+  const pendentes = PROCESSOS_ACABAMENTO.filter((n) => !processos[n].feito);
+
+  return (
+    <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Processos de acabamento</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {PROCESSOS_ACABAMENTO.map((nome) => {
+          const pr = processos[nome];
+          return (
+            <div key={nome} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input type="checkbox" checked={pr.feito} onChange={() => toggleFeito(nome)} />
+                <span style={{ fontSize: 13, fontWeight: 500, textDecoration: pr.feito ? "line-through" : "none", color: pr.feito ? "var(--text-3)" : "var(--text)" }}>{nome}</span>
+                {pr.feito && <span style={{ fontSize: 11, color: "var(--success)", marginLeft: "auto" }}>concluído</span>}
+              </label>
+              {!pr.feito && (
+                <div style={{ marginTop: 6 }}>
+                  <input value={pr.obs} onChange={(e) => mudarObs(nome, e.target.value)} onBlur={salvarObs} placeholder="Pendente? escreva a observação…" style={{ ...inpMini, fontSize: 12 }} />
+                  {pr.data && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3 }}>desde {pr.data}</div>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {pendentes.length > 0 && (
+        <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
+          {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. As peças <strong>não podem seguir</strong> até concluir todos.
         </div>
       )}
     </div>
