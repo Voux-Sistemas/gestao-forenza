@@ -134,19 +134,47 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
   const [editando, setEditando] = useState(novo);
   const [nome, setNome] = useState(registro?.nome || "");
   const [contato, setContato] = useState(registro?.contato || "");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
   async function salvar() {
     setErro(null);
     if (!nome.trim()) return setErro("Informe o nome do cliente.");
+    const querLogin = novo && (email.trim() || senha);
+    if (querLogin) {
+      if (!email.includes("@")) return setErro("E-mail de login inválido.");
+      if (senha.length < 6) return setErro("A senha do login precisa ter ao menos 6 caracteres.");
+    }
     setSalvando(true);
     const dados = { nome: nome.trim(), contato: contato.trim() || null };
-    const resp = novo
-      ? await supabase.from("clientes").insert(dados)
-      : await supabase.from("clientes").update(dados).eq("id", registro.id);
+
+    if (!novo) {
+      const upd = await supabase.from("clientes").update(dados).eq("id", registro.id);
+      setSalvando(false);
+      if (upd.error) return setErro(upd.error.message);
+      return onSalvo();
+    }
+
+    const ins = await supabase.from("clientes").insert(dados).select().single();
+    if (ins.error) { setSalvando(false); return setErro(ins.error.message); }
+
+    if (querLogin) {
+      try {
+        const temp = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+        const { data, error } = await temp.auth.signUp({ email: email.trim(), password: senha, options: { data: { nome: nome.trim() } } });
+        if (error) throw error;
+        const id = data.user && data.user.id;
+        if (!id) throw new Error("Login não criado.");
+        const { error: e2 } = await supabase.from("perfis").update({ papel: "cliente", cliente_id: ins.data.id, nome: nome.trim() }).eq("id", id);
+        if (e2) throw e2;
+      } catch (e) {
+        setSalvando(false);
+        return setErro("Cliente salvo, mas o login falhou: " + (e.message || "") + ". Abra o cliente e crie o login de novo.");
+      }
+    }
     setSalvando(false);
-    if (resp.error) return setErro(resp.error.message);
     onSalvo();
   }
 
@@ -163,6 +191,16 @@ function DetalheCliente({ registro, onFechar, onSalvo }) {
           <input value={nome} onChange={(e) => setNome(e.target.value)} autoFocus style={inp} />
           <label style={{ ...lbl, marginTop: 14 }}>Contato</label>
           <input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="telefone, e-mail, responsável…" style={inp} />
+          {novo && (
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>Acesso ao portal (opcional)</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}><label style={lbl}>E-mail (login)</label><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@email.com" style={inp} /></div>
+                <div style={{ flex: 1 }}><label style={lbl}>Senha</label><input value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="mín. 6 caracteres" style={inp} /></div>
+              </div>
+              <p style={{ fontSize: 11, color: "var(--text-3)", margin: "6px 0 0" }}>Deixe em branco se o cliente não vai acessar o portal.</p>
+            </div>
+          )}
         </>
       ) : (
         <>
