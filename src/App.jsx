@@ -16,7 +16,9 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  const modoClienteInicial = typeof window !== "undefined" && window.location.pathname.toLowerCase().includes("cliente");
+
   if (carregando) return <div className="center-screen">Carregando…</div>;
-  if (!session) return <Login />;
+  if (!session) return <Login modoClienteInicial={modoClienteInicial} />;
   return <Shell session={session} />;
 }
