@@ -1,0 +1,180 @@
+import React, { useEffect, useState, useCallback } from "react";
+import { supabase } from "../supabaseClient.js";
+import { X, Send } from "lucide-react";
+
+function dataHora(iso) {
+  try {
+    return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch { return ""; }
+}
+
+export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, onMudou }) {
+  const sol = solicitacao;
+  const nomeCliente = clientes.find((c) => c.id === sol.cliente_id)?.nome || "—";
+
+  const [comentarios, setComentarios] = useState([]);
+  const [ficha, setFicha] = useState(sol.ficha_tecnica || "");
+  const [novoComent, setNovoComent] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [salvandoFicha, setSalvandoFicha] = useState(false);
+  const [fichaSalva, setFichaSalva] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [aprovar, setAprovar] = useState(false);
+
+  const carregarComentarios = useCallback(async () => {
+    const { data } = await supabase.from("comentarios_pilotagem").select("*").eq("solicitacao_id", sol.id).order("id");
+    setComentarios(data || []);
+    setCarregando(false);
+  }, [sol.id]);
+  useEffect(() => { carregarComentarios(); }, [carregarComentarios]);
+
+  useEffect(() => {
+    const canal = supabase.channel("pilotagem-" + sol.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "comentarios_pilotagem", filter: `solicitacao_id=eq.${sol.id}` }, carregarComentarios)
+      .subscribe();
+    return () => { supabase.removeChannel(canal); };
+  }, [sol.id, carregarComentarios]);
+
+  async function salvarFicha() {
+    setSalvandoFicha(true);
+    await supabase.from("solicitacoes").update({ ficha_tecnica: ficha }).eq("id", sol.id);
+    setSalvandoFicha(false);
+    setFichaSalva(true);
+    setTimeout(() => setFichaSalva(false), 2000);
+  }
+
+  async function enviarComentario() {
+    if (!novoComent.trim()) return;
+    setEnviando(true);
+    await supabase.from("comentarios_pilotagem").insert({ solicitacao_id: sol.id, autor: "fabrica", texto: novoComent.trim() });
+    setNovoComent("");
+    setEnviando(false);
+    carregarComentarios();
+  }
+
+  return (
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 640, maxHeight: "90vh", overflow: "hidden", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", gap: 12 }}>
+            {sol.imagem_url && <img src={sol.imagem_url} alt="Referência" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />}
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>Pilotagem — {nomeCliente}</div>
+              <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
+            </div>
+          </div>
+          <button onClick={onFechar} aria-label="Fechar" style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 7, background: "none", color: "var(--text-2)", display: "inline-flex" }}><X size={16} /></button>
+        </div>
+
+        <div style={{ padding: "18px 20px", overflowY: "auto", flex: 1 }}>
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <label style={{ fontSize: 13, fontWeight: 600 }}>Ficha técnica</label>
+              <button onClick={salvarFicha} disabled={salvandoFicha} style={btnMini}>
+                {salvandoFicha ? "Salvando…" : fichaSalva ? "Salvo ✓" : "Salvar ficha"}
+              </button>
+            </div>
+            <textarea value={ficha} onChange={(e) => setFicha(e.target.value)} rows={4} placeholder="Tecido, medidas, cores, acabamentos, observações de produção…" style={{ ...inp, resize: "vertical" }} />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 10 }}>Histórico de pilotagem</label>
+            {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> :
+              comentarios.length === 0 ? <p style={{ fontSize: 13, color: "var(--text-3)", margin: "0 0 12px" }}>Nenhum registro ainda. Escreva o primeiro abaixo.</p> : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+                  {comentarios.map((c) => {
+                    const ehFabrica = c.autor === "fabrica";
+                    return (
+                      <div key={c.id} style={{ borderLeft: `3px solid ${ehFabrica ? "var(--accent)" : "var(--success)"}`, padding: "8px 12px", background: "var(--surface-2)", borderRadius: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)" }}>{ehFabrica ? "Fábrica" : "Cliente"}</span>
+                          <span style={{ fontSize: 11, color: "var(--text-3)" }}>{dataHora(c.criado_em)}</span>
+                        </div>
+                        <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={novoComent} onChange={(e) => setNovoComent(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviarComentario(); }} placeholder="Escrever no histórico (ex: piloto enviado, ajuste pedido…)" style={{ ...inp, flex: 1 }} />
+              <button onClick={enviarComentario} disabled={enviando} style={btnPrimary}><Send size={15} /></button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
+          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Fechar</button>
+          <button onClick={() => setAprovar(true)} style={{ ...btnSuccess, flex: 1 }}>Aprovar piloto → gerar pedido</button>
+        </div>
+      </div>
+
+      {aprovar && <ModalAprovar sol={sol} oficinas={oficinas} onFechar={() => setAprovar(false)} onAprovado={() => { setAprovar(false); onMudou(); onFechar(); }} />}
+    </div>
+  );
+}
+
+function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
+  const [referencia, setReferencia] = useState("");
+  const [marca, setMarca] = useState("");
+  const [total, setTotal] = useState(sol.quantidade ? String(sol.quantidade) : "");
+  const [prazo, setPrazo] = useState(sol.prazo_desejado || "");
+  const [oficinaId, setOficinaId] = useState("");
+  const [erro, setErro] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function confirmar() {
+    setErro(null);
+    if (!referencia.trim()) return setErro("Informe a referência do pedido.");
+    const t = parseInt(total, 10);
+    if (!t || t < 1) return setErro("Informe o total de peças.");
+    setSalvando(true);
+    const ped = await supabase.from("pedidos").insert({
+      cliente_id: sol.cliente_id,
+      oficina_id: oficinaId || null,
+      referencia: referencia.trim(),
+      marca: marca.trim() || null,
+      total: t,
+      prazo: prazo || null,
+    });
+    if (ped.error) { setSalvando(false); return setErro(ped.error.message); }
+    await supabase.from("solicitacoes").update({ status: "aprovada" }).eq("id", sol.id);
+    setSalvando(false);
+    onAprovado();
+  }
+
+  return (
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 70 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Aprovar e gerar pedido</h3>
+        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Confirme os dados do pedido que vai entrar na produção.</p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}><label style={lbl}>Referência</label><input value={referencia} onChange={(e) => setReferencia(e.target.value)} autoFocus style={inp} /></div>
+          <div style={{ flex: 1 }}><label style={lbl}>Marca</label><input value={marca} onChange={(e) => setMarca(e.target.value)} style={inp} /></div>
+        </div>
+        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+          <div style={{ flex: 1 }}><label style={lbl}>Total de peças</label><input type="number" min="1" value={total} onChange={(e) => setTotal(e.target.value)} style={inp} /></div>
+          <div style={{ flex: 1 }}><label style={lbl}>Prazo</label><input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} style={inp} /></div>
+        </div>
+        <label style={{ ...lbl, marginTop: 14 }}>Oficina (opcional)</label>
+        <select value={oficinaId} onChange={(e) => setOficinaId(e.target.value)} style={inp}>
+          <option value="">— nenhuma —</option>
+          {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
+        </select>
+        {erro && <p style={erroTxt}>{erro}</p>}
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+          <button onClick={confirmar} disabled={salvando} style={{ ...btnSuccess, flex: 1 }}>{salvando ? "Gerando…" : "Gerar pedido"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" };
+const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
+const erroTxt = { fontSize: 12, color: "var(--danger)", margin: "12px 0 0" };
+const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 13px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
+const btnSuccess = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--success)", color: "#fff", cursor: "pointer" };
+const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
+const btnMini = { fontSize: 12, fontWeight: 500, padding: "5px 10px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
 import { Plus, ImagePlus, X } from "lucide-react";
+import Pilotagem from "./Pilotagem.jsx";
 
 const STATUS = {
   em_triagem:      { label: "Em triagem",       cor: "var(--accent)",  bg: "var(--accent-bg)" },
@@ -19,16 +20,19 @@ export default function Triagem() {
   const [aba, setAba] = useState("aguardando");
   const [lista, setLista] = useState([]);
   const [clientes, setClientes] = useState([]);
+  const [oficinas, setOficinas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [nova, setNova] = useState(false);
   const [acao, setAcao] = useState(null);
+  const [pilotando, setPilotando] = useState(null);
 
   const carregar = useCallback(async () => {
-    const [s, c] = await Promise.all([
+    const [s, c, o] = await Promise.all([
       supabase.from("solicitacoes").select("*").order("id", { ascending: false }),
       supabase.from("clientes").select("*"),
+      supabase.from("oficinas").select("*").order("nome_empresa"),
     ]);
-    setLista(s.data || []); setClientes(c.data || []);
+    setLista(s.data || []); setClientes(c.data || []); setOficinas(o.data || []);
     setCarregando(false);
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
@@ -67,7 +71,7 @@ export default function Triagem() {
           {atual.map((s) => {
             const st = STATUS[s.status] || STATUS.em_triagem;
             return (
-              <div key={s.id} style={cartao}>
+              <div key={s.id} onClick={s.status === "em_pilotagem" ? () => setPilotando(s) : undefined} style={{ ...cartao, cursor: s.status === "em_pilotagem" ? "pointer" : "default" }}>
                 <div style={{ display: "flex", gap: 14 }}>
                   {s.imagem_url && (
                     <a href={s.imagem_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0 }}>
@@ -92,6 +96,10 @@ export default function Triagem() {
                   </div>
                 </div>
 
+                {s.status === "em_pilotagem" && (
+                  <div style={{ marginTop: 10, fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>Abrir pilotagem →</div>
+                )}
+
                 {(s.status === "em_triagem" || s.status === "info_solicitada") && (
                   <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                     <button onClick={() => setAcao({ s, tipo: "pilotagem" })} style={btnPrimary}>Iniciar pilotagem</button>
@@ -107,6 +115,7 @@ export default function Triagem() {
 
       {nova && <ModalNova clientes={clientes} onFechar={() => setNova(false)} onOk={() => { setNova(false); carregar(); }} />}
       {acao && <ModalAcao dados={acao} onFechar={() => setAcao(null)} onOk={() => { setAcao(null); carregar(); }} />}
+      {pilotando && <Pilotagem solicitacao={pilotando} clientes={clientes} oficinas={oficinas} onFechar={() => setPilotando(null)} onMudou={carregar} />}
     </div>
   );
 }
