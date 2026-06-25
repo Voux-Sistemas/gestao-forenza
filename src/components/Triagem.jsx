@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Plus } from "lucide-react";
+import { Plus, ImagePlus, X } from "lucide-react";
 
 const STATUS = {
   em_triagem:      { label: "Em triagem",       cor: "var(--accent)",  bg: "var(--accent-bg)" },
@@ -68,7 +68,12 @@ export default function Triagem() {
             const st = STATUS[s.status] || STATUS.em_triagem;
             return (
               <div key={s.id} style={cartao}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                <div style={{ display: "flex", gap: 14 }}>
+                  {s.imagem_url && (
+                    <a href={s.imagem_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0 }}>
+                      <img src={s.imagem_url} alt="Referência" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />
+                    </a>
+                  )}
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <span style={{ fontSize: 14, fontWeight: 600 }}>{nomeCliente(s.cliente_id)}</span>
@@ -111,19 +116,48 @@ function ModalNova({ clientes, onFechar, onOk }) {
   const [descricao, setDescricao] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [prazo, setPrazo] = useState("");
+  const [arquivo, setArquivo] = useState(null);
+  const [preview, setPreview] = useState(null);
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
+
+  function onFile(e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) return setErro("Selecione um arquivo de imagem.");
+    if (f.size > 5 * 1024 * 1024) return setErro("Imagem muito grande (máx. 5 MB).");
+    setErro(null);
+    setArquivo(f);
+    setPreview(URL.createObjectURL(f));
+  }
+
+  function removerImagem() {
+    setArquivo(null);
+    setPreview(null);
+  }
 
   async function salvar() {
     setErro(null);
     if (!clienteId) return setErro("Escolha um cliente.");
     if (!descricao.trim()) return setErro("Descreva a solicitação.");
     setSalvando(true);
+
+    let imagemUrl = null;
+    if (arquivo) {
+      const ext = (arquivo.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `sol-${Date.now()}.${ext}`;
+      const up = await supabase.storage.from("referencias").upload(path, arquivo);
+      if (up.error) { setSalvando(false); return setErro("Falha ao enviar a imagem: " + up.error.message); }
+      const { data } = supabase.storage.from("referencias").getPublicUrl(path);
+      imagemUrl = data.publicUrl;
+    }
+
     const { error } = await supabase.from("solicitacoes").insert({
       cliente_id: clienteId,
       descricao: descricao.trim(),
       quantidade: quantidade ? parseInt(quantidade, 10) : null,
       prazo_desejado: prazo || null,
+      imagem_url: imagemUrl,
       status: "em_triagem",
     });
     setSalvando(false);
@@ -144,6 +178,20 @@ function ModalNova({ clientes, onFechar, onOk }) {
         <div style={{ flex: 1 }}><label style={lbl}>Quantidade estimada</label><input type="number" min="0" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} style={inp} /></div>
         <div style={{ flex: 1 }}><label style={lbl}>Prazo desejado</label><input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} style={inp} /></div>
       </div>
+
+      <label style={{ ...lbl, marginTop: 14 }}>Foto de referência (opcional)</label>
+      {preview ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <img src={preview} alt="Prévia" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />
+          <button onClick={removerImagem} style={btnMini}><X size={13} /> Remover</button>
+        </div>
+      ) : (
+        <label style={{ ...btnGhost, display: "inline-flex", cursor: "pointer" }}>
+          <ImagePlus size={15} /> <span style={{ marginLeft: 6 }}>Escolher imagem</span>
+          <input type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
+        </label>
+      )}
+
       {erro && <p style={erroTxt}>{erro}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
         <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
@@ -216,3 +264,4 @@ const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBott
 const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" };
+const btnMini = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 500, padding: "6px 10px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
