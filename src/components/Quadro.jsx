@@ -3,7 +3,7 @@ import { supabase } from "../supabaseClient.js";
 import { Plus, ArrowRight, Package } from "lucide-react";
 
 const LOCAIS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
-const COLUNAS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque"];
+const COLUNAS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
 const CORES = {
   Entrada: "var(--text-2)", Corte: "var(--accent)", Oficina: "var(--warning)",
   Acabamento: "var(--accent)", Estoque: "var(--success)", Perda: "var(--danger)",
@@ -43,6 +43,7 @@ export default function Quadro({ session, perfil }) {
   useEffect(() => { carregar(); }, [carregar]);
 
   const podeEditar = perfil?.papel !== "funcionario";
+  const ehMaster = perfil?.papel === "master";
 
   useEffect(() => {
     const canal = supabase.channel("quadro")
@@ -109,13 +110,13 @@ export default function Quadro({ session, perfil }) {
         })}
       </div>
 
-      {mover && <ModalMover dados={mover} oficinas={oficinas} session={session} podeEditar={podeEditar} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
+      {mover && <ModalMover dados={mover} oficinas={oficinas} session={session} podeEditar={podeEditar} ehMaster={ehMaster} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
       {novoAberto && <ModalNovo clientes={clientes} oficinas={oficinas} onFechar={() => setNovoAberto(false)} onOk={() => { setNovoAberto(false); carregar(); }} />}
     </div>
   );
 }
 
-function ModalMover({ dados, oficinas, session, podeEditar, onFechar, onOk }) {
+function ModalMover({ dados, oficinas, session, podeEditar, ehMaster, onFechar, onOk }) {
   const { pedido, local, saldo } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
   const [destino, setDestino] = useState(destinos[0]);
@@ -129,6 +130,14 @@ function ModalMover({ dados, oficinas, session, podeEditar, onFechar, onOk }) {
   async function mudarOficina(novo) {
     setOficinaId(novo);
     await supabase.from("pedidos").update({ oficina_id: novo ? Number(novo) : null }).eq("id", pedido.id);
+  }
+
+  async function excluirPedido() {
+    if (!window.confirm(`Excluir o pedido ${pedido.referencia} e todo o seu histórico? Esta ação não pode ser desfeita.`)) return;
+    await supabase.from("movimentos").delete().eq("pedido_id", pedido.id);
+    const { error } = await supabase.from("pedidos").delete().eq("id", pedido.id);
+    if (error) { window.alert("Não foi possível excluir: " + error.message); return; }
+    onOk();
   }
 
   async function confirmar() {
@@ -187,6 +196,11 @@ function ModalMover({ dados, oficinas, session, podeEditar, onFechar, onOk }) {
       {pedido.solicitacao_id && (
         <button onClick={() => setVerResumo(true)} style={{ ...btnGhost, width: "100%", marginTop: 10 }}>
           Ver ficha e histórico da pilotagem
+        </button>
+      )}
+      {ehMaster && (
+        <button onClick={excluirPedido} style={{ display: "block", width: "100%", marginTop: 10, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" }}>
+          Excluir pedido
         </button>
       )}
       {verResumo && <ResumoPilotagem solicitacaoId={pedido.solicitacao_id} onFechar={() => setVerResumo(false)} />}
