@@ -157,7 +157,7 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
                           <span style={{ fontSize: 11, color: "var(--text-3)" }}>{dataHora(c.criado_em)}</span>
                         </div>
                         {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
-                        {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", borderRadius: 8, display: "block" }} /></a>}
+                        {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", cursor: "pointer" }} /></a>}
                       </div>
                     );
                   })}

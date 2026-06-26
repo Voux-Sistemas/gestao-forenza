@@ -357,7 +357,7 @@ function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
                     <div key={c.id} style={{ alignSelf: ehFabrica ? "flex-end" : "flex-start", maxWidth: "85%", padding: "8px 12px", borderRadius: 10, background: ehFabrica ? "var(--accent-bg)" : "var(--surface-2)" }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)", marginBottom: 2 }}>{ehFabrica ? "Você" : "Cliente"}</div>
                       {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
-                      {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", borderRadius: 8, display: "block" }} /></a>}
+                      {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", cursor: "pointer" }} /></a>}
                     </div>
                   );
                 })}
