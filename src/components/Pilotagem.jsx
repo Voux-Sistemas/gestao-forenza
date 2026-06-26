@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import { X, Send } from "lucide-react";
+import { X, Send, ImagePlus } from "lucide-react";
 
 function dataHora(iso) {
   try {
@@ -35,6 +35,7 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
   const [fichaSalva, setFichaSalva] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [gerando, setGerando] = useState(false);
+  const [imgComent, setImgComent] = useState(null);
 
   const carregarComentarios = useCallback(async () => {
     const { data } = await supabase.from("comentarios_pilotagem").select("*").eq("solicitacao_id", sol.id).order("id");
@@ -59,10 +60,18 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
   }
 
   async function enviarComentario() {
-    if (!novoComent.trim()) return;
+    if (!novoComent.trim() && !imgComent) return;
     setEnviando(true);
-    await supabase.from("comentarios_pilotagem").insert({ solicitacao_id: sol.id, autor: "fabrica", texto: novoComent.trim() });
-    setNovoComent("");
+    let imagem_url = null;
+    if (imgComent) {
+      const ext = (imgComent.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `conv-${Date.now()}.${ext}`;
+      const up = await supabase.storage.from("referencias").upload(path, imgComent);
+      if (up.error) { setEnviando(false); window.alert("Falha ao enviar a imagem: " + up.error.message); return; }
+      imagem_url = supabase.storage.from("referencias").getPublicUrl(path).data.publicUrl;
+    }
+    await supabase.from("comentarios_pilotagem").insert({ solicitacao_id: sol.id, autor: "fabrica", texto: novoComent.trim(), imagem_url });
+    setNovoComent(""); setImgComent(null);
     setEnviando(false);
     carregarComentarios();
   }
@@ -87,7 +96,7 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
       prazo: sol.prazo_desejado || null,
     });
     if (ped.error) { setGerando(false); window.alert("Erro ao gerar pedido: " + ped.error.message); return; }
-    await supabase.from("solicitacoes").update({ status: "aprovada" }).eq("id", sol.id);
+    await supabase.from("solicitacoes").update({ status: "aprovada", ficha }).eq("id", sol.id);
     setGerando(false);
     onMudou();
     onFechar();
@@ -146,13 +155,25 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
                           <span style={{ fontSize: 12, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)" }}>{ehFabrica ? "Fábrica" : "Cliente"}</span>
                           <span style={{ fontSize: 11, color: "var(--text-3)" }}>{dataHora(c.criado_em)}</span>
                         </div>
-                        <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>
+                        {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
+                        {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", borderRadius: 8, display: "block" }} /></a>}
                       </div>
                     );
                   })}
                 </div>
               )}
+            {imgComent && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "var(--text-2)" }}>
+                <img src={URL.createObjectURL(imgComent)} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
+                <span style={{ flex: 1 }}>{imgComent.name}</span>
+                <button onClick={() => setImgComent(null)} style={{ ...btnGhost, padding: "4px 8px" }}>Remover</button>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
+              <label style={{ ...btnGhost, cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "8px 12px" }}>
+                <ImagePlus size={16} />
+                <input type="file" accept="image/*" onChange={(e) => setImgComent(e.target.files[0] || null)} style={{ display: "none" }} />
+              </label>
               <input value={novoComent} onChange={(e) => setNovoComent(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviarComentario(); }} placeholder="Escrever no histórico (ex: piloto enviado, ajuste pedido…)" style={{ ...inp, flex: 1 }} />
               <button onClick={enviarComentario} disabled={enviando} style={btnPrimary}><Send size={15} /></button>
             </div>
@@ -194,7 +215,7 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
       prazo: prazo || null,
     });
     if (ped.error) { setSalvando(false); return setErro(ped.error.message); }
-    await supabase.from("solicitacoes").update({ status: "aprovada" }).eq("id", sol.id);
+    await supabase.from("solicitacoes").update({ status: "aprovada", ficha }).eq("id", sol.id);
     setSalvando(false);
     onAprovado();
   }

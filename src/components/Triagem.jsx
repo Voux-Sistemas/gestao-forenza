@@ -294,6 +294,7 @@ function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
   const sol = solicitacao;
   const [comentarios, setComentarios] = useState([]);
   const [texto, setTexto] = useState("");
+  const [imgFile, setImgFile] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
 
@@ -312,14 +313,22 @@ function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
   }, [sol.id, carregar]);
 
   async function enviar() {
-    if (!texto.trim()) return;
+    if (!texto.trim() && !imgFile) return;
     setEnviando(true);
-    await supabase.from("comentarios_pilotagem").insert({ solicitacao_id: sol.id, autor: "fabrica", texto: texto.trim() });
+    let imagem_url = null;
+    if (imgFile) {
+      const ext = (imgFile.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `conv-${Date.now()}.${ext}`;
+      const up = await supabase.storage.from("referencias").upload(path, imgFile);
+      if (up.error) { setEnviando(false); window.alert("Falha ao enviar a imagem: " + up.error.message); return; }
+      imagem_url = supabase.storage.from("referencias").getPublicUrl(path).data.publicUrl;
+    }
+    await supabase.from("comentarios_pilotagem").insert({ solicitacao_id: sol.id, autor: "fabrica", texto: texto.trim(), imagem_url });
     if (sol.status === "em_triagem") {
       await supabase.from("solicitacoes").update({ status: "info_solicitada" }).eq("id", sol.id);
       if (onMudou) onMudou();
     }
-    setTexto("");
+    setTexto(""); setImgFile(null);
     setEnviando(false);
     carregar();
   }
@@ -346,16 +355,30 @@ function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
                   return (
                     <div key={c.id} style={{ alignSelf: ehFabrica ? "flex-end" : "flex-start", maxWidth: "85%", padding: "8px 12px", borderRadius: 10, background: ehFabrica ? "var(--accent-bg)" : "var(--surface-2)" }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)", marginBottom: 2 }}>{ehFabrica ? "Você" : "Cliente"}</div>
-                      <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>
+                      {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
+                      {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", borderRadius: 8, display: "block" }} /></a>}
                     </div>
                   );
                 })}
               </div>
             )}
         </div>
-        <div style={{ display: "flex", gap: 8, padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
-          <input value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviar(); }} placeholder="Escreva sua mensagem…" style={{ ...inp, flex: 1 }} />
-          <button onClick={enviar} disabled={enviando} style={btnPrimary}>Enviar</button>
+        <div style={{ borderTop: "1px solid var(--border)", padding: "14px 20px" }}>
+          {imgFile && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "var(--text-2)" }}>
+              <img src={URL.createObjectURL(imgFile)} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
+              <span style={{ flex: 1 }}>{imgFile.name}</span>
+              <button onClick={() => setImgFile(null)} style={{ ...btnGhost, padding: "4px 8px" }}>Remover</button>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <label style={{ ...btnGhost, cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "8px 12px" }}>
+              <ImagePlus size={16} />
+              <input type="file" accept="image/*" onChange={(e) => setImgFile(e.target.files[0] || null)} style={{ display: "none" }} />
+            </label>
+            <input value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviar(); }} placeholder="Escreva sua mensagem…" style={{ ...inp, flex: 1 }} />
+            <button onClick={enviar} disabled={enviando} style={btnPrimary}>Enviar</button>
+          </div>
         </div>
       </div>
     </div>

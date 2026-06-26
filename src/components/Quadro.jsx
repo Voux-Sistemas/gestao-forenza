@@ -479,17 +479,23 @@ function Overlay({ children, onFechar }) {
   );
 }
 
+function fmtDataResumo(d) {
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const [y, m, dd] = d.split("-");
+  return dd + "/" + m + "/" + y;
+}
+
 function ResumoPilotagem({ solicitacaoId, onFechar }) {
-  const [ficha, setFicha] = useState("");
+  const [ficha, setFicha] = useState(null);
   const [descricao, setDescricao] = useState("");
   const [comentarios, setComentarios] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const sol = await supabase.from("solicitacoes").select("ficha_tecnica, descricao").eq("id", solicitacaoId).single();
+      const sol = await supabase.from("solicitacoes").select("ficha, descricao").eq("id", solicitacaoId).single();
       const com = await supabase.from("comentarios_pilotagem").select("*").eq("solicitacao_id", solicitacaoId).order("id");
-      setFicha(sol.data?.ficha_tecnica || "");
+      setFicha(sol.data?.ficha || null);
       setDescricao(sol.data?.descricao || "");
       setComentarios(com.data || []);
       setCarregando(false);
@@ -505,9 +511,18 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
           <>
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 5 }}>Ficha técnica</div>
-              <div style={{ fontSize: 13, color: "var(--text)", whiteSpace: "pre-wrap", lineHeight: 1.5, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>
-                {ficha || "— sem ficha técnica —"}
-              </div>
+              {ficha && Object.values(ficha).some((v) => v) ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>
+                  {[["Referência", ficha.referencia], ["Marca", ficha.marca], ["Descrição do produto", ficha.descricao], ["Data de recebimento", fmtDataResumo(ficha.data_recebimento)], ["Prazo da peça piloto", fmtDataResumo(ficha.prazo_piloto)], ["Produto acabado", ficha.produto_acabado], ["Mão de obra", ficha.mao_de_obra]].filter(([, v]) => v).map(([rot, val]) => (
+                    <div key={rot} style={{ display: "flex", gap: 8 }}>
+                      <span style={{ fontSize: 12, color: "var(--text-3)", minWidth: 150 }}>{rot}</span>
+                      <span style={{ fontSize: 13, color: "var(--text)" }}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: "var(--text-3)", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>— sem ficha técnica —</div>
+              )}
             </div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>Histórico</div>
@@ -521,7 +536,8 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
                           <span style={{ fontSize: 12, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)" }}>{ehFabrica ? "Fábrica" : "Cliente"}</span>
                           <span style={{ fontSize: 11, color: "var(--text-3)" }}>{new Date(c.criado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                         </div>
-                        <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>
+                        {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
+                        {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", borderRadius: 8, display: "block" }} /></a>}
                       </div>
                     );
                   })}
