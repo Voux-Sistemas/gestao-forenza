@@ -42,6 +42,8 @@ export default function Quadro({ session, perfil }) {
 
   useEffect(() => { carregar(); }, [carregar]);
 
+  const podeEditar = perfil?.papel !== "funcionario";
+
   useEffect(() => {
     const canal = supabase.channel("quadro")
       .on("postgres_changes", { event: "*", schema: "public", table: "movimentos" }, carregar)
@@ -107,13 +109,13 @@ export default function Quadro({ session, perfil }) {
         })}
       </div>
 
-      {mover && <ModalMover dados={mover} oficinas={oficinas} session={session} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
+      {mover && <ModalMover dados={mover} oficinas={oficinas} session={session} podeEditar={podeEditar} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
       {novoAberto && <ModalNovo clientes={clientes} oficinas={oficinas} onFechar={() => setNovoAberto(false)} onOk={() => { setNovoAberto(false); carregar(); }} />}
     </div>
   );
 }
 
-function ModalMover({ dados, oficinas, session, onFechar, onOk }) {
+function ModalMover({ dados, oficinas, session, podeEditar, onFechar, onOk }) {
   const { pedido, local, saldo } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
   const [destino, setDestino] = useState(destinos[0]);
@@ -150,27 +152,38 @@ function ModalMover({ dados, oficinas, session, onFechar, onOk }) {
       <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pedido.referencia} · {saldo} peças em {local}</p>
       <div style={{ marginBottom: 16 }}>
         <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 }}>Oficina responsável</label>
-        <select value={oficinaId} onChange={(e) => mudarOficina(e.target.value)} style={inpMini}>
+        <select value={oficinaId} onChange={(e) => mudarOficina(e.target.value)} disabled={!podeEditar} style={inpMini}>
           <option value="">— nenhuma —</option>
           {(oficinas || []).filter((o) => o.ativo).map((o) => <option key={o.id} value={String(o.id)}>{o.nome_empresa}</option>)}
         </select>
       </div>
-      {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} />}
-      {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} />}
-      <label style={lbl}>Quantidade</label>
-      <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
-      <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
-      <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
-        {destinos.map((d) => <option key={d} value={d}>{d}</option>)}
-      </select>
-      {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0", fontWeight: 600 }}>{local === "Corte" ? "Corte travado — conclua os processos e libere o descanso para mover." : "Acabamento travado — conclua os processos para mover."}</p>}
-      {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0" }}>{erro}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={confirmar} disabled={salvando || bloqueado} style={{ ...btnPrimary, flex: 1, opacity: bloqueado ? 0.5 : 1, cursor: bloqueado ? "not-allowed" : "pointer" }}>
-          {salvando ? "Movendo…" : <>Mover <ArrowRight size={15} /></>}
-        </button>
-      </div>
+      {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
+      {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
+      {podeEditar ? (
+        <>
+          <label style={lbl}>Quantidade</label>
+          <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
+          <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
+          <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
+            {destinos.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+          {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0", fontWeight: 600 }}>{local === "Corte" ? "Corte travado — conclua os processos e libere o descanso para mover." : "Acabamento travado — conclua os processos para mover."}</p>}
+          {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0" }}>{erro}</p>}
+          <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+            <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+            <button onClick={confirmar} disabled={salvando || bloqueado} style={{ ...btnPrimary, flex: 1, opacity: bloqueado ? 0.5 : 1, cursor: bloqueado ? "not-allowed" : "pointer" }}>
+              {salvando ? "Movendo…" : <>Mover <ArrowRight size={15} /></>}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p style={{ fontSize: 13, color: "var(--text-2)", margin: "4px 0 0", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>Você tem acesso de visualização. Mover peças e editar processos é só para chefe de setor.</p>
+          <div style={{ display: "flex", marginTop: 16 }}>
+            <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Fechar</button>
+          </div>
+        </>
+      )}
       {pedido.solicitacao_id && (
         <button onClick={() => setVerResumo(true)} style={{ ...btnGhost, width: "100%", marginTop: 10 }}>
           Ver ficha e histórico da pilotagem
@@ -286,7 +299,7 @@ function badgesDoCard(pe, local) {
   return bs;
 }
 
-function PainelCorte({ pedido, onBloqueioChange }) {
+function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
   const [tamanho, setTamanho] = useState(pedido.tamanho || "");
   const [tecido, setTecido] = useState(pedido.tecido || "");
   const [descanso, setDescanso] = useState(!!pedido.descanso_tecido);
@@ -342,15 +355,15 @@ function PainelCorte({ pedido, onBloqueioChange }) {
         </div>
         <div style={{ flex: 1 }}>
           <div style={lblMini}>Tamanho</div>
-          <input value={tamanho} onChange={(e) => setTamanho(e.target.value)} onBlur={salvarInfo} placeholder="P, M, G…" style={inpMini} />
+          <input value={tamanho} onChange={(e) => setTamanho(e.target.value)} onBlur={salvarInfo} disabled={!podeEditar} placeholder="P, M, G…" style={inpMini} />
         </div>
         <div style={{ flex: 1 }}>
           <div style={lblMini}>Tecido</div>
-          <input value={tecido} onChange={(e) => setTecido(e.target.value)} onBlur={salvarInfo} placeholder="malha…" style={inpMini} />
+          <input value={tecido} onChange={(e) => setTecido(e.target.value)} onBlur={salvarInfo} disabled={!podeEditar} placeholder="malha…" style={inpMini} />
         </div>
       </div>
 
-      <button onClick={toggleDescanso} style={{
+      <button onClick={toggleDescanso} disabled={!podeEditar} style={{
         width: "100%", padding: "10px 12px", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 14,
         border: descanso ? "1px solid var(--danger)" : "1px solid var(--border)",
         background: descanso ? "var(--danger-bg)" : "var(--surface)",
@@ -366,13 +379,13 @@ function PainelCorte({ pedido, onBloqueioChange }) {
           return (
             <div key={nome} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }}>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input type="checkbox" checked={pr.feito} onChange={() => toggleFeito(nome)} />
+                <input type="checkbox" checked={pr.feito} disabled={!podeEditar} onChange={() => toggleFeito(nome)} />
                 <span style={{ fontSize: 13, fontWeight: 500, textDecoration: pr.feito ? "line-through" : "none", color: pr.feito ? "var(--text-3)" : "var(--text)" }}>{nome}</span>
                 {pr.feito && <span style={{ fontSize: 11, color: "var(--success)", marginLeft: "auto" }}>concluído</span>}
               </label>
               {!pr.feito && (
                 <div style={{ marginTop: 6 }}>
-                  <input value={pr.obs} onChange={(e) => mudarObs(nome, e.target.value)} onBlur={salvarObs} placeholder="Pendente? escreva a observação…" style={{ ...inpMini, fontSize: 12 }} />
+                  <input value={pr.obs} onChange={(e) => mudarObs(nome, e.target.value)} onBlur={salvarObs} disabled={!podeEditar} placeholder="Pendente? escreva a observação…" style={{ ...inpMini, fontSize: 12 }} />
                   {pr.data && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3 }}>desde {pr.data}</div>}
                 </div>
               )}
@@ -389,7 +402,7 @@ function PainelCorte({ pedido, onBloqueioChange }) {
   );
 }
 
-function PainelAcabamento({ pedido, onBloqueioChange }) {
+function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
   const [processos, setProcessos] = useState(() => {
     const base = {};
     const saved = pedido.processos_acabamento || {};
@@ -430,13 +443,13 @@ function PainelAcabamento({ pedido, onBloqueioChange }) {
           return (
             <div key={nome} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }}>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input type="checkbox" checked={pr.feito} onChange={() => toggleFeito(nome)} />
+                <input type="checkbox" checked={pr.feito} disabled={!podeEditar} onChange={() => toggleFeito(nome)} />
                 <span style={{ fontSize: 13, fontWeight: 500, textDecoration: pr.feito ? "line-through" : "none", color: pr.feito ? "var(--text-3)" : "var(--text)" }}>{nome}</span>
                 {pr.feito && <span style={{ fontSize: 11, color: "var(--success)", marginLeft: "auto" }}>concluído</span>}
               </label>
               {!pr.feito && (
                 <div style={{ marginTop: 6 }}>
-                  <input value={pr.obs} onChange={(e) => mudarObs(nome, e.target.value)} onBlur={salvarObs} placeholder="Pendente? escreva a observação…" style={{ ...inpMini, fontSize: 12 }} />
+                  <input value={pr.obs} onChange={(e) => mudarObs(nome, e.target.value)} onBlur={salvarObs} disabled={!podeEditar} placeholder="Pendente? escreva a observação…" style={{ ...inpMini, fontSize: 12 }} />
                   {pr.data && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3 }}>desde {pr.data}</div>}
                 </div>
               )}
