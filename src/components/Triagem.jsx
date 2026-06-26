@@ -120,7 +120,6 @@ export default function Triagem() {
                 {(s.status === "em_triagem" || s.status === "info_solicitada") && (
                   <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                     <button onClick={() => setAcao({ s, tipo: "pilotagem" })} style={btnPrimary}>Iniciar pilotagem</button>
-                    <button onClick={() => setAcao({ s, tipo: "info" })} style={btnGhost}>Pedir informações</button>
                     <button onClick={() => setConversa(s)} style={btnGhost}>Abrir conversa</button>
                     <button onClick={() => setAcao({ s, tipo: "recusar" })} style={btnDanger}>Recusar</button>
                   </div>
@@ -138,7 +137,7 @@ export default function Triagem() {
       {nova && <ModalNova clientes={clientes} onFechar={() => setNova(false)} onOk={() => { setNova(false); carregar(); }} />}
       {acao && <ModalAcao dados={acao} onFechar={() => setAcao(null)} onOk={() => { setAcao(null); carregar(); }} />}
       {pilotando && <Pilotagem solicitacao={pilotando} clientes={clientes} oficinas={oficinas} onFechar={() => setPilotando(null)} onMudou={carregar} />}
-      {conversa && <ConversaFabrica solicitacao={conversa} onFechar={() => setConversa(null)} />}
+      {conversa && <ConversaFabrica solicitacao={conversa} onFechar={() => setConversa(null)} onMudou={carregar} />}
     </div>
   );
 }
@@ -291,7 +290,7 @@ const subTab = (ativo) => ({
 const txtVazio = { fontSize: 13, color: "var(--text-3)", padding: "16px 2px" };
 const cartao = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" };
 const erroTxt = { fontSize: 12, color: "var(--danger)", margin: "12px 0 0" };
-function ConversaFabrica({ solicitacao, onFechar }) {
+function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
   const sol = solicitacao;
   const [comentarios, setComentarios] = useState([]);
   const [texto, setTexto] = useState("");
@@ -316,6 +315,10 @@ function ConversaFabrica({ solicitacao, onFechar }) {
     if (!texto.trim()) return;
     setEnviando(true);
     await supabase.from("comentarios_pilotagem").insert({ solicitacao_id: sol.id, autor: "fabrica", texto: texto.trim() });
+    if (sol.status === "em_triagem") {
+      await supabase.from("solicitacoes").update({ status: "info_solicitada" }).eq("id", sol.id);
+      if (onMudou) onMudou();
+    }
     setTexto("");
     setEnviando(false);
     carregar();
