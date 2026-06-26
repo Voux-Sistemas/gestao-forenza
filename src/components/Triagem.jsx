@@ -25,14 +25,17 @@ export default function Triagem() {
   const [nova, setNova] = useState(false);
   const [acao, setAcao] = useState(null);
   const [pilotando, setPilotando] = useState(null);
+  const [comentarios, setComentarios] = useState([]);
+  const [conversa, setConversa] = useState(null);
 
   const carregar = useCallback(async () => {
-    const [s, c, o] = await Promise.all([
+    const [s, c, o, cm] = await Promise.all([
       supabase.from("solicitacoes").select("*").order("id", { ascending: false }),
       supabase.from("clientes").select("*"),
       supabase.from("oficinas").select("*").order("nome_empresa"),
+      supabase.from("comentarios_pilotagem").select("solicitacao_id, autor, id").order("id"),
     ]);
-    setLista(s.data || []); setClientes(c.data || []); setOficinas(o.data || []);
+    setLista(s.data || []); setClientes(c.data || []); setOficinas(o.data || []); setComentarios(cm.data || []);
     setCarregando(false);
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
@@ -52,6 +55,11 @@ export default function Triagem() {
     const { error } = await supabase.from("solicitacoes").delete().eq("id", s.id);
     if (error) { window.alert("Não foi possível excluir: " + error.message); return; }
     carregar();
+  }
+
+  function ultimoAutor(solId) {
+    const cs = comentarios.filter((c) => c.solicitacao_id === solId);
+    return cs.length ? cs[cs.length - 1].autor : null;
   }
 
   if (carregando) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>;
@@ -90,6 +98,7 @@ export default function Triagem() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <span style={{ fontSize: 14, fontWeight: 600 }}>{nomeCliente(s.cliente_id)}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: st.bg, color: st.cor }}>{st.label}</span>
+                      {ultimoAutor(s.id) === "cliente" && <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: "var(--success-bg)", color: "var(--success)" }}>Cliente respondeu</span>}
                     </div>
                     <p style={{ fontSize: 13, color: "var(--text)", margin: "0 0 8px", lineHeight: 1.5 }}>{s.descricao}</p>
                     <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--text-3)" }}>
@@ -112,6 +121,7 @@ export default function Triagem() {
                   <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                     <button onClick={() => setAcao({ s, tipo: "pilotagem" })} style={btnPrimary}>Iniciar pilotagem</button>
                     <button onClick={() => setAcao({ s, tipo: "info" })} style={btnGhost}>Pedir informações</button>
+                    <button onClick={() => setConversa(s)} style={btnGhost}>Abrir conversa</button>
                     <button onClick={() => setAcao({ s, tipo: "recusar" })} style={btnDanger}>Recusar</button>
                   </div>
                 )}
@@ -128,6 +138,7 @@ export default function Triagem() {
       {nova && <ModalNova clientes={clientes} onFechar={() => setNova(false)} onOk={() => { setNova(false); carregar(); }} />}
       {acao && <ModalAcao dados={acao} onFechar={() => setAcao(null)} onOk={() => { setAcao(null); carregar(); }} />}
       {pilotando && <Pilotagem solicitacao={pilotando} clientes={clientes} oficinas={oficinas} onFechar={() => setPilotando(null)} onMudou={carregar} />}
+      {conversa && <ConversaFabrica solicitacao={conversa} onFechar={() => setConversa(null)} />}
     </div>
   );
 }
@@ -280,6 +291,74 @@ const subTab = (ativo) => ({
 const txtVazio = { fontSize: 13, color: "var(--text-3)", padding: "16px 2px" };
 const cartao = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" };
 const erroTxt = { fontSize: 12, color: "var(--danger)", margin: "12px 0 0" };
+function ConversaFabrica({ solicitacao, onFechar }) {
+  const sol = solicitacao;
+  const [comentarios, setComentarios] = useState([]);
+  const [texto, setTexto] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    const { data } = await supabase.from("comentarios_pilotagem").select("*").eq("solicitacao_id", sol.id).order("id");
+    setComentarios(data || []);
+    setCarregando(false);
+  }, [sol.id]);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  useEffect(() => {
+    const canal = supabase.channel("conversa-fab-" + sol.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "comentarios_pilotagem", filter: `solicitacao_id=eq.${sol.id}` }, carregar)
+      .subscribe();
+    return () => { supabase.removeChannel(canal); };
+  }, [sol.id, carregar]);
+
+  async function enviar() {
+    if (!texto.trim()) return;
+    setEnviando(true);
+    await supabase.from("comentarios_pilotagem").insert({ solicitacao_id: sol.id, autor: "fabrica", texto: texto.trim() });
+    setTexto("");
+    setEnviando(false);
+    carregar();
+  }
+
+  return (
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>Conversa com o cliente</div>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
+        </div>
+        <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
+          {sol.observacao_fabrica && (
+            <div style={{ fontSize: 13, color: "var(--text)", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8, marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", marginBottom: 3 }}>Você pediu</div>
+              {sol.observacao_fabrica}
+            </div>
+          )}
+          {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> :
+            (comentarios.length === 0 && !sol.observacao_fabrica) ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Nenhuma mensagem ainda. Escreva abaixo para falar com o cliente.</p> : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {comentarios.map((c) => {
+                  const ehFabrica = c.autor === "fabrica";
+                  return (
+                    <div key={c.id} style={{ alignSelf: ehFabrica ? "flex-end" : "flex-start", maxWidth: "85%", padding: "8px 12px", borderRadius: 10, background: ehFabrica ? "var(--accent-bg)" : "var(--surface-2)" }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)", marginBottom: 2 }}>{ehFabrica ? "Você" : "Cliente"}</div>
+                      <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+        </div>
+        <div style={{ display: "flex", gap: 8, padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
+          <input value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviar(); }} placeholder="Escreva sua mensagem…" style={{ ...inp, flex: 1 }} />
+          <button onClick={enviar} disabled={enviando} style={btnPrimary}>Enviar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
 const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
