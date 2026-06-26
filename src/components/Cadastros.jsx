@@ -10,11 +10,11 @@ export default function Cadastros() {
     <div style={{ padding: "20px 22px" }}>
       <h2 style={{ fontSize: 17, fontWeight: 600, margin: "0 0 16px" }}>Cadastros</h2>
       <div style={{ display: "flex", gap: 4, marginBottom: 18, borderBottom: "1px solid var(--border)" }}>
-        {[["clientes", "Clientes"], ["oficinas", "Oficinas"]].map(([id, label]) => (
+        {[["clientes", "Clientes"], ["oficinas", "Oficinas"], ["funcionarios", "Funcionários"]].map(([id, label]) => (
           <button key={id} onClick={() => setAba(id)} style={subTab(aba === id)}>{label}</button>
         ))}
       </div>
-      {aba === "clientes" ? <Clientes /> : <Oficinas />}
+      {aba === "clientes" ? <Clientes /> : aba === "oficinas" ? <Oficinas /> : <Funcionarios />}
     </div>
   );
 }
@@ -430,6 +430,163 @@ function AcessoPortal({ cliente, onCriado }) {
         </>
       )}
     </div>
+  );
+}
+
+const PAPEIS_STAFF = [
+  ["funcionario", "Funcionário"],
+  ["chefe_setor", "Chefe de setor"],
+  ["chefe_geral", "Chefe geral"],
+  ["master", "Master"],
+];
+const labelPapel = (p) => (PAPEIS_STAFF.find(([id]) => id === p) || [null, p])[1];
+
+function Funcionarios() {
+  const [lista, setLista] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [novo, setNovo] = useState(false);
+  const [selecionado, setSelecionado] = useState(null);
+
+  const carregar = useCallback(async () => {
+    const { data } = await supabase.from("perfis").select("*").neq("papel", "cliente").order("nome");
+    setLista(data || []);
+    setCarregando(false);
+  }, []);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  if (carregando) return <p style={txtVazio}>Carregando…</p>;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button onClick={() => setNovo(true)} style={btnPrimary}><Plus size={16} /> Novo funcionário</button>
+      </div>
+      {lista.length === 0 ? <p style={txtVazio}>Nenhum funcionário cadastrado.</p> : (
+        <div style={tabela}>
+          <div style={{ ...linha, ...cabecalho }}>
+            <span style={{ flex: 2 }}>Nome</span>
+            <span style={{ flex: 2 }}>E-mail</span>
+            <span style={{ flex: 1 }}>Nível</span>
+            <span style={{ flex: 1 }}>Setor</span>
+            <span style={{ width: 60, textAlign: "right" }}></span>
+          </div>
+          {lista.map((f) => (
+            <div key={f.id} onClick={() => setSelecionado(f)} style={{ ...linha, cursor: "pointer" }}>
+              <span style={{ flex: 2, fontWeight: 500 }}>{f.nome || "—"}</span>
+              <span style={{ flex: 2, color: "var(--text-2)" }}>{f.email || "—"}</span>
+              <span style={{ flex: 1, color: "var(--text-2)" }}>{labelPapel(f.papel)}</span>
+              <span style={{ flex: 1, color: "var(--text-2)" }}>{f.setor || "—"}</span>
+              <span style={{ width: 60, display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={(e) => { e.stopPropagation(); setSelecionado(f); }} style={btnIcon} aria-label="Editar"><Pencil size={15} /></button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {novo && <NovoFuncionario onFechar={() => setNovo(false)} onSalvo={() => { setNovo(false); carregar(); }} />}
+      {selecionado && <EditarFuncionario registro={selecionado} onFechar={() => setSelecionado(null)} onSalvo={() => { setSelecionado(null); carregar(); }} />}
+    </div>
+  );
+}
+
+function NovoFuncionario({ onFechar, onSalvo }) {
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [papel, setPapel] = useState("funcionario");
+  const [setor, setSetor] = useState("");
+  const [erro, setErro] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvar() {
+    setErro(null);
+    if (!nome.trim()) return setErro("Informe o nome.");
+    if (!email.includes("@")) return setErro("E-mail inválido.");
+    if (senha.length < 6) return setErro("A senha precisa ter ao menos 6 caracteres.");
+    setSalvando(true);
+    try {
+      const temp = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data, error } = await temp.auth.signUp({ email: email.trim(), password: senha, options: { data: { nome: nome.trim() } } });
+      if (error) throw error;
+      const id = data.user && data.user.id;
+      if (!id) throw new Error("Não foi possível criar o login.");
+      const { error: e2 } = await supabase.from("perfis").update({ nome: nome.trim(), papel, setor: setor.trim() || null, email: email.trim(), cliente_id: null }).eq("id", id);
+      if (e2) throw e2;
+    } catch (e) {
+      setSalvando(false);
+      return setErro(e.message || "Erro ao criar funcionário.");
+    }
+    setSalvando(false);
+    onSalvo();
+  }
+
+  return (
+    <Overlay onFechar={onFechar}>
+      <h3 style={tituloModal}>Novo funcionário</h3>
+      <label style={lbl}>Nome</label>
+      <input value={nome} onChange={(e) => setNome(e.target.value)} autoFocus style={inp} />
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        <div style={{ flex: 1 }}><label style={lbl}>E-mail (login)</label><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="func@email.com" style={inp} /></div>
+        <div style={{ flex: 1 }}><label style={lbl}>Senha</label><input value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="mín. 6" style={inp} /></div>
+      </div>
+      <label style={{ ...lbl, marginTop: 14 }}>Nível de acesso</label>
+      <select value={papel} onChange={(e) => setPapel(e.target.value)} style={inp}>
+        {PAPEIS_STAFF.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+      </select>
+      {papel === "chefe_setor" && (
+        <>
+          <label style={{ ...lbl, marginTop: 14 }}>Setor</label>
+          <input value={setor} onChange={(e) => setSetor(e.target.value)} placeholder="ex: Corte, Acabamento…" style={inp} />
+        </>
+      )}
+      {erro && <p style={erroTxt}>{erro}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Criando…" : "Criar funcionário"}</button>
+      </div>
+    </Overlay>
+  );
+}
+
+function EditarFuncionario({ registro, onFechar, onSalvo }) {
+  const [nome, setNome] = useState(registro.nome || "");
+  const [papel, setPapel] = useState(registro.papel);
+  const [setor, setSetor] = useState(registro.setor || "");
+  const [erro, setErro] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvar() {
+    setErro(null);
+    if (!nome.trim()) return setErro("Informe o nome.");
+    setSalvando(true);
+    const { error } = await supabase.from("perfis").update({ nome: nome.trim(), papel, setor: setor.trim() || null }).eq("id", registro.id);
+    setSalvando(false);
+    if (error) return setErro(error.message);
+    onSalvo();
+  }
+
+  return (
+    <Overlay onFechar={onFechar}>
+      <h3 style={tituloModal}>{registro.nome || "Funcionário"}</h3>
+      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{registro.email || ""}</p>
+      <label style={lbl}>Nome</label>
+      <input value={nome} onChange={(e) => setNome(e.target.value)} style={inp} />
+      <label style={{ ...lbl, marginTop: 14 }}>Nível de acesso</label>
+      <select value={papel} onChange={(e) => setPapel(e.target.value)} style={inp}>
+        {PAPEIS_STAFF.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+      </select>
+      {papel === "chefe_setor" && (
+        <>
+          <label style={{ ...lbl, marginTop: 14 }}>Setor</label>
+          <input value={setor} onChange={(e) => setSetor(e.target.value)} placeholder="ex: Corte…" style={inp} />
+        </>
+      )}
+      {erro && <p style={erroTxt}>{erro}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar"}</button>
+      </div>
+    </Overlay>
   );
 }
 
