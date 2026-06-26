@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar } from "lucide-react";
+import { Plus, ArrowRight, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search } from "lucide-react";
 
 const LOCAIS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
 const COLUNAS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
@@ -45,6 +45,7 @@ export default function Quadro({ session, perfil }) {
 
   const podeEditar = perfil?.papel !== "funcionario";
   const ehMaster = perfil?.papel === "master";
+  const [busca, setBusca] = useState("");
 
   useEffect(() => {
     const canal = supabase.channel("quadro")
@@ -63,40 +64,53 @@ export default function Quadro({ session, perfil }) {
 
   return (
     <div style={{ padding: "20px 22px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>Quadro de produção</h2>
-        {podeVerTudo && (
-          <button onClick={() => setNovoAberto(true)} style={btnPrimary}><Plus size={16} /> Novo pedido</button>
-        )}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Quadro de produção</h2>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Clique num card para mover as peças entre as etapas.</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {podeVerTudo && (
+            <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+              <Search size={15} style={{ position: "absolute", left: 11, color: "var(--text-3)" }} />
+              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar referência ou cliente…" style={{ padding: "9px 12px 9px 33px", fontSize: 13, border: "1px solid var(--border)", borderRadius: 9, background: "var(--surface)", color: "var(--text)", width: 250, outline: "none" }} />
+            </div>
+          )}
+          {podeVerTudo && (
+            <button onClick={() => setNovoAberto(true)} style={btnPrimary}><Plus size={16} /> Novo pedido</button>
+          )}
+        </div>
       </div>
 
       {podeVerTudo && (() => {
-        let pedProducao = 0, atrasados = 0, pcProducao = 0, pcEstoque = 0, pcPerda = 0;
+        let pedProducao = 0, atrasados = 0, criticos = 0, pcProducao = 0, pcEstoque = 0, pcPerda = 0, nEstoque = 0;
         pedidos.forEach((pe) => {
           const s2 = calcularSaldos(pe.id, pe.total, movimentos);
           const emProd = s2.Entrada + s2.Corte + s2.Oficina + s2.Acabamento;
           pcProducao += emProd; pcEstoque += s2.Estoque; pcPerda += s2.Perda;
-          if (emProd > 0) { pedProducao++; const d = diasAtePrazo(pe.prazo); if (d !== null && d < 0) atrasados++; }
+          if (s2.Estoque > 0) nEstoque++;
+          if (emProd > 0) { pedProducao++; const d = diasAtePrazo(pe.prazo); if (d !== null && d < 0) { atrasados++; if (d < -2) criticos++; } }
         });
         const stats = [
-          { label: "Pedidos em produção", valor: pedProducao, Icon: ClipboardList, cor: "var(--accent)", bg: "var(--accent-bg)" },
-          { label: "Atrasados", valor: atrasados, Icon: AlertTriangle, cor: "var(--danger)", bg: "var(--danger-bg)" },
-          { label: "Peças em produção", valor: pcProducao, Icon: Package, cor: "var(--warning)", bg: "var(--warning-bg)" },
-          { label: "Em estoque", valor: pcEstoque, Icon: Boxes, cor: "var(--success)", bg: "var(--success-bg)" },
-          { label: "Perdas", valor: pcPerda, Icon: Trash2, cor: "var(--danger)", bg: "var(--danger-bg)" },
+          { label: "Pedidos em produção", valor: pedProducao, sub: "ativos agora", subCor: "var(--text-3)", Icon: ClipboardList, cor: "var(--accent)", bg: "var(--accent-bg)" },
+          { label: "Atrasados", valor: atrasados, sub: criticos + " crítico(s)", subCor: "var(--danger)", Icon: AlertTriangle, cor: "var(--danger)", bg: "var(--danger-bg)" },
+          { label: "Peças em produção", valor: pcProducao, sub: "em andamento", subCor: "var(--text-3)", Icon: Package, cor: "var(--warning)", bg: "var(--warning-bg)" },
+          { label: "Em estoque", valor: pcEstoque, sub: nEstoque + " pedido(s)", subCor: "var(--text-3)", Icon: Boxes, cor: "var(--success)", bg: "var(--success-bg)" },
+          { label: "Perdas", valor: pcPerda, sub: "acumulado", subCor: "var(--text-3)", Icon: Trash2, cor: "var(--danger)", bg: "var(--danger-bg)" },
         ];
         return (
-          <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 14, marginBottom: 22, flexWrap: "wrap" }}>
             {stats.map((m) => {
               const Icon = m.Icon;
               return (
-                <div key={m.label} style={{ flex: "1 1 160px", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, background: m.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon size={18} style={{ color: m.cor }} />
+                <div key={m.label} style={{ flex: "1 1 180px", padding: "18px 20px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, boxShadow: "var(--shadow-card)", display: "flex", alignItems: "flex-start", gap: 14 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: m.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon size={20} style={{ color: m.cor }} />
                   </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: "var(--text-2)" }}>{m.label}</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>{m.valor}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 4 }}>{m.label}</div>
+                    <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{m.valor}</div>
+                    <div style={{ fontSize: 11.5, color: m.subCor, marginTop: 5 }}>{m.sub}</div>
                   </div>
                 </div>
               );
@@ -109,7 +123,12 @@ export default function Quadro({ session, perfil }) {
         {colunas.map((local) => {
           const cards = pedidos
             .map((pe) => ({ pe, saldo: calcularSaldos(pe.id, pe.total, movimentos) }))
-            .filter(({ saldo }) => saldo[local] > 0);
+            .filter(({ saldo }) => saldo[local] > 0)
+            .filter(({ pe }) => {
+              const q = busca.trim().toLowerCase();
+              if (!q) return true;
+              return (pe.referencia || "").toLowerCase().includes(q) || (pe.marca || "").toLowerCase().includes(q) || nomeCliente(pe.cliente_id).toLowerCase().includes(q);
+            });
           const IconeCol = ICONES_COLUNA[local] || Package;
           return (
             <div key={local} style={{ ...coluna, borderTop: `3px solid ${CORES[local]}` }}>
@@ -121,9 +140,9 @@ export default function Quadro({ session, perfil }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {cards.map(({ pe, saldo }) => (
                   <button key={pe.id} onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })} style={card}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{pe.referencia}</span>
-                      <span style={{ fontSize: 12, color: "var(--text-2)" }}>{pe.marca || ""}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 600 }}>{pe.referencia}</span>
+                      {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text-2)", background: "var(--surface-2)", borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap" }}>{pe.marca}</span>}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text-2)", margin: "3px 0 6px" }}>{nomeCliente(pe.cliente_id)}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -618,8 +637,8 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
   );
 }
 
-const coluna = { minWidth: 220, width: 220, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12, padding: 12 };
-const card = { textAlign: "left", width: "100%", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 11px", display: "block", cursor: "pointer" };
+const coluna = { minWidth: 246, width: 246, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 14, padding: 14, boxShadow: "var(--shadow-card)" };
+const card = { textAlign: "left", width: "100%", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, padding: "12px 13px", display: "block", cursor: "pointer", boxShadow: "var(--shadow-sm)" };
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
 const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
