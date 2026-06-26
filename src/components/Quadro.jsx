@@ -9,6 +9,18 @@ const CORES = {
   Acabamento: "var(--accent)", Estoque: "var(--success)", Perda: "var(--danger)",
 };
 const ICONES_COLUNA = { Entrada: Download, Corte: Scissors, Oficina: Factory, Acabamento: Sparkles, Estoque: Boxes, Perda: Trash2 };
+const PALETA_TAG = [
+  { bg: "var(--accent-bg)", cor: "var(--accent)" },
+  { bg: "var(--success-bg)", cor: "var(--success)" },
+  { bg: "var(--warning-bg)", cor: "var(--warning)" },
+  { bg: "var(--orange-bg)", cor: "var(--orange)" },
+  { bg: "var(--danger-bg)", cor: "var(--danger)" },
+];
+function corDaTag(txt) {
+  let h = 0;
+  for (let i = 0; i < txt.length; i++) h = (h * 31 + txt.charCodeAt(i)) >>> 0;
+  return PALETA_TAG[h % PALETA_TAG.length];
+}
 
 function calcularSaldos(pedidoId, total, movimentos) {
   const s = { Entrada: total, Corte: 0, Oficina: 0, Acabamento: 0, Estoque: 0, Perda: 0 };
@@ -64,24 +76,6 @@ export default function Quadro({ session, perfil }) {
 
   return (
     <div style={{ padding: "20px 22px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Quadro de produção</h2>
-          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Clique num card para mover as peças entre as etapas.</div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {podeVerTudo && (
-            <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-              <Search size={15} style={{ position: "absolute", left: 11, color: "var(--text-3)" }} />
-              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar referência ou cliente…" style={{ padding: "9px 12px 9px 33px", fontSize: 13, border: "1px solid var(--border)", borderRadius: 9, background: "var(--surface)", color: "var(--text)", width: 250, outline: "none" }} />
-            </div>
-          )}
-          {podeVerTudo && (
-            <button onClick={() => setNovoAberto(true)} style={btnPrimary}><Plus size={16} /> Novo pedido</button>
-          )}
-        </div>
-      </div>
-
       {podeVerTudo && (() => {
         let pedProducao = 0, atrasados = 0, criticos = 0, pcProducao = 0, pcEstoque = 0, pcPerda = 0, nEstoque = 0;
         pedidos.forEach((pe) => {
@@ -119,6 +113,24 @@ export default function Quadro({ session, perfil }) {
         );
       })()}
 
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Quadro de produção</h2>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Clique num card para mover as peças entre as etapas.</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {podeVerTudo && (
+            <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+              <Search size={15} style={{ position: "absolute", left: 11, color: "var(--text-3)" }} />
+              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar referência ou cliente…" style={{ padding: "9px 12px 9px 33px", fontSize: 13, border: "1px solid var(--border)", borderRadius: 9, background: "var(--surface)", color: "var(--text)", width: 250, outline: "none" }} />
+            </div>
+          )}
+          {podeVerTudo && (
+            <button onClick={() => setNovoAberto(true)} style={btnPrimary}><Plus size={16} /> Novo pedido</button>
+          )}
+        </div>
+      </div>
+
       <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, alignItems: "flex-start" }}>
         {colunas.map((local) => {
           const cards = pedidos
@@ -142,7 +154,7 @@ export default function Quadro({ session, perfil }) {
                   <button key={pe.id} onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })} style={card}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 13.5, fontWeight: 600 }}>{pe.referencia}</span>
-                      {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text-2)", background: "var(--surface-2)", borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap" }}>{pe.marca}</span>}
+                      {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: corDaTag(pe.marca).cor, background: corDaTag(pe.marca).bg }}>{pe.marca}</span>}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text-2)", margin: "3px 0 6px" }}>{nomeCliente(pe.cliente_id)}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -167,8 +179,8 @@ export default function Quadro({ session, perfil }) {
         })}
       </div>
 
-      <div style={{ display: "flex", gap: 18, marginTop: 16, flexWrap: "wrap", fontSize: 12, color: "var(--text-2)" }}>
-        {[["Atrasado / em descanso", "var(--danger)"], ["Atenção (vence em breve / pendente)", "var(--warning)"], ["No prazo", "var(--success)"]].map(([txt, cor]) => (
+      <div style={{ display: "flex", gap: 20, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", fontSize: 12, color: "var(--text-2)" }}>
+        {[["Pendente", "var(--warning)"], ["Atrasado", "var(--danger)"], ["Crítico", "#8E1B1B"], ["Concluído", "var(--success)"], ["No prazo", "var(--accent)"]].map(([txt, cor]) => (
           <span key={txt} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <span style={{ width: 9, height: 9, borderRadius: 99, background: cor }} />{txt}
           </span>
