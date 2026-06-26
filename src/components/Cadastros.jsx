@@ -440,6 +440,7 @@ const PAPEIS_STAFF = [
   ["master", "Master"],
 ];
 const labelPapel = (p) => (PAPEIS_STAFF.find(([id]) => id === p) || [null, p])[1];
+const SETORES = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque"];
 
 function Funcionarios() {
   const [lista, setLista] = useState([]);
@@ -465,7 +466,7 @@ function Funcionarios() {
         <div style={tabela}>
           <div style={{ ...linha, ...cabecalho }}>
             <span style={{ flex: 2 }}>Nome</span>
-            <span style={{ flex: 2 }}>E-mail</span>
+            <span style={{ flex: 2 }}>Usuário</span>
             <span style={{ flex: 1 }}>Nível</span>
             <span style={{ flex: 1 }}>Setor</span>
             <span style={{ width: 60, textAlign: "right" }}></span>
@@ -473,7 +474,7 @@ function Funcionarios() {
           {lista.map((f) => (
             <div key={f.id} onClick={() => setSelecionado(f)} style={{ ...linha, cursor: "pointer" }}>
               <span style={{ flex: 2, fontWeight: 500 }}>{f.nome || "—"}</span>
-              <span style={{ flex: 2, color: "var(--text-2)" }}>{f.email || "—"}</span>
+              <span style={{ flex: 2, color: "var(--text-2)" }}>{f.email ? f.email.split("@")[0] : "—"}</span>
               <span style={{ flex: 1, color: "var(--text-2)" }}>{labelPapel(f.papel)}</span>
               <span style={{ flex: 1, color: "var(--text-2)" }}>{f.setor || "—"}</span>
               <span style={{ width: 60, display: "flex", justifyContent: "flex-end" }}>
@@ -491,30 +492,36 @@ function Funcionarios() {
 
 function NovoFuncionario({ onFechar, onSalvo }) {
   const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [senha, setSenha] = useState("");
   const [papel, setPapel] = useState("funcionario");
-  const [setor, setSetor] = useState("");
+  const [setor, setSetor] = useState(SETORES[0]);
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
+
+  const temSetor = papel === "funcionario" || papel === "chefe_setor";
 
   async function salvar() {
     setErro(null);
     if (!nome.trim()) return setErro("Informe o nome.");
-    if (!email.includes("@")) return setErro("E-mail inválido.");
+    const u = usuario.trim().toLowerCase();
+    if (!u) return setErro("Informe o usuário.");
+    if (/[^a-z0-9._-]/.test(u)) return setErro("Usuário só pode ter letras, números, ponto, hífen ou underline (sem espaços).");
     if (senha.length < 6) return setErro("A senha precisa ter ao menos 6 caracteres.");
     setSalvando(true);
+    const emailLogin = u + "@admin.com";
     try {
       const temp = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-      const { data, error } = await temp.auth.signUp({ email: email.trim(), password: senha, options: { data: { nome: nome.trim() } } });
+      const { data, error } = await temp.auth.signUp({ email: emailLogin, password: senha, options: { data: { nome: nome.trim() } } });
       if (error) throw error;
       const id = data.user && data.user.id;
       if (!id) throw new Error("Não foi possível criar o login.");
-      const { error: e2 } = await supabase.from("perfis").update({ nome: nome.trim(), papel, setor: setor.trim() || null, email: email.trim(), cliente_id: null }).eq("id", id);
+      const { error: e2 } = await supabase.from("perfis").update({ nome: nome.trim(), papel, setor: temSetor ? setor : null, email: emailLogin, cliente_id: null }).eq("id", id);
       if (e2) throw e2;
     } catch (e) {
       setSalvando(false);
-      return setErro(e.message || "Erro ao criar funcionário.");
+      const msg = (e.message || "").includes("already registered") ? "Esse usuário já existe. Escolha outro." : (e.message || "Erro ao criar funcionário.");
+      return setErro(msg);
     }
     setSalvando(false);
     onSalvo();
@@ -526,17 +533,19 @@ function NovoFuncionario({ onFechar, onSalvo }) {
       <label style={lbl}>Nome</label>
       <input value={nome} onChange={(e) => setNome(e.target.value)} autoFocus style={inp} />
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <div style={{ flex: 1 }}><label style={lbl}>E-mail (login)</label><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="func@email.com" style={inp} /></div>
+        <div style={{ flex: 1 }}><label style={lbl}>Usuário (login)</label><input value={usuario} onChange={(e) => setUsuario(e.target.value)} placeholder="ex: joao.silva" style={inp} /></div>
         <div style={{ flex: 1 }}><label style={lbl}>Senha</label><input value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="mín. 6" style={inp} /></div>
       </div>
       <label style={{ ...lbl, marginTop: 14 }}>Nível de acesso</label>
       <select value={papel} onChange={(e) => setPapel(e.target.value)} style={inp}>
         {PAPEIS_STAFF.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
       </select>
-      {papel === "chefe_setor" && (
+      {temSetor && (
         <>
           <label style={{ ...lbl, marginTop: 14 }}>Setor</label>
-          <input value={setor} onChange={(e) => setSetor(e.target.value)} placeholder="ex: Corte, Acabamento…" style={inp} />
+          <select value={setor} onChange={(e) => setSetor(e.target.value)} style={inp}>
+            {SETORES.map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
         </>
       )}
       {erro && <p style={erroTxt}>{erro}</p>}
@@ -551,15 +560,18 @@ function NovoFuncionario({ onFechar, onSalvo }) {
 function EditarFuncionario({ registro, onFechar, onSalvo }) {
   const [nome, setNome] = useState(registro.nome || "");
   const [papel, setPapel] = useState(registro.papel);
-  const [setor, setSetor] = useState(registro.setor || "");
+  const [setor, setSetor] = useState(registro.setor || SETORES[0]);
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
+
+  const temSetor = papel === "funcionario" || papel === "chefe_setor";
+  const usuario = registro.email ? registro.email.split("@")[0] : "—";
 
   async function salvar() {
     setErro(null);
     if (!nome.trim()) return setErro("Informe o nome.");
     setSalvando(true);
-    const { error } = await supabase.from("perfis").update({ nome: nome.trim(), papel, setor: setor.trim() || null }).eq("id", registro.id);
+    const { error } = await supabase.from("perfis").update({ nome: nome.trim(), papel, setor: temSetor ? setor : null }).eq("id", registro.id);
     setSalvando(false);
     if (error) return setErro(error.message);
     onSalvo();
@@ -568,17 +580,19 @@ function EditarFuncionario({ registro, onFechar, onSalvo }) {
   return (
     <Overlay onFechar={onFechar}>
       <h3 style={tituloModal}>{registro.nome || "Funcionário"}</h3>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{registro.email || ""}</p>
+      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Usuário: {usuario}</p>
       <label style={lbl}>Nome</label>
       <input value={nome} onChange={(e) => setNome(e.target.value)} style={inp} />
       <label style={{ ...lbl, marginTop: 14 }}>Nível de acesso</label>
       <select value={papel} onChange={(e) => setPapel(e.target.value)} style={inp}>
         {PAPEIS_STAFF.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
       </select>
-      {papel === "chefe_setor" && (
+      {temSetor && (
         <>
           <label style={{ ...lbl, marginTop: 14 }}>Setor</label>
-          <input value={setor} onChange={(e) => setSetor(e.target.value)} placeholder="ex: Corte…" style={inp} />
+          <select value={setor} onChange={(e) => setSetor(e.target.value)} style={inp}>
+            {SETORES.map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
         </>
       )}
       {erro && <p style={erroTxt}>{erro}</p>}
