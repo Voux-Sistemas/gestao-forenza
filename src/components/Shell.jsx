@@ -48,7 +48,7 @@ export default function Shell({ session }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh" }}>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 22px", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
           <Layers size={20} style={{ color: "var(--accent)" }} />
@@ -84,7 +84,26 @@ export default function Shell({ session }) {
         </nav>
       )}
 
-      <main>{conteudo()}</main>
+      <div style={{ display: "flex", flex: 1 }}>
+        {podeAdministrar && (
+          <aside style={{ width: 56, flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--surface)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "16px 0" }}>
+            {navItens.map((item) => {
+              const Icone = item.icon;
+              const ativo = pagina === item.id;
+              return (
+                <button key={item.id} onClick={() => setPagina(item.id)} title={item.label} aria-label={item.label} style={{
+                  width: 40, height: 40, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  border: "none", cursor: "pointer", color: ativo ? "var(--accent)" : "var(--text-2)",
+                  background: ativo ? "var(--accent-bg)" : "transparent",
+                }}>
+                  <Icone size={19} />
+                </button>
+              );
+            })}
+          </aside>
+        )}
+        <main style={{ flex: 1, minWidth: 0 }}>{conteudo()}</main>
+      </div>
     </div>
   );
 }
