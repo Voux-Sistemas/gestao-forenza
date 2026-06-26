@@ -93,15 +93,32 @@ function Clientes() {
 
 function Oficinas() {
   const [lista, setLista] = useState([]);
+  const [pedidos, setPedidos] = useState([]);
+  const [movimentos, setMovimentos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [novo, setNovo] = useState(false);
   const [selecionado, setSelecionado] = useState(null);
 
   const carregar = useCallback(async () => {
-    const { data } = await supabase.from("oficinas").select("*").order("nome_empresa");
-    setLista(data || []);
+    const [of, pe, mo] = await Promise.all([
+      supabase.from("oficinas").select("*").order("nome_empresa"),
+      supabase.from("pedidos").select("id, oficina_id"),
+      supabase.from("movimentos").select("pedido_id, de_local, para_local, qtd"),
+    ]);
+    setLista(of.data || []); setPedidos(pe.data || []); setMovimentos(mo.data || []);
     setCarregando(false);
   }, []);
+
+  function pecasNaOficina(oficinaId) {
+    const ids = pedidos.filter((p) => p.oficina_id === oficinaId).map((p) => p.id);
+    let total = 0;
+    movimentos.forEach((m) => {
+      if (!ids.includes(m.pedido_id)) return;
+      if (m.para_local === "Oficina") total += m.qtd;
+      if (m.de_local === "Oficina") total -= m.qtd;
+    });
+    return total;
+  }
   useEffect(() => { carregar(); }, [carregar]);
 
   async function alternar(e, o) {
@@ -129,7 +146,12 @@ function Oficinas() {
           </div>
           {lista.map((o) => (
             <div key={o.id} onClick={() => setSelecionado(o)} style={{ ...linha, cursor: "pointer" }}>
-              <span style={{ flex: 2, fontWeight: 500 }}>{o.nome_empresa}</span>
+              <span style={{ flex: 2, fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
+                {o.nome_empresa}
+                {o.ativo && (pecasNaOficina(o.id) > 0
+                  ? <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: "var(--success-bg)", color: "var(--success)" }}>{pecasNaOficina(o.id)} em produção</span>
+                  : <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: "var(--danger-bg)", color: "var(--danger)" }}>Sem produção</span>)}
+              </span>
               <span style={{ flex: 1, color: "var(--text-2)" }}>{o.cidade || "—"}</span>
               <span style={{ flex: 1, color: "var(--text-2)" }}>{o.telefone || "—"}</span>
               <span style={{ flex: 1, color: "var(--text-2)" }}>{o.qtd_pessoas ?? "—"}</span>
@@ -269,10 +291,12 @@ function DetalheOficina({ registro, onFechar, onSalvo }) {
   const [editando, setEditando] = useState(novo);
   const [campos, setCampos] = useState({
     nome_empresa: registro?.nome_empresa || "",
+    endereco: registro?.endereco || "",
     cidade: registro?.cidade || "",
     telefone: registro?.telefone || "",
     documento: registro?.documento || "",
     maquinario: registro?.maquinario || "",
+    produtos: registro?.produtos || "",
     qtd_pessoas: registro?.qtd_pessoas != null ? String(registro.qtd_pessoas) : "",
   });
   const set = (k) => (e) => setCampos((c) => ({ ...c, [k]: e.target.value }));
@@ -285,10 +309,12 @@ function DetalheOficina({ registro, onFechar, onSalvo }) {
     setSalvando(true);
     const dados = {
       nome_empresa: campos.nome_empresa.trim(),
+      endereco: campos.endereco.trim() || null,
       cidade: campos.cidade.trim() || null,
       telefone: campos.telefone.trim() || null,
       documento: campos.documento.trim() || null,
       maquinario: campos.maquinario.trim() || null,
+      produtos: campos.produtos.trim() || null,
       qtd_pessoas: campos.qtd_pessoas ? parseInt(campos.qtd_pessoas, 10) : null,
     };
     const resp = novo
@@ -310,6 +336,8 @@ function DetalheOficina({ registro, onFechar, onSalvo }) {
         <>
           <label style={lbl}>Nome da empresa</label>
           <input value={campos.nome_empresa} onChange={set("nome_empresa")} autoFocus style={inp} />
+          <label style={{ ...lbl, marginTop: 14 }}>Endereço</label>
+          <input value={campos.endereco} onChange={set("endereco")} placeholder="rua, número, bairro…" style={inp} />
           <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
             <div style={{ flex: 1 }}><label style={lbl}>Cidade</label><input value={campos.cidade} onChange={set("cidade")} style={inp} /></div>
             <div style={{ flex: 1 }}><label style={lbl}>Telefone</label><input value={campos.telefone} onChange={set("telefone")} style={inp} /></div>
@@ -320,6 +348,8 @@ function DetalheOficina({ registro, onFechar, onSalvo }) {
           </div>
           <label style={{ ...lbl, marginTop: 14 }}>Maquinário</label>
           <input value={campos.maquinario} onChange={set("maquinario")} placeholder="ex: 5 retas, 2 overlocks…" style={inp} />
+          <label style={{ ...lbl, marginTop: 14 }}>Produtos</label>
+          <input value={campos.produtos} onChange={set("produtos")} placeholder="o que a oficina produz…" style={inp} />
         </>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -327,11 +357,13 @@ function DetalheOficina({ registro, onFechar, onSalvo }) {
             <Campo rotulo="Cidade" valor={registro.cidade} />
             <Campo rotulo="Telefone" valor={registro.telefone} />
           </div>
+          <Campo rotulo="Endereço" valor={registro.endereco} />
           <div style={{ display: "flex", gap: 24 }}>
             <Campo rotulo="Documento" valor={registro.documento} />
             <Campo rotulo="Qtd. de pessoas" valor={registro.qtd_pessoas != null ? String(registro.qtd_pessoas) : null} />
           </div>
           <Campo rotulo="Maquinário" valor={registro.maquinario} />
+          <Campo rotulo="Produtos" valor={registro.produtos} />
           <Campo rotulo="Status" valor={registro.ativo ? "Ativo" : "Inativo"} />
         </div>
       )}

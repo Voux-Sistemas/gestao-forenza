@@ -107,13 +107,13 @@ export default function Quadro({ session, perfil }) {
         })}
       </div>
 
-      {mover && <ModalMover dados={mover} session={session} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
+      {mover && <ModalMover dados={mover} oficinas={oficinas} session={session} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
       {novoAberto && <ModalNovo clientes={clientes} oficinas={oficinas} onFechar={() => setNovoAberto(false)} onOk={() => { setNovoAberto(false); carregar(); }} />}
     </div>
   );
 }
 
-function ModalMover({ dados, session, onFechar, onOk }) {
+function ModalMover({ dados, oficinas, session, onFechar, onOk }) {
   const { pedido, local, saldo } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
   const [destino, setDestino] = useState(destinos[0]);
@@ -121,7 +121,13 @@ function ModalMover({ dados, session, onFechar, onOk }) {
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [verResumo, setVerResumo] = useState(false);
+  const [oficinaId, setOficinaId] = useState(pedido.oficina_id ? String(pedido.oficina_id) : "");
   const [bloqueado, setBloqueado] = useState((local === "Corte" && corteBloqueado(pedido)) || (local === "Acabamento" && acabamentoBloqueado(pedido)));
+
+  async function mudarOficina(novo) {
+    setOficinaId(novo);
+    await supabase.from("pedidos").update({ oficina_id: novo ? Number(novo) : null }).eq("id", pedido.id);
+  }
 
   async function confirmar() {
     setErro(null);
@@ -142,6 +148,13 @@ function ModalMover({ dados, session, onFechar, onOk }) {
     <Overlay onFechar={onFechar}>
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Mover peças</h3>
       <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pedido.referencia} · {saldo} peças em {local}</p>
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 }}>Oficina responsável</label>
+        <select value={oficinaId} onChange={(e) => mudarOficina(e.target.value)} style={inpMini}>
+          <option value="">— nenhuma —</option>
+          {(oficinas || []).filter((o) => o.ativo).map((o) => <option key={o.id} value={String(o.id)}>{o.nome_empresa}</option>)}
+        </select>
+      </div>
       {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} />}
       {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} />}
       <label style={lbl}>Quantidade</label>
