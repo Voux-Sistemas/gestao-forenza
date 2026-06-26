@@ -8,12 +8,27 @@ function dataHora(iso) {
   } catch { return ""; }
 }
 
+const lblF = { fontSize: 11, color: "var(--text-2)", marginBottom: 4 };
+
 export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, onMudou }) {
   const sol = solicitacao;
   const nomeCliente = clientes.find((c) => c.id === sol.cliente_id)?.nome || "—";
 
   const [comentarios, setComentarios] = useState([]);
-  const [ficha, setFicha] = useState(sol.ficha_tecnica || "");
+  const [ficha, setFicha] = useState(() => {
+    const f = sol.ficha || {};
+    return {
+      referencia: f.referencia || "",
+      marca: f.marca || "",
+      descricao: f.descricao || sol.descricao || "",
+      data_recebimento: f.data_recebimento || "",
+      produto_acabado: f.produto_acabado || "",
+      mao_de_obra: f.mao_de_obra || "",
+      prazo_piloto: f.prazo_piloto || "",
+    };
+  });
+  const aprovada = sol.status === "aprovada";
+  const setF = (k) => (e) => setFicha((c) => ({ ...c, [k]: e.target.value }));
   const [novoComent, setNovoComent] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [salvandoFicha, setSalvandoFicha] = useState(false);
@@ -37,7 +52,7 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
 
   async function salvarFicha() {
     setSalvandoFicha(true);
-    await supabase.from("solicitacoes").update({ ficha_tecnica: ficha }).eq("id", sol.id);
+    await supabase.from("solicitacoes").update({ ficha }).eq("id", sol.id);
     setSalvandoFicha(false);
     setFichaSalva(true);
     setTimeout(() => setFichaSalva(false), 2000);
@@ -62,11 +77,12 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
     const { data: peds } = await supabase.from("pedidos").select("referencia");
     let max = 0;
     (peds || []).forEach((pp) => { const m = /^PED-(\d+)$/.exec(pp.referencia || ""); if (m) max = Math.max(max, parseInt(m[1], 10)); });
-    const referencia = `PED-${String(max + 1).padStart(3, "0")}`;
+    const refAuto = `PED-${String(max + 1).padStart(3, "0")}`;
     const ped = await supabase.from("pedidos").insert({
       cliente_id: sol.cliente_id,
       solicitacao_id: sol.id,
-      referencia,
+      referencia: (ficha.referencia && ficha.referencia.trim()) || refAuto,
+      marca: ficha.marca && ficha.marca.trim() ? ficha.marca.trim() : null,
       total: sol.quantidade,
       prazo: sol.prazo_desejado || null,
     });
@@ -93,13 +109,28 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
 
         <div style={{ padding: "18px 20px", overflowY: "auto", flex: 1 }}>
           <div style={{ marginBottom: 22 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <label style={{ fontSize: 13, fontWeight: 600 }}>Ficha técnica</label>
-              <button onClick={salvarFicha} disabled={salvandoFicha} style={btnMini}>
-                {salvandoFicha ? "Salvando…" : fichaSalva ? "Salvo ✓" : "Salvar ficha"}
-              </button>
+              {!aprovada && (
+                <button onClick={salvarFicha} disabled={salvandoFicha} style={btnMini}>
+                  {salvandoFicha ? "Salvando…" : fichaSalva ? "Salvo ✓" : "Salvar ficha"}
+                </button>
+              )}
             </div>
-            <textarea value={ficha} onChange={(e) => setFicha(e.target.value)} rows={4} placeholder="Tecido, medidas, cores, acabamentos, observações de produção…" style={{ ...inp, resize: "vertical" }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}><div style={lblF}>Referência</div><input value={ficha.referencia} onChange={setF("referencia")} disabled={aprovada} style={inp} /></div>
+                <div style={{ flex: 1 }}><div style={lblF}>Marca</div><input value={ficha.marca} onChange={setF("marca")} disabled={aprovada} style={inp} /></div>
+              </div>
+              <div><div style={lblF}>Descrição do produto</div><input value={ficha.descricao} onChange={setF("descricao")} disabled={aprovada} style={inp} /></div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}><div style={lblF}>Data de recebimento</div><input type="date" value={ficha.data_recebimento} onChange={setF("data_recebimento")} disabled={aprovada} style={inp} /></div>
+                <div style={{ flex: 1 }}><div style={lblF}>Prazo da peça piloto</div><input type="date" value={ficha.prazo_piloto} onChange={setF("prazo_piloto")} disabled={aprovada} style={inp} /></div>
+              </div>
+              <div><div style={lblF}>Produto acabado</div><input value={ficha.produto_acabado} onChange={setF("produto_acabado")} disabled={aprovada} style={inp} /></div>
+              <div><div style={lblF}>Mão de obra</div><input value={ficha.mao_de_obra} onChange={setF("mao_de_obra")} disabled={aprovada} style={inp} /></div>
+            </div>
+            {aprovada && <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 8 }}>Solicitação aprovada — ficha em modo leitura.</p>}
           </div>
 
           <div>
