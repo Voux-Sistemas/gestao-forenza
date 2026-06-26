@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
+import { comprimirImagem } from "../comprimirImagem.js";
 import { X, Send, ImagePlus } from "lucide-react";
 
 function dataHora(iso) {
@@ -66,7 +67,7 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
     if (imgComent) {
       const ext = (imgComent.name.split(".").pop() || "jpg").toLowerCase();
       const path = `conv-${Date.now()}.${ext}`;
-      const up = await supabase.storage.from("referencias").upload(path, imgComent);
+      const up = await supabase.storage.from("referencias").upload(path, await comprimirImagem(imgComent));
       if (up.error) { setEnviando(false); window.alert("Falha ao enviar a imagem: " + up.error.message); return; }
       imagem_url = supabase.storage.from("referencias").getPublicUrl(path).data.publicUrl;
     }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
+import { comprimirImagem } from "../comprimirImagem.js";
 import { Plus, ImagePlus, X } from "lucide-react";
 
 const PRODUCAO = ["Entrada", "Corte", "Oficina", "Acabamento"];
@@ -173,7 +174,7 @@ function ModalNova({ clienteId, onFechar, onOk }) {
     if (arquivo) {
       const ext = (arquivo.name.split(".").pop() || "jpg").toLowerCase();
       const path = `sol-${Date.now()}.${ext}`;
-      const up = await supabase.storage.from("referencias").upload(path, arquivo);
+      const up = await supabase.storage.from("referencias").upload(path, await comprimirImagem(arquivo));
       if (up.error) { setSalvando(false); return setErro("Falha ao enviar a imagem: " + up.error.message); }
       const { data } = supabase.storage.from("referencias").getPublicUrl(path);
       imagemUrl = data.publicUrl;
@@ -253,7 +254,7 @@ function ModalConversa({ solicitacao, onFechar }) {
     if (imgFile) {
       const ext = (imgFile.name.split(".").pop() || "jpg").toLowerCase();
       const path = `conv-${Date.now()}.${ext}`;
-      const up = await supabase.storage.from("referencias").upload(path, imgFile);
+      const up = await supabase.storage.from("referencias").upload(path, await comprimirImagem(imgFile));
       if (up.error) { setEnviando(false); window.alert("Falha ao enviar a imagem: " + up.error.message); return; }
       imagem_url = supabase.storage.from("referencias").getPublicUrl(path).data.publicUrl;
     }
