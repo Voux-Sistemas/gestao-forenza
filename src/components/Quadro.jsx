@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, Package } from "lucide-react";
+import { Plus, ArrowRight, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar } from "lucide-react";
 
 const LOCAIS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
 const COLUNAS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
@@ -8,6 +8,7 @@ const CORES = {
   Entrada: "var(--text-2)", Corte: "var(--accent)", Oficina: "var(--warning)",
   Acabamento: "var(--accent)", Estoque: "var(--success)", Perda: "var(--danger)",
 };
+const ICONES_COLUNA = { Entrada: Download, Corte: Scissors, Oficina: Factory, Acabamento: Sparkles, Estoque: Boxes, Perda: Trash2 };
 
 function calcularSaldos(pedidoId, total, movimentos) {
   const s = { Entrada: total, Corte: 0, Oficina: 0, Acabamento: 0, Estoque: 0, Perda: 0 };
@@ -69,17 +70,53 @@ export default function Quadro({ session, perfil }) {
         )}
       </div>
 
+      {podeVerTudo && (() => {
+        let pedProducao = 0, atrasados = 0, pcProducao = 0, pcEstoque = 0, pcPerda = 0;
+        pedidos.forEach((pe) => {
+          const s2 = calcularSaldos(pe.id, pe.total, movimentos);
+          const emProd = s2.Entrada + s2.Corte + s2.Oficina + s2.Acabamento;
+          pcProducao += emProd; pcEstoque += s2.Estoque; pcPerda += s2.Perda;
+          if (emProd > 0) { pedProducao++; const d = diasAtePrazo(pe.prazo); if (d !== null && d < 0) atrasados++; }
+        });
+        const stats = [
+          { label: "Pedidos em produção", valor: pedProducao, Icon: ClipboardList, cor: "var(--accent)", bg: "var(--accent-bg)" },
+          { label: "Atrasados", valor: atrasados, Icon: AlertTriangle, cor: "var(--danger)", bg: "var(--danger-bg)" },
+          { label: "Peças em produção", valor: pcProducao, Icon: Package, cor: "var(--warning)", bg: "var(--warning-bg)" },
+          { label: "Em estoque", valor: pcEstoque, Icon: Boxes, cor: "var(--success)", bg: "var(--success-bg)" },
+          { label: "Perdas", valor: pcPerda, Icon: Trash2, cor: "var(--danger)", bg: "var(--danger-bg)" },
+        ];
+        return (
+          <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+            {stats.map((m) => {
+              const Icon = m.Icon;
+              return (
+                <div key={m.label} style={{ flex: "1 1 160px", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: m.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon size={18} style={{ color: m.cor }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: "var(--text-2)" }}>{m.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>{m.valor}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, alignItems: "flex-start" }}>
         {colunas.map((local) => {
           const cards = pedidos
             .map((pe) => ({ pe, saldo: calcularSaldos(pe.id, pe.total, movimentos) }))
             .filter(({ saldo }) => saldo[local] > 0);
+          const IconeCol = ICONES_COLUNA[local] || Package;
           return (
-            <div key={local} style={coluna}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 99, background: CORES[local] }} />
+            <div key={local} style={{ ...coluna, borderTop: `3px solid ${CORES[local]}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <IconeCol size={15} style={{ color: CORES[local] }} />
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{local}</span>
-                <span style={{ fontSize: 12, color: "var(--text-3)", marginLeft: "auto" }}>{cards.length}</span>
+                <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", fontWeight: 600, background: "var(--surface-2)", borderRadius: 99, padding: "1px 8px" }}>{cards.length}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {cards.map(({ pe, saldo }) => (
@@ -93,6 +130,7 @@ export default function Quadro({ session, perfil }) {
                       <Package size={13} style={{ color: CORES[local] }} />
                       <span style={{ fontSize: 13, fontWeight: 600, color: CORES[local] }}>{saldo[local]}</span>
                       <span style={{ fontSize: 11, color: "var(--text-3)" }}>de {pe.total}</span>
+                      {pe.prazo && <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--text-3)" }}><Calendar size={12} />{fmtCurto(pe.prazo)}</span>}
                     </div>
                     {badgesDoCard(pe, local).length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
@@ -108,6 +146,14 @@ export default function Quadro({ session, perfil }) {
             </div>
           );
         })}
+      </div>
+
+      <div style={{ display: "flex", gap: 18, marginTop: 16, flexWrap: "wrap", fontSize: 12, color: "var(--text-2)" }}>
+        {[["Atrasado / em descanso", "var(--danger)"], ["Atenção (vence em breve / pendente)", "var(--warning)"], ["No prazo", "var(--success)"]].map(([txt, cor]) => (
+          <span key={txt} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 9, height: 9, borderRadius: 99, background: cor }} />{txt}
+          </span>
+        ))}
       </div>
 
       {mover && <ModalMover dados={mover} oficinas={oficinas} session={session} podeEditar={podeEditar} ehMaster={ehMaster} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
@@ -287,6 +333,12 @@ function diasAtePrazo(prazo) {
   const partes = prazo.split("-").map(Number);
   const dt = new Date(partes[0], partes[1] - 1, partes[2]); dt.setHours(0, 0, 0, 0);
   return Math.round((dt - hoje) / 86400000);
+}
+
+function fmtCurto(d) {
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return d || "";
+  const p = d.split("-");
+  return p[2] + "/" + p[1];
 }
 
 function badgesDoCard(pe, local) {
