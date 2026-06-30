@@ -5,8 +5,7 @@ import { MarcaForenza } from "./Logo.jsx";
 const inputStyle = {
   width: "100%", padding: "10px 12px 10px 38px", fontSize: 14, borderRadius: 9,
   border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)",
-  outline: "none", boxSizing: "border-box",
-  transition: "border-color .15s, box-shadow .15s",
+  boxSizing: "border-box",
 };
 
 function IconUser() {
@@ -73,11 +72,6 @@ export default function Login({ modoClienteInicial }) {
   }
 
   const corIcone = (id) => focado === id ? "var(--accent)" : "var(--text-3)";
-  const estiloCampo = (id) => ({
-    ...inputStyle,
-    borderColor: focado === id ? "var(--accent)" : "var(--border)",
-    boxShadow: focado === id ? "0 0 0 3px var(--accent-bg)" : "none",
-  });
 
   return (
     <div style={{
@@ -135,7 +129,7 @@ export default function Login({ modoClienteInicial }) {
             onBlur={() => setFocado(null)}
             required autoFocus
             placeholder={ehCliente ? "Digite seu e-mail" : "Digite seu usuário"}
-            style={estiloCampo("user")}
+            style={inputStyle}
           />
         </div>
 
@@ -156,7 +150,7 @@ export default function Login({ modoClienteInicial }) {
             onBlur={() => setFocado(null)}
             required
             placeholder="Digite sua senha"
-            style={{ ...estiloCampo("senha"), paddingRight: 38 }}
+            style={{ ...inputStyle, paddingRight: 38 }}
           />
           <button
             type="button"
