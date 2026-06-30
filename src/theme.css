@@ -2,33 +2,70 @@
   --bg:#FAFAF8;--surface:#FFFFFF;--surface-2:#F4F4F1;--surface-3:#EAEAE5;
   --border:#E4E4DF;--border-strong:#D3D3CC;
   --text:#23231F;--text-2:#6C6C65;--text-3:#9A9A91;
-  --accent:#2F6BE4;--accent-bg:#EAF1FD;
+  --accent:#3C8F2E;--accent-2:#54AC3C;--accent-bg:#E9F4E4;--brand:#4BA02D;
   --success:#178A5A;--success-bg:#E6F4EC;
   --warning:#B07407;--warning-bg:#FAF0DC;
   --danger:#CB3A3A;--danger-bg:#FBE8E8;
   --orange:#D9650C;--orange-bg:#FBEBDD;
-  --shadow-sm:0 1px 2px rgba(20,20,15,.05);
-  --shadow-card:0 1px 3px rgba(20,20,15,.07),0 1px 2px rgba(20,20,15,.04);
+  --shadow-sm:0 1px 2px rgba(20,20,15,.04);
+  --shadow-card:0 1px 2px rgba(20,20,15,.05);
+  --shadow-md:0 4px 14px rgba(20,20,15,.07);
+  --shadow-lg:0 16px 40px rgba(20,20,15,.10),0 4px 10px rgba(20,20,15,.05);
+  --r-sm:7px;--r-md:10px;--r-lg:13px;--r-xl:16px;
 }
 html[data-theme="dark"]{
   --bg:#18181A;--surface:#232326;--surface-2:#1E1E20;--surface-3:#2C2C30;
   --border:#34343A;--border-strong:#46464D;
   --text:#ECECEA;--text-2:#A2A29B;--text-3:#74746D;
-  --accent:#5B92F2;--accent-bg:#1D2A40;
+  --accent:#5FBF45;--accent-2:#76CB5C;--accent-bg:#162913;--brand:#5FBE3A;
   --success:#43B080;--success-bg:#15291F;
   --warning:#D49A40;--warning-bg:#2B2310;
   --danger:#E26565;--danger-bg:#2E1818;
   --orange:#E8843D;--orange-bg:#2E1E12;
   --shadow-sm:0 1px 2px rgba(0,0,0,.35);
   --shadow-card:0 2px 8px rgba(0,0,0,.4);
+  --shadow-md:0 6px 18px rgba(0,0,0,.5);
+  --shadow-lg:0 16px 38px rgba(0,0,0,.6),0 5px 14px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
 body{
-  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-family:"Manrope",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;font-variant-numeric:tabular-nums;letter-spacing:-.005em;
 }
-button{font-family:inherit;cursor:pointer;}
-button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+h1,h2,h3{letter-spacing:-.02em;}
+button{font-family:inherit;cursor:pointer;
+  transition:transform .12s ease,box-shadow .16s ease,background .16s ease,color .16s ease,border-color .16s ease,opacity .16s ease;}
+button:active:not(:disabled){transform:translateY(.5px) scale(.99);}
+input,select,textarea{transition:border-color .15s ease,box-shadow .15s ease,background .15s ease;}
+input:hover:not(:disabled),select:hover:not(:disabled),textarea:hover:not(:disabled){border-color:var(--border-strong);}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px var(--accent-bg);}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+a{color:var(--accent);}
+
+/* ── utilidades de movimento e profundidade ── */
+.lift{transition:transform .17s cubic-bezier(.2,.7,.3,1),box-shadow .2s ease,border-color .16s ease;}
+.lift:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);border-color:var(--border-strong);}
+.tap{transition:transform .12s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease;}
+.tap:hover{border-color:var(--border-strong);background:var(--surface-2);}
+.fade-in{animation:fadeIn .28s ease both;}
+.rise{animation:rise .34s cubic-bezier(.2,.7,.3,1) both;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.pop{animation:pop .2s cubic-bezier(.2,.7,.3,1) both;}
+@keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.pulse-dot{animation:pulseDot 1.4s ease-in-out infinite;}
+
 .center-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--text-2);}
+
+/* ── barras de rolagem mais elegantes ── */
+*{scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;}
+*::-webkit-scrollbar{height:11px;width:11px;}
+*::-webkit-scrollbar-track{background:transparent;}
+*::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:99px;border:3px solid transparent;background-clip:padding-box;}
+*::-webkit-scrollbar-thumb:hover{background:var(--text-3);border:2px solid transparent;background-clip:padding-box;}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;}}

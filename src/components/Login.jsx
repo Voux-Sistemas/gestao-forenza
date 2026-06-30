@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Layers } from "lucide-react";
+import { MarcaForenza } from "./Logo.jsx";
 
 const inputStyle = {
   width: "100%", padding: "10px 12px", fontSize: 14, borderRadius: 9,
@@ -36,11 +36,14 @@ export default function Login({ modoClienteInicial }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <form onSubmit={entrar} style={{ width: "100%", maxWidth: 360, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 18 }}>
-          <Layers size={22} style={{ color: "var(--accent)" }} />
-          <span style={{ fontSize: 19, fontWeight: 600 }}>Produção</span>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "radial-gradient(1100px 480px at 50% -8%, var(--accent-bg), transparent 60%)" }}>
+      <form onSubmit={entrar} className="pop" style={{ width: "100%", maxWidth: 380, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: "30px 30px 28px", boxShadow: "var(--shadow-lg)" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, marginBottom: 24 }}>
+          <MarcaForenza size={58} />
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "2px" }}>FORENZA<sup style={{ fontSize: ".5em", fontWeight: 700, verticalAlign: "super", color: "var(--text-3)" }}>®</sup></div>
+            <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>Entre para acessar a gestão de produção</div>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--surface-2)", borderRadius: 10, marginBottom: 18 }}>
@@ -64,7 +67,7 @@ export default function Login({ modoClienteInicial }) {
         {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0" }}>{erro}</p>}
 
         <button type="submit" disabled={carregando}
-          style={{ width: "100%", marginTop: 22, padding: "11px", fontSize: 14, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff" }}>
+          style={{ width: "100%", marginTop: 22, padding: "12px", fontSize: 14, fontWeight: 700, borderRadius: 10, border: "none", background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "#fff", boxShadow: "var(--shadow-md)", opacity: carregando ? 0.7 : 1 }}>
           {carregando ? "Entrando…" : "Entrar"}
         </button>
       </form>

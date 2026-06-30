@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search } from "lucide-react";
+import { Plus, ArrowRight, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock } from "lucide-react";
+import StatCard from "./StatCard.jsx";
 
 const LOCAIS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
 const COLUNAS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
@@ -75,7 +76,7 @@ export default function Quadro({ session, perfil }) {
   if (!podeVerTudo && !perfil?.setor) return <div style={{ padding: 28, color: "var(--text-2)" }}>Seu usuário ainda não tem um setor definido.</div>;
 
   return (
-    <div style={{ padding: "20px 22px" }}>
+    <div className="fade-in" style={{ padding: "20px 22px" }}>
       {podeVerTudo && (() => {
         let pedProducao = 0, atrasados = 0, criticos = 0, pcProducao = 0, pcEstoque = 0, pcPerda = 0, nEstoque = 0;
         pedidos.forEach((pe) => {
@@ -93,22 +94,10 @@ export default function Quadro({ session, perfil }) {
           { label: "Perdas", valor: pcPerda, sub: "acumulado", subCor: "var(--text-3)", Icon: Trash2, cor: "var(--danger)", bg: "var(--danger-bg)" },
         ];
         return (
-          <div style={{ display: "flex", gap: 14, marginBottom: 22, flexWrap: "wrap" }}>
-            {stats.map((m) => {
-              const Icon = m.Icon;
-              return (
-                <div key={m.label} style={{ flex: "1 1 180px", padding: "18px 20px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, boxShadow: "var(--shadow-card)", display: "flex", alignItems: "flex-start", gap: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: m.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon size={20} style={{ color: m.cor }} />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 4 }}>{m.label}</div>
-                    <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{m.valor}</div>
-                    <div style={{ fontSize: 11.5, color: m.subCor, marginTop: 5 }}>{m.sub}</div>
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(168px, 1fr))", gap: 12, marginBottom: 22 }}>
+            {stats.map((m) => (
+              <StatCard key={m.label} label={m.label} valor={m.valor} sub={m.sub} subCor={m.subCor} cor={m.cor} Icon={m.Icon} />
+            ))}
           </div>
         );
       })()}
@@ -150,8 +139,12 @@ export default function Quadro({ session, perfil }) {
                 <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", fontWeight: 600, background: "var(--surface-2)", borderRadius: 99, padding: "1px 8px" }}>{cards.length}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {cards.map(({ pe, saldo }) => (
-                  <button key={pe.id} onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })} style={card}>
+                {cards.map(({ pe, saldo }) => {
+                  const urg = urgenciaDoCard(pe, local);
+                  const procBadges = badgesDoCard(pe, local);
+                  const estiloCard = urg ? { ...card, background: urg.bg, border: `1px solid ${urg.borda}` } : card;
+                  return (
+                  <button key={pe.id} className="lift" onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })} style={estiloCard}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 13.5, fontWeight: 600 }}>{pe.referencia}</span>
                       {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: corDaTag(pe.marca).cor, background: corDaTag(pe.marca).bg }}>{pe.marca}</span>}
@@ -161,17 +154,26 @@ export default function Quadro({ session, perfil }) {
                       <Package size={13} style={{ color: CORES[local] }} />
                       <span style={{ fontSize: 13, fontWeight: 600, color: CORES[local] }}>{saldo[local]}</span>
                       <span style={{ fontSize: 11, color: "var(--text-3)" }}>de {pe.total}</span>
-                      {pe.prazo && <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--text-3)" }}><Calendar size={12} />{fmtCurto(pe.prazo)}</span>}
+                      {pe.prazo && <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: urg ? 700 : 400, color: urg ? urg.cor : "var(--text-3)" }}><Calendar size={12} />{fmtCurto(pe.prazo)}</span>}
                     </div>
-                    {badgesDoCard(pe, local).length > 0 && (
+                    {urg && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 9 }}>
+                        {urg.nivel === "atrasado"
+                          ? <span className="pulse-dot" style={{ width: 8, height: 8, borderRadius: 99, background: urg.cor, flexShrink: 0 }} />
+                          : <urg.Icone size={13} style={{ color: urg.cor }} />}
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: urg.cor }}>{urg.label}</span>
+                      </div>
+                    )}
+                    {procBadges.length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
-                        {badgesDoCard(pe, local).map((b, i) => (
-                          <span key={i} style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: b.bg, color: b.cor }}>{b.label}</span>
+                        {procBadges.map((b, i) => (
+                          <span key={i} style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: "var(--surface)", color: b.cor, border: "1px solid var(--border)" }}>{b.label}</span>
                         ))}
                       </div>
                     )}
                   </button>
-                ))}
+                  );
+                })}
                 {cards.length === 0 && <div style={{ fontSize: 12, color: "var(--text-3)", padding: "8px 2px" }}>vazio</div>}
               </div>
             </div>
@@ -179,10 +181,11 @@ export default function Quadro({ session, perfil }) {
         })}
       </div>
 
-      <div style={{ display: "flex", gap: 20, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", fontSize: 12, color: "var(--text-2)" }}>
-        {[["Pendente", "var(--warning)"], ["Atrasado", "var(--danger)"], ["Crítico", "#8E1B1B"], ["Concluído", "var(--success)"], ["No prazo", "var(--accent)"]].map(([txt, cor]) => (
+      <div style={{ display: "flex", alignItems: "center", gap: 18, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", fontSize: 12, color: "var(--text-2)" }}>
+        <span style={{ fontWeight: 600, color: "var(--text-3)" }}>Prazo do cartão:</span>
+        {[["No prazo", "var(--border-strong)"], ["Vence em 2 dias", "var(--warning)"], ["Vence amanhã", "var(--orange)"], ["Vence hoje / atrasado", "var(--danger)"]].map(([txt, cor]) => (
           <span key={txt} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 9, height: 9, borderRadius: 99, background: cor }} />{txt}
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: cor }} />{txt}
           </span>
         ))}
       </div>
@@ -385,15 +388,20 @@ function badgesDoCard(pe, local) {
     const pend = PROCESSOS_ACABAMENTO.filter((n) => !(pc[n] && pc[n].feito)).length;
     if (pend > 0) bs.push({ label: pend + " pendente(s)", cor: "var(--warning)", bg: "var(--warning-bg)" });
   }
-  if (local !== "Estoque") {
-    const dias = diasAtePrazo(pe.prazo);
-    if (dias !== null) {
-      if (dias < 0) bs.push({ label: "Atrasado", cor: "var(--danger)", bg: "var(--danger-bg)" });
-      else if (dias === 0) bs.push({ label: "Vence hoje", cor: "var(--warning)", bg: "var(--warning-bg)" });
-      else if (dias <= 2) bs.push({ label: "Vence em " + dias + "d", cor: "var(--warning)", bg: "var(--warning-bg)" });
-    }
-  }
   return bs;
+}
+
+// Urgência pelo prazo — colore o cartão inteiro conforme a proximidade da data.
+// Só vale enquanto o pedido está em produção (não em Estoque/Perda).
+function urgenciaDoCard(pe, local) {
+  if (local === "Estoque" || local === "Perda") return null;
+  const dias = diasAtePrazo(pe.prazo);
+  if (dias === null) return null;
+  if (dias < 0) return { nivel: "atrasado", label: -dias === 1 ? "Atrasado há 1 dia" : `Atrasado há ${-dias} dias`, cor: "var(--danger)", bg: "var(--danger-bg)", borda: "var(--danger)", Icone: AlertTriangle };
+  if (dias === 0) return { nivel: "hoje", label: "Vence hoje", cor: "var(--danger)", bg: "var(--danger-bg)", borda: "var(--danger)", Icone: AlertTriangle };
+  if (dias === 1) return { nivel: "amanha", label: "Vence amanhã", cor: "var(--orange)", bg: "var(--orange-bg)", borda: "var(--orange)", Icone: Clock };
+  if (dias === 2) return { nivel: "dois", label: "Vence em 2 dias", cor: "var(--warning)", bg: "var(--warning-bg)", borda: "var(--warning)", Icone: Clock };
+  return null;
 }
 
 function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
@@ -405,7 +413,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
     const saved = pedido.processos_corte || {};
     PROCESSOS_CORTE.forEach((nome) => {
       const sv = saved[nome] || {};
-      base[nome] = { feito: !!sv.feito, obs: sv.obs || "", data: sv.data || "" };
+      base[nome] = { feito: !!sv.feito, obs: sv.obs || "", data: sv.data || "", feito_em: sv.feito_em || "" };
     });
     return base;
   });
@@ -427,7 +435,8 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
     reportar(novo, processos);
   }
   function toggleFeito(nome) {
-    const np = { ...processos, [nome]: { ...processos[nome], feito: !processos[nome].feito } };
+    const jaFeito = processos[nome].feito;
+    const np = { ...processos, [nome]: { ...processos[nome], feito: !jaFeito, feito_em: !jaFeito ? agoraTexto() : processos[nome].feito_em } };
     setProcessos(np);
     persist({ processos_corte: np });
     reportar(descanso, np);
@@ -469,27 +478,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
         {descanso ? "Tecido em descanso — corte travado (clique para liberar)" : "Marcar tecido em descanso"}
       </button>
 
-      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>Processos de corte</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {PROCESSOS_CORTE.map((nome) => {
-          const pr = processos[nome];
-          return (
-            <div key={nome} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input type="checkbox" checked={pr.feito} disabled={!podeEditar} onChange={() => toggleFeito(nome)} />
-                <span style={{ fontSize: 13, fontWeight: 500, textDecoration: pr.feito ? "line-through" : "none", color: pr.feito ? "var(--text-3)" : "var(--text)" }}>{nome}</span>
-                {pr.feito && <span style={{ fontSize: 11, color: "var(--success)", marginLeft: "auto" }}>concluído</span>}
-              </label>
-              {!pr.feito && (
-                <div style={{ marginTop: 6 }}>
-                  <input value={pr.obs} onChange={(e) => mudarObs(nome, e.target.value)} onBlur={salvarObs} disabled={!podeEditar} placeholder="Pendente? escreva a observação…" style={{ ...inpMini, fontSize: 12 }} />
-                  {pr.data && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3 }}>desde {pr.data}</div>}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <Rastreio ordem={PROCESSOS_CORTE} processos={processos} podeEditar={podeEditar} onToggle={toggleFeito} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do corte" />
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
           {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. As peças <strong>não podem seguir</strong> até concluir todos — registre a observação do que falta.
@@ -505,7 +494,7 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
     const saved = pedido.processos_acabamento || {};
     PROCESSOS_ACABAMENTO.forEach((nome) => {
       const sv = saved[nome] || {};
-      base[nome] = { feito: !!sv.feito, obs: sv.obs || "", data: sv.data || "" };
+      base[nome] = { feito: !!sv.feito, obs: sv.obs || "", data: sv.data || "", feito_em: sv.feito_em || "" };
     });
     return base;
   });
@@ -518,7 +507,8 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
   useEffect(() => { reportar(processos); }, []);
 
   function toggleFeito(nome) {
-    const np = { ...processos, [nome]: { ...processos[nome], feito: !processos[nome].feito } };
+    const jaFeito = processos[nome].feito;
+    const np = { ...processos, [nome]: { ...processos[nome], feito: !jaFeito, feito_em: !jaFeito ? agoraTexto() : processos[nome].feito_em } };
     setProcessos(np);
     persist({ processos_acabamento: np });
     reportar(np);
@@ -533,32 +523,81 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
 
   return (
     <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Processos de acabamento</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {PROCESSOS_ACABAMENTO.map((nome) => {
-          const pr = processos[nome];
-          return (
-            <div key={nome} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input type="checkbox" checked={pr.feito} disabled={!podeEditar} onChange={() => toggleFeito(nome)} />
-                <span style={{ fontSize: 13, fontWeight: 500, textDecoration: pr.feito ? "line-through" : "none", color: pr.feito ? "var(--text-3)" : "var(--text)" }}>{nome}</span>
-                {pr.feito && <span style={{ fontSize: 11, color: "var(--success)", marginLeft: "auto" }}>concluído</span>}
-              </label>
-              {!pr.feito && (
-                <div style={{ marginTop: 6 }}>
-                  <input value={pr.obs} onChange={(e) => mudarObs(nome, e.target.value)} onBlur={salvarObs} disabled={!podeEditar} placeholder="Pendente? escreva a observação…" style={{ ...inpMini, fontSize: 12 }} />
-                  {pr.data && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3 }}>desde {pr.data}</div>}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <Rastreio ordem={PROCESSOS_ACABAMENTO} processos={processos} podeEditar={podeEditar} onToggle={toggleFeito} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do acabamento" />
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
           {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. As peças <strong>não podem seguir</strong> até concluir todos.
         </div>
       )}
+    </div>
+  );
+}
+
+function agoraTexto() {
+  return new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function Rastreio({ ordem, processos, podeEditar, onToggle, onObs, onSalvarObs, titulo }) {
+  const feitos = ordem.filter((n) => processos[n].feito).length;
+  const total = ordem.length;
+  const pct = Math.round((feitos / total) * 100);
+  const completo = feitos === total;
+  const idxAtual = ordem.findIndex((n) => !processos[n].feito);
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px" }}>{titulo}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: completo ? "var(--success)" : "var(--text-2)" }}>{feitos}<span style={{ color: "var(--text-3)", fontWeight: 600 }}>/{total}</span></span>
+      </div>
+      <div style={{ height: 6, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden", marginBottom: 16 }}>
+        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: completo ? "var(--success)" : "linear-gradient(90deg,var(--accent),var(--accent-2))", transition: "width .4s cubic-bezier(.2,.7,.3,1)" }} />
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {ordem.map((nome, i) => {
+          const pr = processos[nome];
+          const feito = pr.feito;
+          const atual = !feito && i === idxAtual;
+          const ultimo = i === ordem.length - 1;
+          const cor = feito ? "var(--success)" : atual ? "var(--accent)" : "var(--border-strong)";
+          return (
+            <div key={nome} style={{ position: "relative", display: "flex", gap: 12, paddingBottom: ultimo ? 0 : 4 }}>
+              {!ultimo && <span style={{ position: "absolute", left: 12, top: 27, bottom: -4, width: 2, borderRadius: 2, background: feito ? "var(--success)" : "var(--border)" }} />}
+              <button type="button" onClick={() => podeEditar && onToggle(nome)} disabled={!podeEditar}
+                aria-label={feito ? `${nome} concluído, clique para reabrir` : `Marcar ${nome} como concluído`}
+                style={{
+                  position: "relative", zIndex: 1, flexShrink: 0, width: 26, height: 26, borderRadius: 99, padding: 0,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  border: feito ? "none" : `2px solid ${cor}`,
+                  background: feito ? "var(--success)" : atual ? "var(--accent-bg)" : "var(--surface)",
+                  color: "#fff", cursor: podeEditar ? "pointer" : "default",
+                  boxShadow: feito ? "var(--shadow-sm)" : "none",
+                }}>
+                {feito ? <Check size={15} /> : <span style={{ width: 7, height: 7, borderRadius: 99, background: atual ? "var(--accent)" : "transparent" }} />}
+              </button>
+              <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: feito ? "var(--text-2)" : "var(--text)" }}>{nome}</span>
+                  <span style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap",
+                    color: feito ? "var(--success)" : atual ? "var(--accent)" : "var(--text-3)",
+                    background: feito ? "var(--success-bg)" : atual ? "var(--accent-bg)" : "var(--surface-2)" }}>
+                    {feito ? "Concluído" : atual ? "Em andamento" : "Aguardando"}
+                  </span>
+                </div>
+                {feito ? (
+                  pr.feito_em && <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> em {pr.feito_em}</div>
+                ) : (
+                  <div style={{ marginTop: 6 }}>
+                    <input value={pr.obs} onChange={(e) => onObs(nome, e.target.value)} onBlur={onSalvarObs} disabled={!podeEditar} placeholder="Observação (opcional)…" style={{ ...inpMini, fontSize: 12 }} />
+                    {pr.data && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3 }}>nota desde {pr.data}</div>}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
