@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Factory, ArrowUpRight, ArrowDownLeft, Calendar, AlertTriangle, X, Plus } from "lucide-react";
+import { Factory, ArrowUpRight, ArrowDownLeft, Calendar, AlertTriangle, X, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "../supabaseClient.js";
 
 const LOCAIS_PRE_OFICINA = ["Entrada", "Corte"];      // de onde podem sair peças pra oficina
@@ -44,6 +44,7 @@ export default function ControleOficinas({ session, perfil }) {
   const [carregando, setCarregando] = useState(true);
   const [novaSaida, setNovaSaida] = useState(false);
   const [retornar, setRetornar] = useState(null); // remessa selecionada
+  const [expandida, setExpandida] = useState(null); // id da remessa expandida
 
   const carregar = useCallback(async () => {
     const [p, m, o, r, c] = await Promise.all([
@@ -127,18 +128,59 @@ export default function ControleOficinas({ session, perfil }) {
                   const d = diasEntre(r.data_saida, null);
                   const restante = r.qtd_enviada - r.qtd_retornada;
                   const atrasada = d > 7;
+                  const aberto = expandida === r.id;
+                  // movimentos dessa remessa, ordenados por data
+                  const movsRemessa = movimentos.filter((m) => m.remessa_id === r.id).sort((a, b) => {
+                    const da = (a.data || a.criado_em || "").slice(0, 10);
+                    const db = (b.data || b.criado_em || "").slice(0, 10);
+                    return da.localeCompare(db);
+                  });
                   return (
-                    <div key={r.id} style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 9, background: "var(--surface-2)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                      <div style={{ minWidth: 200 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{ped?.referencia || "#" + r.pedido_id}{ped?.marca ? ` · ${ped.marca}` : ""}</div>
-                        <div style={{ fontSize: 11.5, color: "var(--text-2)" }}>{ped ? nomeCliente(ped.cliente_id) : ""}</div>
+                    <div key={r.id} style={{ border: "1px solid var(--border)", borderRadius: 9, background: "var(--surface-2)", overflow: "hidden" }}>
+                      <div style={{ padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <button onClick={() => setExpandida(aberto ? null : r.id)} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, cursor: "pointer", color: "var(--text)", minWidth: 200, textAlign: "left" }}>
+                          {aberto ? <ChevronDown size={14} style={{ color: "var(--text-3)" }} /> : <ChevronRight size={14} style={{ color: "var(--text-3)" }} />}
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{ped?.referencia || "#" + r.pedido_id}{ped?.marca ? ` · ${ped.marca}` : ""}</div>
+                            <div style={{ fontSize: 11.5, color: "var(--text-2)" }}>{ped ? nomeCliente(ped.cliente_id) : ""}</div>
+                          </div>
+                        </button>
+                        <div style={{ fontSize: 11.5, color: "var(--text-2)" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> Saiu {fmtData(r.data_saida)}</span>
+                          <span style={{ marginLeft: 12, fontWeight: 600, color: atrasada ? "var(--danger)" : "var(--text-2)" }}>{d} dia{d === 1 ? "" : "s"}{atrasada ? " — atrasada" : ""}</span>
+                        </div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--danger)" }}>faltam {restante} <span style={{ color: "var(--text-3)", fontWeight: 400 }}>de {r.qtd_enviada}</span></div>
+                        <button onClick={() => setRetornar({ remessa: r, pedido: ped })} style={btnMini}><ArrowDownLeft size={13} /> Registrar retorno</button>
                       </div>
-                      <div style={{ fontSize: 11.5, color: "var(--text-2)" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> Saiu {fmtData(r.data_saida)}</span>
-                        <span style={{ marginLeft: 12, fontWeight: 600, color: atrasada ? "var(--danger)" : "var(--text-2)" }}>{d} dia{d === 1 ? "" : "s"}{atrasada ? " — atrasada" : ""}</span>
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--danger)" }}>faltam {restante} <span style={{ color: "var(--text-3)", fontWeight: 400 }}>de {r.qtd_enviada}</span></div>
-                      <button onClick={() => setRetornar({ remessa: r, pedido: ped })} style={btnMini}><ArrowDownLeft size={13} /> Registrar retorno</button>
+                      {aberto && (
+                        <div style={{ padding: "10px 14px 12px 32px", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+                          <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 7 }}>Histórico desta remessa</div>
+                          {movsRemessa.length === 0 ? (
+                            <div style={{ fontSize: 12, color: "var(--text-3)" }}>Sem movimentações ainda.</div>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                              {movsRemessa.map((m) => {
+                                const ehSaida = m.para_local === "Oficina";
+                                return (
+                                  <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, padding: "5px 0" }}>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                      {ehSaida
+                                        ? <ArrowUpRight size={13} style={{ color: "var(--accent)" }} />
+                                        : <ArrowDownLeft size={13} style={{ color: "var(--success)" }} />}
+                                      <span style={{ color: "var(--text-2)" }}>
+                                        {ehSaida ? "Saiu" : "Voltou"} em <strong style={{ color: "var(--text)" }}>{fmtData((m.data || m.criado_em || "").slice(0, 10))}</strong>
+                                      </span>
+                                    </span>
+                                    <span style={{ color: "var(--text-2)" }}>
+                                      <strong style={{ color: "var(--text)" }}>{m.qtd}</strong> peça(s) <span style={{ color: "var(--text-3)" }}>{ehSaida ? `(de ${m.de_local})` : `→ ${m.para_local}`}</span>
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
