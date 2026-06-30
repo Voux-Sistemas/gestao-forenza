@@ -290,18 +290,24 @@ function HistoricoRemessas({ oficinaId }) {
   const [carregando, setCarregando] = useState(true);
   const [remessas, setRemessas] = useState([]);
   const [pedidos, setPedidos] = useState({});
+  const [movimentos, setMovimentos] = useState([]);
 
   useEffect(() => {
     (async () => {
       const r = await supabase.from("remessas_oficina").select("*").eq("oficina_id", oficinaId).order("id", { ascending: false });
       const rs = r.data || [];
       setRemessas(rs);
+      const idsRemessas = rs.map((x) => x.id);
       const ids = [...new Set(rs.map((x) => x.pedido_id))];
       if (ids.length > 0) {
         const p = await supabase.from("pedidos").select("id, referencia, marca").in("id", ids);
         const mapa = {};
         (p.data || []).forEach((x) => { mapa[x.id] = x; });
         setPedidos(mapa);
+      }
+      if (idsRemessas.length > 0) {
+        const mov = await supabase.from("movimentos").select("*").in("remessa_id", idsRemessas).eq("de_local", "Oficina").order("id");
+        setMovimentos(mov.data || []);
       }
       setCarregando(false);
     })();
@@ -337,6 +343,7 @@ function HistoricoRemessas({ oficinaId }) {
     const aberta = !r.data_fechamento;
     const d = dias(r.data_saida, r.data_fechamento);
     const restante = r.qtd_enviada - r.qtd_retornada;
+    const retornos = movimentos.filter((m) => m.remessa_id === r.id);
     return (
       <div style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 9, background: "var(--surface)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
@@ -356,6 +363,19 @@ function HistoricoRemessas({ oficinaId }) {
             ? <>Enviadas {r.qtd_enviada} · retornaram {r.qtd_retornada} · <span style={{ color: "var(--danger)", fontWeight: 600 }}>faltam {restante}</span></>
             : <>Enviadas e retornadas {r.qtd_enviada} peça(s)</>}
         </div>
+        {retornos.length > 0 && (
+          <div style={{ marginTop: 9, paddingTop: 8, borderTop: "1px dashed var(--border)" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 5 }}>Retornos ({retornos.length})</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {retornos.map((m) => (
+                <div key={m.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--text-2)" }}>
+                  <span><strong style={{ color: "var(--text)" }}>{m.qtd}</strong> peça(s) em {fmt((m.data || m.criado_em || "").slice(0, 10))}</span>
+                  <span style={{ color: "var(--text-3)" }}>→ {m.para_local}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

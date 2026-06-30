@@ -233,10 +233,10 @@ function ModalNovaSaida({ pedidos, oficinas, movimentos, clientes, session, onFe
       qtd_enviada: q, data_saida: dataSaida,
     }).select().single();
     if (r.error) { setSalvando(false); return setErro("Falha ao criar a remessa: " + r.error.message); }
-    // 2) cria o movimento
+    // 2) cria o movimento (usa a data informada)
     const m = await supabase.from("movimentos").insert({
       pedido_id: Number(pedidoId), de_local: origem, para_local: "Oficina", qtd: q,
-      usuario_id: session.user.id, remessa_id: r.data.id,
+      usuario_id: session.user.id, remessa_id: r.data.id, data: dataSaida,
     });
     if (m.error) { setSalvando(false); return setErro("Falha ao registrar a movimentação: " + m.error.message); }
     // 3) atualiza o pedido com a oficina responsável (mantém compatibilidade com o resto do sistema)
@@ -314,10 +314,10 @@ function ModalRegistrarRetorno({ dados, session, onFechar, onOk }) {
       data_fechamento: fechada ? dataRetorno : null,
     }).eq("id", remessa.id);
     if (up.error) { setSalvando(false); return setErro("Falha ao abater a remessa: " + up.error.message); }
-    // 2) cria o movimento
+    // 2) cria o movimento (usa a data informada)
     const m = await supabase.from("movimentos").insert({
       pedido_id: remessa.pedido_id, de_local: "Oficina", para_local: destino, qtd: q,
-      usuario_id: session.user.id, remessa_id: remessa.id,
+      usuario_id: session.user.id, remessa_id: remessa.id, data: dataRetorno,
     });
     if (m.error) { setSalvando(false); return setErro("Falha ao registrar a movimentação: " + m.error.message); }
     setSalvando(false);
