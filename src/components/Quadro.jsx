@@ -489,7 +489,27 @@ function infoRemessasOficina(pe, remessas, oficinas) {
 }
 
 function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
-  const remessasPedido = (remessas || []).filter((r) => r.pedido_id === pedido.id).sort((a, b) => b.data_saida.localeCompare(a.data_saida));
+  function fmtData(d) {
+    if (!d) return "—";
+    const str = String(d);
+    if (!/^\d{4}-\d{2}-\d{2}/.test(str)) return str;
+    const p = str.slice(0, 10).split("-");
+    return p[2] + "/" + p[1];
+  }
+  function fmtDataHora(d) {
+    if (!d) return "—";
+    try {
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return String(d);
+      return dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    } catch { return String(d); }
+  }
+  const nomeOficina = (id) => (oficinas || []).find((o) => o.id === id)?.nome_empresa || "—";
+
+  const remessasPedido = (remessas || [])
+    .filter((r) => r && r.pedido_id === pedido.id)
+    .sort((a, b) => String(b.data_saida || "").localeCompare(String(a.data_saida || "")));
+
   if (remessasPedido.length === 0) {
     return (
       <div style={{ marginTop: 14, padding: 12, background: "var(--surface-2)", borderRadius: 9, border: "1px solid var(--border)" }}>
@@ -497,77 +517,68 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
       </div>
     );
   }
-  const nomeOficina = (id) => oficinas.find((o) => o.id === id)?.nome_empresa || "—";
-  function fmtData(d) {
-    if (!d) return "—";
-    const p = d.split("-");
-    return p[2] + "/" + p[1] + "/" + p[0];
-  }
-  function diasEntre(de, ate) {
-    if (!de) return 0;
-    const [y1, m1, d1] = de.split("-").map(Number);
-    const dA = new Date(y1, m1 - 1, d1); dA.setHours(0, 0, 0, 0);
-    let dB;
-    if (ate) {
-      const [y2, m2, d2] = ate.split("-").map(Number);
-      dB = new Date(y2, m2 - 1, d2); dB.setHours(0, 0, 0, 0);
-    } else {
-      dB = new Date(); dB.setHours(0, 0, 0, 0);
-    }
-    return Math.round((dB - dA) / 86400000);
-  }
   return (
-    <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--surface-2)", borderRadius: 9, border: "1px solid var(--border)" }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 10 }}>Remessas e movimentação</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {remessasPedido.map((r) => {
-          const aberta = !r.data_fechamento;
-          const d = diasEntre(r.data_saida, r.data_fechamento);
-          const restante = r.qtd_enviada - r.qtd_retornada;
-          const movs = (movimentos || []).filter((m) => m.remessa_id === r.id).sort((a, b) => {
-            const da = (a.data || a.criado_em || "").slice(0, 10);
-            const db = (b.data || b.criado_em || "").slice(0, 10);
-            return da.localeCompare(db);
-          });
-          return (
-            <div key={r.id} style={{ padding: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 600 }}>{nomeOficina(r.oficina_id)}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 99, color: aberta ? "var(--warning)" : "var(--success)", background: aberta ? "var(--warning-bg)" : "var(--success-bg)" }}>
-                  {aberta ? "Em aberto" : "Fechada"}
-                </span>
-              </div>
-              <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 7 }}>
-                {aberta
-                  ? <>Saiu {fmtData(r.data_saida)} · {d} {d === 1 ? "dia" : "dias"} · faltam <strong style={{ color: "var(--danger)" }}>{restante}</strong> de {r.qtd_enviada}</>
-                  : <>Saiu {fmtData(r.data_saida)} · voltou {fmtData(r.data_fechamento)} · {d} {d === 1 ? "dia" : "dias"} no total · {r.qtd_enviada} peça(s)</>}
-              </div>
-              {movs.length > 0 && (
-                <div style={{ paddingTop: 6, borderTop: "1px dashed var(--border)", display: "flex", flexDirection: "column", gap: 3 }}>
-                  {movs.map((m) => {
-                    const ehSaida = m.para_local === "Oficina";
-                    return (
-                      <div key={m.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--text-2)" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                          {ehSaida
-                            ? <ArrowUpRight size={11} style={{ color: "var(--accent)" }} />
-                            : <ArrowDownLeft size={11} style={{ color: "var(--success)" }} />}
-                          {ehSaida ? "Saiu" : "Voltou"} em <strong style={{ color: "var(--text)" }}>{fmtData((m.data || m.criado_em || "").slice(0, 10))}</strong>
-                        </span>
-                        <span><strong style={{ color: "var(--text)" }}>{m.qtd}</strong> <span style={{ color: "var(--text-3)" }}>{ehSaida ? `(de ${m.de_local})` : `→ ${m.para_local}`}</span></span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+    <div style={{ marginTop: 14 }}>
+      {remessasPedido.map((r) => {
+        const aberta = !r.data_fechamento;
+        const restante = (r.qtd_enviada || 0) - (r.qtd_retornada || 0);
+        const movs = (movimentos || []).filter((m) => m.remessa_id === r.id).sort((a, b) => {
+          const da = String(a.data || a.criado_em || "");
+          const db = String(b.data || b.criado_em || "");
+          return da.localeCompare(db);
+        });
+        const totalEsperado = r.qtd_enviada || 0;
+        const retornado = r.qtd_retornada || 0;
+        const pct = totalEsperado > 0 ? Math.round((retornado / totalEsperado) * 100) : 0;
+        return (
+          <div key={r.id} style={{ padding: "14px 16px", background: "var(--surface-2)", borderRadius: 11, border: "1px solid var(--border)", marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.6 }}>Rastreio da remessa</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: aberta ? "var(--warning)" : "var(--success)" }}>{retornado}/{totalEsperado}</span>
             </div>
-          );
-        })}
-      </div>
+            <div style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>
+              {nomeOficina(r.oficina_id)} · saiu {fmtData(r.data_saida)}{!aberta && <> · voltou {fmtData(r.data_fechamento)}</>}{aberta && restante > 0 && <> · <span style={{ color: "var(--danger)", fontWeight: 600 }}>faltam {restante}</span></>}
+            </div>
+            <div style={{ height: 4, background: "var(--surface)", borderRadius: 99, overflow: "hidden", marginBottom: 12 }}>
+              <div style={{ width: `${pct}%`, height: "100%", background: aberta ? "var(--warning)" : "var(--success)", transition: "width .3s" }} />
+            </div>
+            {movs.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {movs.map((m, idx) => {
+                  const ehSaida = m.para_local === "Oficina";
+                  const dataMov = m.data || (m.criado_em ? m.criado_em.slice(0, 10) : "");
+                  return (
+                    <div key={m.id || idx} style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
+                      {idx < movs.length - 1 && <span style={{ position: "absolute", left: 11, top: 22, bottom: -10, width: 2, background: "var(--border)" }} />}
+                      <div style={{ width: 22, height: 22, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center", background: ehSaida ? "var(--accent)" : "var(--success)", flexShrink: 0, zIndex: 1 }}>
+                        {ehSaida
+                          ? <ArrowUpRight size={12} style={{ color: "#fff" }} />
+                          : <ArrowDownLeft size={12} style={{ color: "#fff" }} />}
+                      </div>
+                      <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <div>
+                          <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+                            {ehSaida ? "Saiu para oficina" : `Retornou para ${m.para_local}`}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--text-3)", display: "inline-flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                            <Calendar size={10} /> em {fmtDataHora(m.data ? dataMov : m.criado_em)}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 99, background: ehSaida ? "var(--accent-bg)" : "var(--success-bg)", color: ehSaida ? "var(--accent)" : "var(--success)" }}>
+                          {m.qtd} peça{m.qtd === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
-
 function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
   const [tamanho, setTamanho] = useState(pedido.tamanho || "");
   const [tecido, setTecido] = useState(pedido.tecido || "");
