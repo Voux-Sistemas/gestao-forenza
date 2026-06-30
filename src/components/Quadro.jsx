@@ -38,19 +38,21 @@ export default function Quadro({ session, perfil }) {
   const [movimentos, setMovimentos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [oficinas, setOficinas] = useState([]);
+  const [remessas, setRemessas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [mover, setMover] = useState(null);
   const [novoAberto, setNovoAberto] = useState(false);
 
   const carregar = useCallback(async () => {
-    const [p, m, c, o] = await Promise.all([
+    const [p, m, c, o, r] = await Promise.all([
       supabase.from("pedidos").select("*").order("id"),
       supabase.from("movimentos").select("*").order("id"),
       supabase.from("clientes").select("*").order("nome"),
       supabase.from("oficinas").select("*").order("nome_empresa"),
+      supabase.from("remessas_oficina").select("*").order("id"),
     ]);
     setPedidos(p.data || []); setMovimentos(m.data || []);
-    setClientes(c.data || []); setOficinas(o.data || []);
+    setClientes(c.data || []); setOficinas(o.data || []); setRemessas(r.data || []);
     setCarregando(false);
   }, []);
 
@@ -142,6 +144,7 @@ export default function Quadro({ session, perfil }) {
                 {cards.map(({ pe, saldo }) => {
                   const urg = urgenciaDoCard(pe, local);
                   const procBadges = badgesDoCard(pe, local);
+                  const infoRem = local === "Oficina" ? infoRemessasOficina(pe, remessas, oficinas) : null;
                   const estiloCard = urg ? { ...card, background: urg.bg, border: `1px solid ${urg.borda}` } : card;
                   return (
                   <button key={pe.id} className="lift" onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })} style={estiloCard}>
@@ -162,6 +165,15 @@ export default function Quadro({ session, perfil }) {
                           ? <span className="pulse-dot" style={{ width: 8, height: 8, borderRadius: 99, background: urg.cor, flexShrink: 0 }} />
                           : <urg.Icone size={13} style={{ color: urg.cor }} />}
                         <span style={{ fontSize: 11.5, fontWeight: 700, color: urg.cor }}>{urg.label}</span>
+                      </div>
+                    )}
+                    {infoRem && (
+                      <div style={{ marginTop: 9, padding: "7px 9px", background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                        <div style={{ fontSize: 11, color: "var(--text-2)", fontWeight: 600 }}>{infoRem.nomeOficina}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                          <span style={{ fontSize: 10.5, color: "var(--text-3)" }}>{infoRem.totalAbertas > 1 ? `${infoRem.totalAbertas} remessas em aberto` : `há ${infoRem.dias} ${infoRem.dias === 1 ? "dia" : "dias"}`}</span>
+                          <span style={{ fontSize: 10.5, fontWeight: 600, color: infoRem.dias > 7 ? "var(--danger)" : "var(--text-2)" }}>faltam {infoRem.totalRestante}</span>
+                        </div>
                       </div>
                     )}
                     {procBadges.length > 0 && (
@@ -190,13 +202,13 @@ export default function Quadro({ session, perfil }) {
         ))}
       </div>
 
-      {mover && <ModalMover dados={mover} oficinas={oficinas} session={session} podeEditar={podeEditar} ehMaster={ehMaster} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
+      {mover && <ModalMover dados={mover} oficinas={oficinas} remessas={remessas} session={session} podeEditar={podeEditar} ehMaster={ehMaster} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
       {novoAberto && <ModalNovo clientes={clientes} oficinas={oficinas} onFechar={() => setNovoAberto(false)} onOk={() => { setNovoAberto(false); carregar(); }} />}
     </div>
   );
 }
 
-function ModalMover({ dados, oficinas, session, podeEditar, ehMaster, onFechar, onOk }) {
+function ModalMover({ dados, oficinas, remessas, session, podeEditar, ehMaster, onFechar, onOk }) {
   const { pedido, local, saldo } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
   const [destino, setDestino] = useState(destinos[0]);
@@ -206,6 +218,9 @@ function ModalMover({ dados, oficinas, session, podeEditar, ehMaster, onFechar, 
   const [verResumo, setVerResumo] = useState(false);
   const [oficinaId, setOficinaId] = useState(pedido.oficina_id ? String(pedido.oficina_id) : "");
   const [bloqueado, setBloqueado] = useState((local === "Corte" && corteBloqueado(pedido)) || (local === "Acabamento" && acabamentoBloqueado(pedido)));
+  // remessas em aberto desse pedido (saída pra oficina ainda não fechada)
+  const remessasAbertas = (remessas || []).filter((r) => r.pedido_id === pedido.id && !r.data_fechamento);
+  const [remessaId, setRemessaId] = useState(remessasAbertas[0]?.id || "");
 
   async function mudarOficina(novo) {
     setOficinaId(novo);
@@ -226,9 +241,44 @@ function ModalMover({ dados, oficinas, session, podeEditar, ehMaster, onFechar, 
     if (!q || q < 1) return setErro("Quantidade inválida.");
     if (q > saldo) return setErro(`Só há ${saldo} peças em ${local}.`);
     if (bloqueado) return setErro(local === "Corte" ? "Corte travado: libere o descanso do tecido e conclua os processos pendentes antes de mover." : "Acabamento travado: conclua os processos pendentes antes de mover.");
+
+    // Saída pra Oficina exige uma oficina selecionada (cria nova remessa)
+    if (destino === "Oficina" && !oficinaId) return setErro("Selecione a oficina responsável antes de enviar.");
+    // Volta da Oficina exige escolher de qual remessa abater
+    if (local === "Oficina" && remessasAbertas.length > 0 && !remessaId) return setErro("Escolha de qual remessa essas peças estão retornando.");
+    if (local === "Oficina" && remessaId) {
+      const r = remessasAbertas.find((x) => x.id === Number(remessaId));
+      const restante = r ? r.qtd_enviada - r.qtd_retornada : 0;
+      if (q > restante) return setErro(`Essa remessa tem ${restante} peça(s) em aberto.`);
+    }
+
     setSalvando(true);
+
+    let novaRemessaId = null;
+    // 1) Saída pra Oficina: cria remessa
+    if (destino === "Oficina") {
+      const r = await supabase.from("remessas_oficina").insert({
+        pedido_id: pedido.id, oficina_id: Number(oficinaId), qtd_enviada: q,
+      }).select().single();
+      if (r.error) { setSalvando(false); return setErro("Falha ao registrar a remessa: " + r.error.message); }
+      novaRemessaId = r.data.id;
+    }
+    // 2) Volta da Oficina: abate remessa
+    if (local === "Oficina" && remessaId) {
+      const r = remessasAbertas.find((x) => x.id === Number(remessaId));
+      const novaQtd = r.qtd_retornada + q;
+      const fechada = novaQtd >= r.qtd_enviada;
+      const up = await supabase.from("remessas_oficina").update({
+        qtd_retornada: novaQtd,
+        data_fechamento: fechada ? new Date().toISOString().slice(0, 10) : null,
+      }).eq("id", r.id);
+      if (up.error) { setSalvando(false); return setErro("Falha ao abater a remessa: " + up.error.message); }
+      novaRemessaId = r.id;
+    }
+
     const { error } = await supabase.from("movimentos").insert({
-      pedido_id: pedido.id, de_local: local, para_local: destino, qtd: q, usuario_id: session.user.id,
+      pedido_id: pedido.id, de_local: local, para_local: destino, qtd: q,
+      usuario_id: session.user.id, remessa_id: novaRemessaId,
     });
     setSalvando(false);
     if (error) return setErro(error.message);
@@ -250,7 +300,19 @@ function ModalMover({ dados, oficinas, session, podeEditar, ehMaster, onFechar, 
       {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {podeEditar ? (
         <>
-          <label style={lbl}>Quantidade</label>
+          {local === "Oficina" && remessasAbertas.length > 0 && (
+            <>
+              <label style={lbl}>Abater de qual remessa</label>
+              <select value={remessaId} onChange={(e) => setRemessaId(e.target.value)} style={inp}>
+                {remessasAbertas.map((r) => {
+                  const ofic = (oficinas || []).find((o) => o.id === r.oficina_id);
+                  const restante = r.qtd_enviada - r.qtd_retornada;
+                  return <option key={r.id} value={r.id}>{(ofic?.nome_empresa || "—")} · saiu {fmtDataResumo(r.data_saida)} · faltam {restante} de {r.qtd_enviada}</option>;
+                })}
+              </select>
+            </>
+          )}
+          <label style={{ ...lbl, marginTop: 14 }}>Quantidade</label>
           <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
           <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
           <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
@@ -402,6 +464,27 @@ function urgenciaDoCard(pe, local) {
   if (dias === 1) return { nivel: "amanha", label: "Vence amanhã", cor: "var(--orange)", bg: "var(--orange-bg)", borda: "var(--orange)", Icone: Clock };
   if (dias === 2) return { nivel: "dois", label: "Vence em 2 dias", cor: "var(--warning)", bg: "var(--warning-bg)", borda: "var(--warning)", Icone: Clock };
   return null;
+}
+
+function infoRemessasOficina(pe, remessas, oficinas) {
+  const abertas = (remessas || []).filter((r) => r.pedido_id === pe.id && !r.data_fechamento);
+  if (abertas.length === 0) return null;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  // remessa mais antiga em aberto
+  abertas.sort((a, b) => a.data_saida.localeCompare(b.data_saida));
+  const r = abertas[0];
+  const ofic = (oficinas || []).find((o) => o.id === r.oficina_id);
+  const partes = r.data_saida.split("-").map(Number);
+  const dtSaida = new Date(partes[0], partes[1]-1, partes[2]); dtSaida.setHours(0,0,0,0);
+  const dias = Math.round((hoje - dtSaida) / 86400000);
+  const restante = r.qtd_enviada - r.qtd_retornada;
+  return {
+    nomeOficina: ofic?.nome_empresa || "—",
+    dias,
+    restante,
+    totalAbertas: abertas.length,
+    totalRestante: abertas.reduce((s, x) => s + (x.qtd_enviada - x.qtd_retornada), 0),
+  };
 }
 
 function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {

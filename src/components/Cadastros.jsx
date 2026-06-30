@@ -286,6 +286,98 @@ function DetalheCliente({ registro, editarInicial, onFechar, onSalvo }) {
   );
 }
 
+function HistoricoRemessas({ oficinaId }) {
+  const [carregando, setCarregando] = useState(true);
+  const [remessas, setRemessas] = useState([]);
+  const [pedidos, setPedidos] = useState({});
+
+  useEffect(() => {
+    (async () => {
+      const r = await supabase.from("remessas_oficina").select("*").eq("oficina_id", oficinaId).order("id", { ascending: false });
+      const rs = r.data || [];
+      setRemessas(rs);
+      const ids = [...new Set(rs.map((x) => x.pedido_id))];
+      if (ids.length > 0) {
+        const p = await supabase.from("pedidos").select("id, referencia, marca").in("id", ids);
+        const mapa = {};
+        (p.data || []).forEach((x) => { mapa[x.id] = x; });
+        setPedidos(mapa);
+      }
+      setCarregando(false);
+    })();
+  }, [oficinaId]);
+
+  function dias(de, ate) {
+    const [y1, m1, d1] = de.split("-").map(Number);
+    const dA = new Date(y1, m1-1, d1); dA.setHours(0,0,0,0);
+    let dB;
+    if (ate) {
+      const [y2, m2, d2] = ate.split("-").map(Number);
+      dB = new Date(y2, m2-1, d2); dB.setHours(0,0,0,0);
+    } else {
+      dB = new Date(); dB.setHours(0,0,0,0);
+    }
+    return Math.round((dB - dA) / 86400000);
+  }
+
+  function fmt(d) {
+    if (!d) return "";
+    const p = d.split("-");
+    return p[2] + "/" + p[1] + "/" + p[0];
+  }
+
+  if (carregando) return <p style={{ fontSize: 13, color: "var(--text-3)", margin: "12px 0" }}>Carregando histórico…</p>;
+  if (remessas.length === 0) return <p style={{ fontSize: 13, color: "var(--text-3)", margin: "12px 0" }}>Nenhuma remessa registrada para esta oficina.</p>;
+
+  const abertas = remessas.filter((r) => !r.data_fechamento);
+  const fechadas = remessas.filter((r) => r.data_fechamento);
+
+  function Linha({ r }) {
+    const ped = pedidos[r.pedido_id];
+    const aberta = !r.data_fechamento;
+    const d = dias(r.data_saida, r.data_fechamento);
+    const restante = r.qtd_enviada - r.qtd_retornada;
+    return (
+      <div style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 9, background: "var(--surface)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{ped?.referencia || "#" + r.pedido_id}{ped?.marca ? ` · ${ped.marca}` : ""}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, color: aberta ? "var(--warning)" : "var(--success)", background: aberta ? "var(--warning-bg)" : "var(--success-bg)" }}>
+            {aberta ? "Em aberto" : "Fechada"}
+          </span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11.5, color: "var(--text-2)" }}>
+          <span>Saiu {fmt(r.data_saida)}{r.data_fechamento ? ` · voltou ${fmt(r.data_fechamento)}` : ""}</span>
+          <span style={{ fontWeight: 600, color: aberta && d > 7 ? "var(--danger)" : "var(--text-2)" }}>
+            {aberta ? `${d} ${d === 1 ? "dia" : "dias"}` : `${d} ${d === 1 ? "dia" : "dias"} no total`}
+          </span>
+        </div>
+        <div style={{ marginTop: 5, fontSize: 11.5, color: "var(--text-3)" }}>
+          {aberta
+            ? <>Enviadas {r.qtd_enviada} · retornaram {r.qtd_retornada} · <span style={{ color: "var(--danger)", fontWeight: 600 }}>faltam {restante}</span></>
+            : <>Enviadas e retornadas {r.qtd_enviada} peça(s)</>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {abertas.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Em aberto ({abertas.length})</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{abertas.map((r) => <Linha key={r.id} r={r} />)}</div>
+        </div>
+      )}
+      {fechadas.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Fechadas ({fechadas.length})</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{fechadas.map((r) => <Linha key={r.id} r={r} />)}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DetalheOficina({ registro, onFechar, onSalvo }) {
   const novo = !registro;
   const [editando, setEditando] = useState(novo);
@@ -365,6 +457,10 @@ function DetalheOficina({ registro, onFechar, onSalvo }) {
           <Campo rotulo="Maquinário" valor={registro.maquinario} />
           <Campo rotulo="Produtos" valor={registro.produtos} />
           <Campo rotulo="Status" valor={registro.ativo ? "Ativo" : "Inativo"} />
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+            <h4 style={{ fontSize: 13, fontWeight: 600, margin: "0 0 12px" }}>Histórico de remessas</h4>
+            <HistoricoRemessas oficinaId={registro.id} />
+          </div>
         </div>
       )}
 
