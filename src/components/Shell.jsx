@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { LogOut, Moon, Sun, LayoutGrid, Users, AlertTriangle, Package, Inbox, LayoutDashboard } from "lucide-react";
+import { LogOut, Moon, Sun, LayoutGrid, Users, AlertTriangle, Factory, Package, Inbox, LayoutDashboard } from "lucide-react";
 import Logo from "./Logo.jsx";
 import Dashboard from "./Dashboard.jsx";
 import Quadro from "./Quadro.jsx";
+import ControleOficinas from "./ControleOficinas.jsx";
 import Cadastros from "./Cadastros.jsx";
 import Atrasos from "./Atrasos.jsx";
 import Estoque from "./Estoque.jsx";
@@ -36,6 +37,7 @@ export default function Shell({ session }) {
     { id: "inicio", label: "Início", icon: LayoutDashboard },
     { id: "triagem", label: "Pilotagem", icon: Inbox },
     { id: "quadro", label: "Quadro", icon: LayoutGrid },
+    { id: "oficinas", label: "Oficinas", icon: Factory },
     { id: "atrasos", label: "Alertas", icon: AlertTriangle },
     { id: "estoque", label: "Estoque", icon: Package },
     { id: "cadastros", label: "Cadastros", icon: Users },
@@ -49,6 +51,7 @@ export default function Shell({ session }) {
     if (pagina === "atrasos" && podeAdministrar) return <Atrasos />;
     if (pagina === "estoque" && podeAdministrar) return <Estoque session={session} />;
     if (pagina === "triagem" && podeAdministrar) return <Triagem />;
+    if (pagina === "oficinas" && podeAdministrar) return <ControleOficinas session={session} perfil={perfil} />;
     return <Quadro session={session} perfil={perfil} />;
   }
 
