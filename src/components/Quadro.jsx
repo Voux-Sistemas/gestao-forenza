@@ -202,13 +202,13 @@ export default function Quadro({ session, perfil }) {
         ))}
       </div>
 
-      {mover && <ModalMover dados={mover} oficinas={oficinas} remessas={remessas} session={session} podeEditar={podeEditar} ehMaster={ehMaster} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
+      {mover && <ModalMover dados={mover} oficinas={oficinas} remessas={remessas} movimentos={movimentos} session={session} podeEditar={podeEditar} ehMaster={ehMaster} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
       {novoAberto && <ModalNovo clientes={clientes} oficinas={oficinas} onFechar={() => setNovoAberto(false)} onOk={() => { setNovoAberto(false); carregar(); }} />}
     </div>
   );
 }
 
-function ModalMover({ dados, oficinas, remessas, session, podeEditar, ehMaster, onFechar, onOk }) {
+function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar, ehMaster, onFechar, onOk }) {
   const { pedido, local, saldo } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
   const [destino, setDestino] = useState(destinos[0]);
@@ -298,6 +298,7 @@ function ModalMover({ dados, oficinas, remessas, session, podeEditar, ehMaster, 
       </div>
       {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
+      {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
       {podeEditar ? (
         <>
           {local === "Oficina" && remessasAbertas.length > 0 && (
@@ -485,6 +486,86 @@ function infoRemessasOficina(pe, remessas, oficinas) {
     totalAbertas: abertas.length,
     totalRestante: abertas.reduce((s, x) => s + (x.qtd_enviada - x.qtd_retornada), 0),
   };
+}
+
+function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
+  const remessasPedido = (remessas || []).filter((r) => r.pedido_id === pedido.id).sort((a, b) => b.data_saida.localeCompare(a.data_saida));
+  if (remessasPedido.length === 0) {
+    return (
+      <div style={{ marginTop: 14, padding: 12, background: "var(--surface-2)", borderRadius: 9, border: "1px solid var(--border)" }}>
+        <div style={{ fontSize: 12, color: "var(--text-3)" }}>Nenhuma remessa registrada para este pedido ainda.</div>
+      </div>
+    );
+  }
+  const nomeOficina = (id) => oficinas.find((o) => o.id === id)?.nome_empresa || "—";
+  function fmtData(d) {
+    if (!d) return "—";
+    const p = d.split("-");
+    return p[2] + "/" + p[1] + "/" + p[0];
+  }
+  function diasEntre(de, ate) {
+    if (!de) return 0;
+    const [y1, m1, d1] = de.split("-").map(Number);
+    const dA = new Date(y1, m1 - 1, d1); dA.setHours(0, 0, 0, 0);
+    let dB;
+    if (ate) {
+      const [y2, m2, d2] = ate.split("-").map(Number);
+      dB = new Date(y2, m2 - 1, d2); dB.setHours(0, 0, 0, 0);
+    } else {
+      dB = new Date(); dB.setHours(0, 0, 0, 0);
+    }
+    return Math.round((dB - dA) / 86400000);
+  }
+  return (
+    <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--surface-2)", borderRadius: 9, border: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 10 }}>Remessas e movimentação</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {remessasPedido.map((r) => {
+          const aberta = !r.data_fechamento;
+          const d = diasEntre(r.data_saida, r.data_fechamento);
+          const restante = r.qtd_enviada - r.qtd_retornada;
+          const movs = (movimentos || []).filter((m) => m.remessa_id === r.id).sort((a, b) => {
+            const da = (a.data || a.criado_em || "").slice(0, 10);
+            const db = (b.data || b.criado_em || "").slice(0, 10);
+            return da.localeCompare(db);
+          });
+          return (
+            <div key={r.id} style={{ padding: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{nomeOficina(r.oficina_id)}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 99, color: aberta ? "var(--warning)" : "var(--success)", background: aberta ? "var(--warning-bg)" : "var(--success-bg)" }}>
+                  {aberta ? "Em aberto" : "Fechada"}
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 7 }}>
+                {aberta
+                  ? <>Saiu {fmtData(r.data_saida)} · {d} {d === 1 ? "dia" : "dias"} · faltam <strong style={{ color: "var(--danger)" }}>{restante}</strong> de {r.qtd_enviada}</>
+                  : <>Saiu {fmtData(r.data_saida)} · voltou {fmtData(r.data_fechamento)} · {d} {d === 1 ? "dia" : "dias"} no total · {r.qtd_enviada} peça(s)</>}
+              </div>
+              {movs.length > 0 && (
+                <div style={{ paddingTop: 6, borderTop: "1px dashed var(--border)", display: "flex", flexDirection: "column", gap: 3 }}>
+                  {movs.map((m) => {
+                    const ehSaida = m.para_local === "Oficina";
+                    return (
+                      <div key={m.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--text-2)" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                          {ehSaida
+                            ? <ArrowUpRight size={11} style={{ color: "var(--accent)" }} />
+                            : <ArrowDownLeft size={11} style={{ color: "var(--success)" }} />}
+                          {ehSaida ? "Saiu" : "Voltou"} em <strong style={{ color: "var(--text)" }}>{fmtData((m.data || m.criado_em || "").slice(0, 10))}</strong>
+                        </span>
+                        <span><strong style={{ color: "var(--text)" }}>{m.qtd}</strong> <span style={{ color: "var(--text-3)" }}>{ehSaida ? `(de ${m.de_local})` : `→ ${m.para_local}`}</span></span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
