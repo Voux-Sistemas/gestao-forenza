@@ -49,7 +49,7 @@ export default function Shell({ session }) {
     if (pagina === "inicio" && podeAdministrar) return <Dashboard perfil={perfil} onNavegar={setPagina} />;
     if (pagina === "cadastros" && podeAdministrar) return <Cadastros />;
     if (pagina === "atrasos" && podeAdministrar) return <Atrasos />;
-    if (pagina === "estoque" && podeAdministrar) return <Estoque session={session} />;
+    if (pagina === "estoque" && podeAdministrar) return <Estoque session={session} perfil={perfil} />;
     if (pagina === "triagem" && podeAdministrar) return <Triagem />;
     if (pagina === "oficinas" && podeAdministrar) return <ControleOficinas session={session} perfil={perfil} />;
     return <Quadro session={session} perfil={perfil} />;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Package, Boxes, CheckCircle2, Award, ArrowRight } from "lucide-react";
+import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2 } from "lucide-react";
 import StatCard from "./StatCard.jsx";
 
 function saldos(pedidoId, total, movimentos) {
@@ -15,13 +15,15 @@ function saldos(pedidoId, total, movimentos) {
   return s;
 }
 
-export default function Estoque({ session }) {
+export default function Estoque({ session, perfil }) {
   const [aba, setAba] = useState("espera");
   const [pedidos, setPedidos] = useState([]);
   const [movimentos, setMovimentos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [inspecionar, setInspecionar] = useState(null);
+  const [darBaixa, setDarBaixa] = useState(null);
+  const podeBaixar = ["master", "chefe_geral"].includes(perfil?.papel);
 
   const carregar = useCallback(async () => {
     const [p, m, c] = await Promise.all([
@@ -47,7 +49,8 @@ export default function Estoque({ session }) {
 
   const computados = pedidos.map((pe) => ({ pe, s: saldos(pe.id, pe.total, movimentos) }));
   const emEspera = computados.filter(({ s }) => s.Estoque > 0);
-  const concluidos = computados.filter(({ s }) => s.Primeira > 0 || s.Segunda > 0);
+  const primeira = computados.filter(({ s }) => s.Primeira > 0);
+  const segunda = computados.filter(({ s }) => s.Segunda > 0);
 
   let totEspera = 0, totPrim = 0, totSeg = 0;
   computados.forEach(({ s }) => { totEspera += s.Estoque; totPrim += s.Primeira; totSeg += s.Segunda; });
@@ -73,10 +76,11 @@ export default function Estoque({ session }) {
 
       <div style={{ display: "flex", gap: 4, marginBottom: 18, borderBottom: "1px solid var(--border)" }}>
         <button onClick={() => setAba("espera")} style={subTab(aba === "espera")}>Em espera ({emEspera.length})</button>
-        <button onClick={() => setAba("concluido")} style={subTab(aba === "concluido")}>Concluído ({concluidos.length})</button>
+        <button onClick={() => setAba("primeira")} style={subTab(aba === "primeira")}>1ª qualidade ({primeira.length})</button>
+        <button onClick={() => setAba("segunda")} style={subTab(aba === "segunda")}>2ª qualidade ({segunda.length})</button>
       </div>
 
-      {aba === "espera" ? (
+      {aba === "espera" && (
         emEspera.length === 0 ? <Vazio texto="Nenhuma peça aguardando inspeção." /> : (
           <div style={grade}>
             {emEspera.map(({ pe, s }) => (
@@ -91,12 +95,10 @@ export default function Estoque({ session }) {
                   </div>
                   <Package size={17} strokeWidth={2} style={{ color: "var(--text-3)", flexShrink: 0, marginTop: 2 }} />
                 </div>
-
                 <div style={{ display: "flex", alignItems: "baseline", gap: 7, margin: "15px 0 15px", paddingTop: 14, borderTop: "1px solid var(--border)" }}>
                   <span style={{ fontSize: 30, fontWeight: 800, color: "var(--warning)", lineHeight: 1, letterSpacing: "-.02em" }}>{s.Estoque}</span>
                   <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>de {pe.total} aguardando inspeção</span>
                 </div>
-
                 <button onClick={() => setInspecionar({ pe, disponivel: s.Estoque })} style={{ ...btnPrimary, width: "100%" }}>
                   Inspecionar <ArrowRight size={15} />
                 </button>
@@ -104,49 +106,47 @@ export default function Estoque({ session }) {
             ))}
           </div>
         )
-      ) : (
-        concluidos.length === 0 ? <Vazio texto="Nenhuma peça inspecionada ainda." /> : (
-          <div style={grade}>
-            {concluidos.map(({ pe, s }) => {
-              const tot = s.Primeira + s.Segunda;
-              const p1 = tot ? (s.Primeira / tot) * 100 : 0;
-              const ap = tot ? Math.round((s.Primeira / tot) * 100) : 0;
-              return (
-                <div key={pe.id} className="lift" style={cartao}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                        <span style={{ fontSize: 15, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pe.referencia}</span>
-                        {pe.marca && <span style={tag}>{pe.marca}</span>}
-                      </div>
-                      <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 2 }}>{nomeCliente(pe.cliente_id)}</div>
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{tot}</div>
-                      <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>peças</div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", height: 9, borderRadius: 99, overflow: "hidden", background: "var(--surface-3)", marginBottom: 10 }}>
-                    {s.Primeira > 0 && <div style={{ width: `${p1}%`, background: "var(--success)" }} />}
-                    {s.Segunda > 0 && <div style={{ width: `${100 - p1}%`, background: "var(--orange)" }} />}
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", gap: 14 }}>
-                      <Legenda cor="var(--success)" rotulo="1ª" valor={s.Primeira} />
-                      <Legenda cor="var(--orange)" rotulo="2ª" valor={s.Segunda} />
-                    </div>
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--accent)", background: "var(--accent-bg)", padding: "3px 9px", borderRadius: 99 }}>{ap}% aprov.</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )
       )}
 
+      {(aba === "primeira" || aba === "segunda") && (() => {
+        const eh1 = aba === "primeira";
+        const lista = eh1 ? primeira : segunda;
+        const local = eh1 ? "Primeira" : "Segunda";
+        const cor = eh1 ? "var(--success)" : "var(--orange)";
+        const bg = eh1 ? "var(--success-bg)" : "var(--orange-bg)";
+        const rotulo = eh1 ? "1ª qualidade" : "2ª qualidade";
+        if (lista.length === 0) return <Vazio texto={`Nenhuma peça em ${rotulo} no estoque.`} />;
+        return (
+          <div style={grade}>
+            {lista.map(({ pe, s }) => (
+              <div key={pe.id} className="lift" style={cartao}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pe.referencia}</span>
+                      {pe.marca && <span style={tag}>{pe.marca}</span>}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 3 }}>{nomeCliente(pe.cliente_id)}</div>
+                  </div>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: cor, background: bg, padding: "3px 9px", borderRadius: 99, whiteSpace: "nowrap" }}>{rotulo}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 7, margin: "15px 0 15px", paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+                  <span style={{ fontSize: 30, fontWeight: 800, color: cor, lineHeight: 1, letterSpacing: "-.02em" }}>{s[local]}</span>
+                  <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>peça{s[local] === 1 ? "" : "s"} em estoque</span>
+                </div>
+                {podeBaixar && (
+                  <button onClick={() => setDarBaixa({ pe, tipo: local, disponivel: s[local] })} style={{ ...btnDanger, width: "100%" }}>
+                    <Trash2 size={14} /> Dar baixa
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {inspecionar && <ModalInspecao dados={inspecionar} session={session} onFechar={() => setInspecionar(null)} onOk={() => { setInspecionar(null); carregar(); }} />}
+      {darBaixa && <ModalBaixa dados={darBaixa} session={session} onFechar={() => setDarBaixa(null)} onOk={() => { setDarBaixa(null); carregar(); }} />}
     </div>
   );
 }
@@ -168,6 +168,48 @@ function Vazio({ texto }) {
         <Boxes size={26} style={{ color: "var(--text-3)" }} />
       </div>
       <span style={{ fontSize: 14 }}>{texto}</span>
+    </div>
+  );
+}
+
+function ModalBaixa({ dados, session, onFechar, onOk }) {
+  const { pe, tipo, disponivel } = dados;
+  const [qtd, setQtd] = useState(String(disponivel));
+  const [motivo, setMotivo] = useState("");
+  const [erro, setErro] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function confirmar() {
+    setErro(null);
+    const q = parseInt(qtd, 10);
+    if (!q || q < 1) return setErro("Quantidade inválida.");
+    if (q > disponivel) return setErro(`Só há ${disponivel} peça(s) disponível(is).`);
+    if (!window.confirm(`Confirmar baixa de ${q} peça(s) de ${tipo === "Primeira" ? "1ª" : "2ª"} qualidade? Esta ação não pode ser desfeita.`)) return;
+    setSalvando(true);
+    const { error } = await supabase.from("movimentos").insert({
+      pedido_id: pe.id, de_local: tipo, para_local: "Saida", qtd: q,
+      usuario_id: session.user.id, observacao: motivo.trim() || null,
+    });
+    setSalvando(false);
+    if (error) return setErro(error.message);
+    onOk();
+  }
+
+  return (
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 20 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Dar baixa do estoque</h3>
+        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pe.referencia} · {tipo === "Primeira" ? "1ª" : "2ª"} qualidade · {disponivel} disponível(is)</p>
+        <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5, fontWeight: 500 }}>Quantidade</label>
+        <input type="number" min="1" max={disponivel} value={qtd} onChange={(e) => setQtd(e.target.value)} autoFocus style={{ width: "100%", padding: "10px 12px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" }} />
+        <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", margin: "14px 0 5px", fontWeight: 500 }}>Motivo (opcional)</label>
+        <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Venda, envio ao cliente, avaria…" style={{ width: "100%", padding: "10px 12px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" }} />
+        {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "10px 0 0" }}>{erro}</p>}
+        <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+          <button onClick={confirmar} disabled={salvando} style={{ ...btnDanger, flex: 1 }}>{salvando ? "Salvando…" : "Confirmar baixa"}</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -263,5 +305,7 @@ const cartao = { background: "var(--surface)", border: "1px solid var(--border)"
 const tag = { fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", color: "var(--accent)", background: "var(--accent-bg)", whiteSpace: "nowrap" };
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
+const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer", transition: "background .15s" };
+
 const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
