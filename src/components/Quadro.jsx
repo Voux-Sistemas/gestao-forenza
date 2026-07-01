@@ -145,7 +145,8 @@ export default function Quadro({ session, perfil }) {
                   const urg = urgenciaDoCard(pe, local);
                   const procBadges = badgesDoCard(pe, local);
                   const infoRem = local === "Oficina" ? infoRemessasOficina(pe, remessas, oficinas) : null;
-                  const estiloCard = urg ? { ...card, background: urg.bg, border: `1px solid ${urg.borda}` } : card;
+                  const pintarCard = urg && (urg.nivel === "atrasado" || urg.nivel === "hoje");
+                  const estiloCard = pintarCard ? { ...card, background: urg.bg, border: `1px solid ${urg.borda}` } : card;
                   return (
                   <button key={pe.id} className="lift" onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })} style={estiloCard}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
