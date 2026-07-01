@@ -355,6 +355,9 @@ function CardGrande({ item, nomeCliente, onAbrir }) {
         <button onClick={onAbrir} style={{ flex: 1, ...btnDanger }}>
           <ExternalLink size={14} /> Abrir no Quadro
         </button>
+        <button onClick={onAbrir} style={btnGhostAcao} title="Ver detalhes deste pedido">
+          <Eye size={14} /> Detalhes
+        </button>
       </div>
     </div>
   );
@@ -378,9 +381,14 @@ function CardCompacto({ item, nomeCliente, onAbrir, cor }) {
           </div>
         )}
       </div>
-      <button onClick={onAbrir} style={{ ...btnCompactoPrimario, background: cor }}>
-        Abrir <ExternalLink size={12} />
-      </button>
+      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        <button onClick={onAbrir} style={btnCompactoGhost} title="Ver detalhes deste pedido">
+          <Eye size={12} /> Detalhes
+        </button>
+        <button onClick={onAbrir} style={{ ...btnCompactoPrimario, background: cor }}>
+          Abrir <ExternalLink size={12} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -416,5 +424,7 @@ const pillMarca = { fontSize: 10, padding: "2px 8px", borderRadius: 99, backgrou
 const pillAtraso = { fontSize: 11, padding: "3px 10px", borderRadius: 99, background: "var(--danger-bg)", color: "var(--danger)", fontWeight: 600 };
 const btnGhost = { display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 14px", fontSize: 12, fontWeight: 600, borderRadius: 8, border: "none", background: "var(--danger)", color: "#fff", cursor: "pointer" };
+const btnCompactoGhost = { display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 10px", fontSize: 12, fontWeight: 600, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
+const btnGhostAcao = { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 12, fontWeight: 600, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnCompactoPrimario = { display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 12px", fontSize: 12, fontWeight: 600, borderRadius: 8, border: "none", color: "#fff", cursor: "pointer" };
 const selectPill = { padding: "5px 10px", fontSize: 12, borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
