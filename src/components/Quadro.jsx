@@ -150,14 +150,18 @@ export default function Quadro({ session, perfil }) {
                   <button key={pe.id} className="lift" onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })} style={estiloCard}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 13.5, fontWeight: 600 }}>{nomeCliente(pe.cliente_id)}</span>
-                      {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: corDaTag(pe.marca).cor, background: corDaTag(pe.marca).bg }}>{pe.marca}</span>}
+                      {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: "var(--text-2)", background: "var(--surface-2)" }}>{pe.marca}</span>}
                     </div>
                     <div style={{ fontSize: 11.5, color: "var(--text-3)", fontWeight: 500, margin: "2px 0 6px" }}>{pe.referencia}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <Package size={13} style={{ color: CORES[local] }} />
                       <span style={{ fontSize: 13, fontWeight: 600, color: CORES[local] }}>{saldo[local]}</span>
                       <span style={{ fontSize: 11, color: "var(--text-3)" }}>de {pe.total}</span>
-                      {pe.prazo && <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: urg ? 700 : 400, color: urg ? urg.cor : "var(--text-3)" }}><Calendar size={12} />{fmtCurto(pe.prazo)}</span>}
+                      {pe.prazo && (() => {
+                        const dp = diasAtePrazo(pe.prazo);
+                        const corData = dp === null ? "var(--text-3)" : dp < 0 ? "var(--danger)" : dp <= 3 ? "var(--warning)" : "var(--success)";
+                        return <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: corData }}><Calendar size={12} />{fmtCurto(pe.prazo)}</span>;
+                      })()}
                     </div>
                     {urg && (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 9 }}>
