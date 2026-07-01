@@ -98,6 +98,7 @@ function Oficinas() {
   const [carregando, setCarregando] = useState(true);
   const [novo, setNovo] = useState(false);
   const [selecionado, setSelecionado] = useState(null);
+  const [editarInicial, setEditarInicial] = useState(false);
 
   const carregar = useCallback(async () => {
     const [of, pe, mo] = await Promise.all([
@@ -127,6 +128,22 @@ function Oficinas() {
     carregar();
   }
 
+  async function excluir(e, o) {
+    e.stopPropagation();
+    if (!window.confirm(`Excluir a oficina "${o.nome_empresa}"? Esta ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.from("oficinas").delete().eq("id", o.id);
+    if (error) {
+      window.alert("Não foi possível excluir: esta oficina tem pedidos ou remessas no sistema. Use \"Desativar\" para ocultá-la sem perder o histórico.");
+      return;
+    }
+    carregar();
+  }
+
+  function abrir(o, editar) {
+    setSelecionado(o);
+    setEditarInicial(editar);
+  }
+
   if (carregando) return <p style={txtVazio}>Carregando…</p>;
 
   return (
@@ -145,7 +162,7 @@ function Oficinas() {
             <span style={{ width: 210, textAlign: "right" }}></span>
           </div>
           {lista.map((o) => (
-            <div key={o.id} onClick={() => setSelecionado(o)} style={{ ...linha, cursor: "pointer" }}>
+            <div key={o.id} onClick={() => abrir(o, false)} style={{ ...linha, cursor: "pointer" }}>
               <span style={{ flex: 2, fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
                 {o.nome_empresa}
                 {o.ativo && (pecasNaOficina(o.id) > 0
@@ -156,16 +173,18 @@ function Oficinas() {
               <span style={{ flex: 1, color: "var(--text-2)" }}>{o.telefone || "—"}</span>
               <span style={{ flex: 1, color: "var(--text-2)" }}>{o.qtd_pessoas ?? "—"}</span>
               <span style={{ flex: 1 }}><Badge ativo={o.ativo} /></span>
-              <span style={{ width: 150, display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                <button onClick={(e) => { e.stopPropagation(); setSelecionado(o); }} style={btnIcon} aria-label="Ver detalhes"><Eye size={15} /></button>
+              <span style={{ width: 210, display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                <button onClick={(e) => { e.stopPropagation(); abrir(o, false); }} style={btnIcon} aria-label="Ver detalhes"><Eye size={15} /></button>
+                <button onClick={(e) => { e.stopPropagation(); abrir(o, true); }} style={btnIcon} aria-label="Editar"><Pencil size={15} /></button>
                 <button onClick={(e) => alternar(e, o)} style={btnMini}>{o.ativo ? "Desativar" : "Ativar"}</button>
+                <button onClick={(e) => excluir(e, o)} style={btnIconDanger} aria-label="Excluir"><Trash2 size={15} /></button>
               </span>
             </div>
           ))}
         </div>
       )}
       {novo && <DetalheOficina registro={null} onFechar={() => setNovo(false)} onSalvo={() => { setNovo(false); carregar(); }} />}
-      {selecionado && <DetalheOficina registro={selecionado} onFechar={() => setSelecionado(null)} onSalvo={() => { setSelecionado(null); carregar(); }} />}
+      {selecionado && <DetalheOficina registro={selecionado} editarInicial={editarInicial} onFechar={() => { setSelecionado(null); setEditarInicial(false); }} onSalvo={() => { setSelecionado(null); setEditarInicial(false); carregar(); }} />}
     </div>
   );
 }
@@ -398,9 +417,9 @@ function HistoricoRemessas({ oficinaId }) {
   );
 }
 
-function DetalheOficina({ registro, onFechar, onSalvo }) {
+function DetalheOficina({ registro, editarInicial, onFechar, onSalvo }) {
   const novo = !registro;
-  const [editando, setEditando] = useState(novo);
+  const [editando, setEditando] = useState(novo || editarInicial);
   const [campos, setCampos] = useState({
     nome_empresa: registro?.nome_empresa || "",
     endereco: registro?.endereco || "",
@@ -563,6 +582,7 @@ function Funcionarios() {
   const [carregando, setCarregando] = useState(true);
   const [novo, setNovo] = useState(false);
   const [selecionado, setSelecionado] = useState(null);
+  const [somenteVer, setSomenteVer] = useState(false);
 
   const carregar = useCallback(async () => {
     const { data } = await supabase.from("perfis").select("*").neq("papel", "cliente").order("nome");
@@ -570,6 +590,32 @@ function Funcionarios() {
     setCarregando(false);
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
+
+  async function alternar(e, f) {
+    e.stopPropagation();
+    await supabase.from("perfis").update({ ativo: !(f.ativo !== false) }).eq("id", f.id);
+    carregar();
+  }
+
+  async function excluir(e, f) {
+    e.stopPropagation();
+    if (f.papel === "master") {
+      window.alert("Não é possível excluir um usuário Master.");
+      return;
+    }
+    if (!window.confirm(`Excluir o funcionário "${f.nome}"? O login dele deixará de funcionar. Esta ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.from("perfis").delete().eq("id", f.id);
+    if (error) {
+      window.alert("Não foi possível excluir: " + error.message);
+      return;
+    }
+    carregar();
+  }
+
+  function abrir(f, ver) {
+    setSelecionado(f);
+    setSomenteVer(ver);
+  }
 
   if (carregando) return <p style={txtVazio}>Carregando…</p>;
 
@@ -585,23 +631,31 @@ function Funcionarios() {
             <span style={{ flex: 2 }}>Usuário</span>
             <span style={{ flex: 1 }}>Nível</span>
             <span style={{ flex: 1 }}>Setor</span>
-            <span style={{ width: 60, textAlign: "right" }}></span>
+            <span style={{ flex: 1 }}>Status</span>
+            <span style={{ width: 210, textAlign: "right" }}></span>
           </div>
-          {lista.map((f) => (
-            <div key={f.id} onClick={() => setSelecionado(f)} style={{ ...linha, cursor: "pointer" }}>
-              <span style={{ flex: 2, fontWeight: 500 }}>{f.nome || "—"}</span>
-              <span style={{ flex: 2, color: "var(--text-2)" }}>{f.email ? f.email.split("@")[0] : "—"}</span>
-              <span style={{ flex: 1, color: "var(--text-2)" }}>{labelPapel(f.papel)}</span>
-              <span style={{ flex: 1, color: "var(--text-2)" }}>{f.setor || "—"}</span>
-              <span style={{ width: 60, display: "flex", justifyContent: "flex-end" }}>
-                <button onClick={(e) => { e.stopPropagation(); setSelecionado(f); }} style={btnIcon} aria-label="Editar"><Pencil size={15} /></button>
-              </span>
-            </div>
-          ))}
+          {lista.map((f) => {
+            const ativo = f.ativo !== false;
+            return (
+              <div key={f.id} onClick={() => abrir(f, true)} style={{ ...linha, cursor: "pointer" }}>
+                <span style={{ flex: 2, fontWeight: 500 }}>{f.nome || "—"}</span>
+                <span style={{ flex: 2, color: "var(--text-2)" }}>{f.email ? f.email.split("@")[0] : "—"}</span>
+                <span style={{ flex: 1, color: "var(--text-2)" }}>{labelPapel(f.papel)}</span>
+                <span style={{ flex: 1, color: "var(--text-2)" }}>{f.setor || "—"}</span>
+                <span style={{ flex: 1 }}><Badge ativo={ativo} /></span>
+                <span style={{ width: 210, display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                  <button onClick={(e) => { e.stopPropagation(); abrir(f, true); }} style={btnIcon} aria-label="Ver detalhes"><Eye size={15} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); abrir(f, false); }} style={btnIcon} aria-label="Editar"><Pencil size={15} /></button>
+                  <button onClick={(e) => alternar(e, f)} style={btnMini}>{ativo ? "Desativar" : "Ativar"}</button>
+                  <button onClick={(e) => excluir(e, f)} style={btnIconDanger} aria-label="Excluir"><Trash2 size={15} /></button>
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
       {novo && <NovoFuncionario onFechar={() => setNovo(false)} onSalvo={() => { setNovo(false); carregar(); }} />}
-      {selecionado && <EditarFuncionario registro={selecionado} onFechar={() => setSelecionado(null)} onSalvo={() => { setSelecionado(null); carregar(); }} />}
+      {selecionado && <EditarFuncionario registro={selecionado} somenteVer={somenteVer} onFechar={() => { setSelecionado(null); setSomenteVer(false); }} onSalvo={() => { setSelecionado(null); setSomenteVer(false); carregar(); }} />}
     </div>
   );
 }
@@ -673,7 +727,8 @@ function NovoFuncionario({ onFechar, onSalvo }) {
   );
 }
 
-function EditarFuncionario({ registro, onFechar, onSalvo }) {
+function EditarFuncionario({ registro, somenteVer, onFechar, onSalvo }) {
+  const [editando, setEditando] = useState(!somenteVer);
   const [nome, setNome] = useState(registro.nome || "");
   const [papel, setPapel] = useState(registro.papel);
   const [setor, setSetor] = useState(registro.setor || SETORES[0]);
@@ -693,29 +748,45 @@ function EditarFuncionario({ registro, onFechar, onSalvo }) {
     onSalvo();
   }
 
+  const papelLabel = (PAPEIS_STAFF.find(([id]) => id === papel) || [null, papel])[1];
+
   return (
     <Overlay onFechar={onFechar}>
-      <h3 style={tituloModal}>{registro.nome || "Funcionário"}</h3>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Usuário: {usuario}</p>
-      <label style={lbl}>Nome</label>
-      <input value={nome} onChange={(e) => setNome(e.target.value)} style={inp} />
-      <label style={{ ...lbl, marginTop: 14 }}>Nível de acesso</label>
-      <select value={papel} onChange={(e) => setPapel(e.target.value)} style={inp}>
-        {PAPEIS_STAFF.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-      </select>
-      {temSetor && (
-        <>
-          <label style={{ ...lbl, marginTop: 14 }}>Setor</label>
-          <select value={setor} onChange={(e) => setSetor(e.target.value)} style={inp}>
-            {SETORES.map((x) => <option key={x} value={x}>{x}</option>)}
-          </select>
-        </>
-      )}
-      {erro && <p style={erroTxt}>{erro}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar"}</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <h3 style={tituloModal}>{registro.nome || "Funcionário"}</h3>
+        {!editando && <button onClick={() => setEditando(true)} style={btnMini}><Pencil size={13} /> Editar</button>}
       </div>
+      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Usuário: {usuario}</p>
+      {editando ? (
+        <>
+          <label style={lbl}>Nome</label>
+          <input value={nome} onChange={(e) => setNome(e.target.value)} style={inp} />
+          <label style={{ ...lbl, marginTop: 14 }}>Nível de acesso</label>
+          <select value={papel} onChange={(e) => setPapel(e.target.value)} style={inp}>
+            {PAPEIS_STAFF.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select>
+          {temSetor && (
+            <>
+              <label style={{ ...lbl, marginTop: 14 }}>Setor</label>
+              <select value={setor} onChange={(e) => setSetor(e.target.value)} style={inp}>
+                {SETORES.map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>
+            </>
+          )}
+          {erro && <p style={erroTxt}>{erro}</p>}
+          <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+            <button onClick={somenteVer ? () => setEditando(false) : onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+            <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar"}</button>
+          </div>
+        </>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Campo rotulo="Nome" valor={nome} />
+          <Campo rotulo="Nível de acesso" valor={papelLabel} />
+          {temSetor && <Campo rotulo="Setor" valor={setor} />}
+          <Campo rotulo="Status" valor={registro.ativo !== false ? "Ativo" : "Inativo"} />
+        </div>
+      )}
     </Overlay>
   );
 }
