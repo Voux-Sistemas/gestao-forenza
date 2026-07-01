@@ -154,9 +154,15 @@ export default function Quadro({ session, perfil }) {
                     </div>
                     <div style={{ fontSize: 11.5, color: "var(--text-3)", fontWeight: 500, margin: "2px 0 6px" }}>{pe.referencia}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <Package size={13} style={{ color: CORES[local] }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, color: CORES[local] }}>{saldo[local]}</span>
-                      <span style={{ fontSize: 11, color: "var(--text-3)" }}>de {pe.total}</span>
+                      {(() => {
+                        const completo = saldo[local] === pe.total;
+                        const corQtd = completo ? "var(--success)" : "var(--warning)";
+                        return <>
+                          <Package size={13} style={{ color: corQtd }} />
+                          <span style={{ fontSize: 13, fontWeight: 600, color: corQtd }}>{saldo[local]}</span>
+                          <span style={{ fontSize: 11, color: "var(--text-3)" }}>de {pe.total}</span>
+                        </>;
+                      })()}
                       {pe.prazo && (() => {
                         const dp = diasAtePrazo(pe.prazo);
                         const corData = dp === null ? "var(--text-3)" : dp < 0 ? "var(--danger)" : dp <= 3 ? "var(--warning)" : "var(--success)";
