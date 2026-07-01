@@ -258,7 +258,7 @@ export default function Atrasos({ onNavegar }) {
       {grupos.atrSemana.length > 0 && (
         <Secao cor="var(--danger)" titulo="Atrasados esta semana" count={grupos.atrSemana.length}>
           {grupos.atrSemana.map((item) => (
-            <CardCompacto key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} cor="var(--danger)" />
+            <CardCompacto key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} onDetalhes={() => setDetalhes(item)} cor="var(--danger)" />
           ))}
         </Secao>
       )}
@@ -266,7 +266,7 @@ export default function Atrasos({ onNavegar }) {
       {grupos.urg.length > 0 && (
         <Secao cor="var(--warning)" titulo="Vencem hoje ou amanhã" count={grupos.urg.length}>
           {grupos.urg.map((item) => (
-            <CardCompacto key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} cor="var(--warning)" />
+            <CardCompacto key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} onDetalhes={() => setDetalhes(item)} cor="var(--warning)" />
           ))}
         </Secao>
       )}
@@ -274,7 +274,7 @@ export default function Atrasos({ onNavegar }) {
       {grupos.dois.length > 0 && (
         <Secao cor="var(--warning)" titulo="Vencem em 2 dias" count={grupos.dois.length}>
           {grupos.dois.map((item) => (
-            <CardCompacto key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} cor="var(--warning)" />
+            <CardCompacto key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} onDetalhes={() => setDetalhes(item)} cor="var(--warning)" />
           ))}
         </Secao>
       )}
@@ -282,7 +282,7 @@ export default function Atrasos({ onNavegar }) {
       {grupos.sem.length > 0 && (
         <Secao cor="var(--text-3)" titulo="Sem prazo definido" count={grupos.sem.length}>
           {grupos.sem.map((item) => (
-            <CardCompacto key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} cor="var(--text-3)" />
+            <CardCompacto key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} onDetalhes={() => setDetalhes(item)} cor="var(--text-3)" />
           ))}
         </Secao>
       )}
