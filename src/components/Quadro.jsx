@@ -178,21 +178,15 @@ export default function Quadro({ session, perfil }) {
                         <span style={{ fontSize: 11.5, fontWeight: 700, color: urg.cor }}>{urg.label}</span>
                       </div>
                     )}
-                    {infoRem && (() => {
-                      const atrasada = infoRem.dias > 7;
-                      const bgCor = atrasada ? "var(--danger-bg)" : "var(--warning-bg)";
-                      const faixaCor = atrasada ? "var(--danger)" : "var(--warning)";
-                      const txtCor = atrasada ? "var(--danger)" : "var(--warning)";
-                      return (
-                        <div style={{ marginTop: 9, padding: "8px 10px 8px 12px", background: bgCor, borderRadius: 8, borderLeft: `3px solid ${faixaCor}` }}>
-                          <div style={{ fontSize: 11.5, color: txtCor, fontWeight: 700 }}>{infoRem.nomeOficina}</div>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
-                            <span style={{ fontSize: 10.5, color: txtCor, opacity: 0.85 }}>{infoRem.totalAbertas > 1 ? `${infoRem.totalAbertas} remessas em aberto` : `há ${infoRem.dias} ${infoRem.dias === 1 ? "dia" : "dias"}`}</span>
-                            <span style={{ fontSize: 10.5, fontWeight: 700, color: txtCor }}>faltam {infoRem.totalRestante}</span>
-                          </div>
+                    {infoRem && (
+                      <div style={{ marginTop: 9, padding: "8px 10px 8px 12px", background: "var(--surface-2)", borderRadius: 8, borderLeft: "3px solid var(--text-3)" }}>
+                        <div style={{ fontSize: 11.5, color: "var(--text)", fontWeight: 700 }}>{infoRem.nomeOficina}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
+                          <span style={{ fontSize: 10.5, color: "var(--text-2)" }}>{infoRem.totalAbertas > 1 ? `${infoRem.totalAbertas} remessas em aberto` : `há ${infoRem.dias} ${infoRem.dias === 1 ? "dia" : "dias"}`}</span>
+                          <span style={{ fontSize: 10.5, fontWeight: 700, color: infoRem.dias > 7 ? "var(--danger)" : "var(--text-2)" }}>faltam {infoRem.totalRestante}</span>
                         </div>
-                      );
-                    })()}
+                      </div>
+                    )}
                     {procBadges.length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
                         {procBadges.map((b, i) => (
