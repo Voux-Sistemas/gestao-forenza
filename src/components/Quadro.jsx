@@ -149,10 +149,10 @@ export default function Quadro({ session, perfil }) {
                   return (
                   <button key={pe.id} className="lift" onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })} style={estiloCard}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13.5, fontWeight: 600 }}>{pe.referencia}</span>
+                      <span style={{ fontSize: 13.5, fontWeight: 600 }}>{nomeCliente(pe.cliente_id)}</span>
                       {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: corDaTag(pe.marca).cor, background: corDaTag(pe.marca).bg }}>{pe.marca}</span>}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-2)", margin: "3px 0 6px" }}>{nomeCliente(pe.cliente_id)}</div>
+                    <div style={{ fontSize: 11.5, color: "var(--text-3)", fontWeight: 500, margin: "2px 0 6px" }}>{pe.referencia}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <Package size={13} style={{ color: CORES[local] }} />
                       <span style={{ fontSize: 13, fontWeight: 600, color: CORES[local] }}>{saldo[local]}</span>
@@ -167,15 +167,21 @@ export default function Quadro({ session, perfil }) {
                         <span style={{ fontSize: 11.5, fontWeight: 700, color: urg.cor }}>{urg.label}</span>
                       </div>
                     )}
-                    {infoRem && (
-                      <div style={{ marginTop: 9, padding: "7px 9px", background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                        <div style={{ fontSize: 11, color: "var(--text-2)", fontWeight: 600 }}>{infoRem.nomeOficina}</div>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-                          <span style={{ fontSize: 10.5, color: "var(--text-3)" }}>{infoRem.totalAbertas > 1 ? `${infoRem.totalAbertas} remessas em aberto` : `há ${infoRem.dias} ${infoRem.dias === 1 ? "dia" : "dias"}`}</span>
-                          <span style={{ fontSize: 10.5, fontWeight: 600, color: infoRem.dias > 7 ? "var(--danger)" : "var(--text-2)" }}>faltam {infoRem.totalRestante}</span>
+                    {infoRem && (() => {
+                      const atrasada = infoRem.dias > 7;
+                      const bgCor = atrasada ? "var(--danger-bg)" : "var(--warning-bg)";
+                      const faixaCor = atrasada ? "var(--danger)" : "var(--warning)";
+                      const txtCor = atrasada ? "var(--danger)" : "var(--warning)";
+                      return (
+                        <div style={{ marginTop: 9, padding: "8px 10px 8px 12px", background: bgCor, borderRadius: 8, borderLeft: `3px solid ${faixaCor}` }}>
+                          <div style={{ fontSize: 11.5, color: txtCor, fontWeight: 700 }}>{infoRem.nomeOficina}</div>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
+                            <span style={{ fontSize: 10.5, color: txtCor, opacity: 0.85 }}>{infoRem.totalAbertas > 1 ? `${infoRem.totalAbertas} remessas em aberto` : `há ${infoRem.dias} ${infoRem.dias === 1 ? "dia" : "dias"}`}</span>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: txtCor }}>faltam {infoRem.totalRestante}</span>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                     {procBadges.length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
                         {procBadges.map((b, i) => (
