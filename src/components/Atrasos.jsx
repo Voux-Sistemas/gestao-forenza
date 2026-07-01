@@ -250,7 +250,7 @@ export default function Atrasos({ onNavegar }) {
       {grupos.atr7.length > 0 && (
         <Secao cor="var(--danger)" titulo="Atrasados há mais de 7 dias" count={grupos.atr7.length}>
           {grupos.atr7.map((item) => (
-            <CardGrande key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} onDetalhes={() => setDetalhes(item)} />
+            <CardCompacto key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} onDetalhes={() => setDetalhes(item)} cor="var(--danger)" />
           ))}
         </Secao>
       )}
@@ -286,6 +286,140 @@ export default function Atrasos({ onNavegar }) {
           ))}
         </Secao>
       )}
+
+      {detalhes && (
+        <ModalDetalhes
+          item={detalhes}
+          nomeCliente={nomeCliente}
+          oficinas={oficinas}
+          movimentos={movimentos}
+          onFechar={() => setDetalhes(null)}
+          onAbrirQuadro={() => { setDetalhes(null); onNavegar?.("quadro"); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ModalDetalhes({ item, nomeCliente, oficinas, movimentos, onFechar, onAbrirQuadro }) {
+  const { pe, s, dias, motivo } = item;
+  const movsPedido = movimentos.filter((m) => m.pedido_id === pe.id).sort((a, b) => {
+    const da = (a.data || a.criado_em || "");
+    const db = (b.data || b.criado_em || "");
+    return db.localeCompare(da);
+  });
+
+  function fmtDataHora(d) {
+    if (!d) return "—";
+    try {
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return String(d);
+      return dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch { return String(d); }
+  }
+
+  const procCorte = Array.isArray(pe.processos_corte) ? pe.processos_corte : [];
+  const procAcab = Array.isArray(pe.processos_acabamento) ? pe.processos_acabamento : [];
+
+  return (
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 640, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, position: "relative" }}>
+        <button onClick={onFechar} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, background: "transparent", border: "none", padding: 6, cursor: "pointer", color: "var(--text-3)", display: "flex", alignItems: "center", borderRadius: 6 }}><X size={18} /></button>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6, paddingRight: 30 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{nomeCliente(pe.cliente_id)}</h3>
+              {pe.marca && <span style={pillMarca}>{pe.marca}</span>}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 3 }}>{pe.referencia} · {pe.total} peça{pe.total === 1 ? "" : "s"}</div>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <span style={pillAtraso}>{textoDias(dias)}</span>
+            {pe.prazo && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>Prazo: {fmtDataBR(pe.prazo)}</div>}
+          </div>
+        </div>
+
+        {motivo && (
+          <div style={{ padding: "10px 12px", background: "var(--danger-bg)", borderRadius: 8, margin: "14px 0", display: "flex", alignItems: "center", gap: 8 }}>
+            <AlertCircle size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
+            <div style={{ fontSize: 12, color: "var(--danger)" }}><strong style={{ fontWeight: 600 }}>{motivo}</strong></div>
+          </div>
+        )}
+
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Progresso das peças</div>
+          <BarraProgresso s={s} total={pe.total} feitas={pe.total - (s.Entrada + s.Corte + s.Oficina + s.Acabamento)} />
+        </div>
+
+        {(pe.tamanho || pe.tecido) && (
+          <div style={{ marginTop: 18, padding: "12px 14px", background: "var(--surface-2)", borderRadius: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Ficha</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, fontSize: 12 }}>
+              {pe.tamanho && <div><span style={{ color: "var(--text-3)" }}>Tamanho:</span> <strong>{pe.tamanho}</strong></div>}
+              {pe.tecido && <div><span style={{ color: "var(--text-3)" }}>Tecido:</span> <strong>{pe.tecido}</strong></div>}
+              {pe.descanso_tecido && <div style={{ color: "var(--danger)" }}>⚠ Tecido em descanso</div>}
+            </div>
+          </div>
+        )}
+
+        {(procCorte.length > 0 || procAcab.length > 0) && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Processos</div>
+            {procCorte.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 6 }}>Corte</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {procCorte.map((p, i) => (
+                    <span key={i} style={{ fontSize: 11, fontWeight: 500, padding: "3px 9px", borderRadius: 99, background: p.feito ? "var(--success-bg)" : "var(--warning-bg)", color: p.feito ? "var(--success)" : "var(--warning)" }}>
+                      {p.feito ? "✓" : "○"} {p.nome}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {procAcab.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 6 }}>Acabamento</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {procAcab.map((p, i) => (
+                    <span key={i} style={{ fontSize: 11, fontWeight: 500, padding: "3px 9px", borderRadius: 99, background: p.feito ? "var(--success-bg)" : "var(--warning-bg)", color: p.feito ? "var(--success)" : "var(--warning)" }}>
+                      {p.feito ? "✓" : "○"} {p.nome}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {movsPedido.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Movimentações ({movsPedido.length})</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", padding: "2px 4px" }}>
+              {movsPedido.map((m) => (
+                <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "var(--surface-2)", borderRadius: 7, fontSize: 12 }}>
+                  <span style={{ color: "var(--text-2)" }}>
+                    <strong style={{ color: "var(--text)" }}>{m.de_local}</strong>
+                    <span style={{ margin: "0 6px", color: "var(--text-3)" }}>→</span>
+                    <strong style={{ color: "var(--text)" }}>{m.para_local}</strong>
+                  </span>
+                  <span style={{ color: "var(--text-3)" }}>
+                    <strong style={{ color: "var(--text)" }}>{m.qtd}</strong> peça{m.qtd === 1 ? "" : "s"} · {fmtDataHora(m.data || m.criado_em)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 22, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+          <button onClick={onFechar} style={{ ...btnGhostAcao, flex: 1 }}>Fechar</button>
+          <button onClick={onAbrirQuadro} style={{ ...btnGhostAcao, flex: 1 }}>
+            <ExternalLink size={14} /> Abrir no Quadro
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -320,46 +454,6 @@ function Secao({ cor, titulo, count, children }) {
         <span style={{ fontSize: 11, color: "var(--text-3)" }}>{count} pedido{count === 1 ? "" : "s"}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{children}</div>
-    </div>
-  );
-}
-
-function CardGrande({ item, nomeCliente, onAbrir, onDetalhes }) {
-  const { pe, s, emProducao, dias, motivo } = item;
-  const feitas = pe.total - emProducao;
-  return (
-    <div style={{ padding: 16, background: "var(--surface)", border: "1px solid var(--border)", borderLeft: "3px solid var(--danger)", borderRadius: "0 12px 12px 0" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, gap: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 15, fontWeight: 600 }}>{nomeCliente(pe.cliente_id)}</span>
-            {pe.marca && <span style={pillMarca}>{pe.marca}</span>}
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>{pe.referencia} · {pe.total} peça{pe.total === 1 ? "" : "s"}</div>
-        </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <span style={pillAtraso}>{textoDias(dias)}</span>
-          <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>Prazo: {fmtDataBR(pe.prazo)}</div>
-        </div>
-      </div>
-
-      {motivo && (
-        <div style={{ padding: "10px 12px", background: "var(--danger-bg)", borderRadius: 8, margin: "12px 0", display: "flex", alignItems: "center", gap: 8 }}>
-          <AlertCircle size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
-          <div style={{ fontSize: 12, color: "var(--danger)" }}><strong style={{ fontWeight: 600 }}>{motivo}.</strong></div>
-        </div>
-      )}
-
-      <BarraProgresso s={s} total={pe.total} feitas={feitas} />
-
-      <div style={{ display: "flex", gap: 8, paddingTop: 12, borderTop: "1px solid var(--border)", marginTop: 12 }}>
-        <button onClick={onDetalhes} style={{ flex: 1, ...btnGhostAcao }} title="Ver detalhes deste pedido">
-          <Eye size={14} /> Detalhes
-        </button>
-        <button onClick={onAbrir} style={{ flex: 1, ...btnGhostAcao }}>
-          <ExternalLink size={14} /> Abrir no Quadro
-        </button>
-      </div>
     </div>
   );
 }
