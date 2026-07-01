@@ -96,6 +96,7 @@ export default function Atrasos({ onNavegar }) {
   const [filtroOficina, setFiltroOficina] = useState("");
   const [filtroEtapa, setFiltroEtapa] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("todos"); // todos | atrasados | urgentes | 2dias | sem_prazo
+  const [detalhes, setDetalhes] = useState(null);
 
   const carregar = useCallback(async () => {
     const [p, m, c, o] = await Promise.all([
@@ -248,8 +249,8 @@ export default function Atrasos({ onNavegar }) {
       {/* Atrasados +7 dias — card grande, um por vez */}
       {grupos.atr7.length > 0 && (
         <Secao cor="var(--danger)" titulo="Atrasados há mais de 7 dias" count={grupos.atr7.length}>
-          {grupos.atr7.map((item, i) => (
-            <CardGrande key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} />
+          {grupos.atr7.map((item) => (
+            <CardGrande key={item.pe.id} item={item} nomeCliente={nomeCliente} onAbrir={() => onNavegar?.("quadro")} onDetalhes={() => setDetalhes(item)} />
           ))}
         </Secao>
       )}
@@ -323,7 +324,7 @@ function Secao({ cor, titulo, count, children }) {
   );
 }
 
-function CardGrande({ item, nomeCliente, onAbrir }) {
+function CardGrande({ item, nomeCliente, onAbrir, onDetalhes }) {
   const { pe, s, emProducao, dias, motivo } = item;
   const feitas = pe.total - emProducao;
   return (
@@ -352,18 +353,18 @@ function CardGrande({ item, nomeCliente, onAbrir }) {
       <BarraProgresso s={s} total={pe.total} feitas={feitas} />
 
       <div style={{ display: "flex", gap: 8, paddingTop: 12, borderTop: "1px solid var(--border)", marginTop: 12 }}>
-        <button onClick={onAbrir} style={{ flex: 1, ...btnDanger }}>
-          <ExternalLink size={14} /> Abrir no Quadro
-        </button>
-        <button onClick={onAbrir} style={btnGhostAcao} title="Ver detalhes deste pedido">
+        <button onClick={onDetalhes} style={{ flex: 1, ...btnGhostAcao }} title="Ver detalhes deste pedido">
           <Eye size={14} /> Detalhes
+        </button>
+        <button onClick={onAbrir} style={{ flex: 1, ...btnGhostAcao }}>
+          <ExternalLink size={14} /> Abrir no Quadro
         </button>
       </div>
     </div>
   );
 }
 
-function CardCompacto({ item, nomeCliente, onAbrir, cor }) {
+function CardCompacto({ item, nomeCliente, onAbrir, onDetalhes, cor }) {
   const { pe, dias, motivo } = item;
   return (
     <div style={{ padding: "12px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${cor}`, borderRadius: "0 12px 12px 0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -382,11 +383,11 @@ function CardCompacto({ item, nomeCliente, onAbrir, cor }) {
         )}
       </div>
       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-        <button onClick={onAbrir} style={btnCompactoGhost} title="Ver detalhes deste pedido">
+        <button onClick={onDetalhes} style={btnCompactoGhost} title="Ver detalhes deste pedido">
           <Eye size={12} /> Detalhes
         </button>
-        <button onClick={onAbrir} style={{ ...btnCompactoPrimario, background: cor }}>
-          Abrir <ExternalLink size={12} />
+        <button onClick={onAbrir} style={btnCompactoGhost}>
+          <ExternalLink size={12} /> Abrir
         </button>
       </div>
     </div>
