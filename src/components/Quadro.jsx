@@ -4,7 +4,7 @@ import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, 
 import StatCard from "./StatCard.jsx";
 
 const LOCAIS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
-const COLUNAS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
+const COLUNAS = ["Entrada", "Corte", "Oficina", "Acabamento"];
 const CORES = {
   Entrada: "var(--text-2)", Corte: "var(--accent)", Oficina: "var(--warning)",
   Acabamento: "var(--accent)", Estoque: "var(--success)", Perda: "var(--danger)",
