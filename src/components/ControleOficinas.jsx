@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Factory, ArrowUpRight, ArrowDownLeft, Calendar, AlertTriangle, X, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "../supabaseClient.js";
+import StatCard from "./StatCard.jsx";
+import Toast, { avisoDeMovimento } from "./Toast.jsx";
 
 const LOCAIS_PRE_OFICINA = ["Entrada", "Corte"];      // de onde podem sair peças pra oficina
 const DESTINOS_POS_OFICINA = ["Acabamento", "Estoque", "Perda"];
@@ -44,6 +46,7 @@ export default function ControleOficinas({ session, perfil }) {
   const [carregando, setCarregando] = useState(true);
   const [novaSaida, setNovaSaida] = useState(false);
   const [retornar, setRetornar] = useState(null); // remessa selecionada
+  const [aviso, setAviso] = useState(null);
   const [expandida, setExpandida] = useState(null); // id da remessa expandida
 
   const carregar = useCallback(async () => {
@@ -95,28 +98,32 @@ export default function ControleOficinas({ session, perfil }) {
   if (carregando) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>;
 
   return (
-    <div style={{ padding: 28, maxWidth: 1280, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 22, gap: 12, flexWrap: "wrap" }}>
+    <div className="fade-in" style={{ padding: "24px 26px", maxWidth: 1280, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
         <div>
-          <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Controle de oficinas</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Controle de oficinas</h2>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Registre saídas e retornos de peças das oficinas terceirizadas.</div>
         </div>
         <button onClick={() => setNovaSaida(true)} style={btnPrimary}><Plus size={16} /> Registrar saída</button>
       </div>
 
-      <div style={{ display: "flex", gap: 14, marginBottom: 22, flexWrap: "wrap" }}>
-        <Stat Icon={ArrowUpRight} label="Remessas em aberto" valor={totalAbertas} cor="var(--warning)" bg="var(--warning-bg)" />
-        <Stat Icon={Factory} label="Peças fora da fábrica" valor={totalPecasFora} cor="var(--accent)" bg="var(--accent-bg)" />
-        <Stat Icon={AlertTriangle} label="Em atraso (+7 dias)" valor={remessasAtrasadas} cor="var(--danger)" bg="var(--danger-bg)" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
+        <StatCard Icon={ArrowUpRight} label="Remessas em aberto" valor={totalAbertas} cor="var(--warning)" />
+        <StatCard Icon={Factory} label="Peças fora da fábrica" valor={totalPecasFora} cor="var(--accent)" />
+        <StatCard Icon={AlertTriangle} label="Em atraso (+7 dias)" valor={remessasAtrasadas} cor="var(--danger)" valorCor={remessasAtrasadas > 0 ? "var(--danger)" : undefined} />
       </div>
 
-      <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px" }}>Em aberto</h3>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 12px" }}>
+        <span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--warning)" }} />
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Em aberto</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{abertas.length}</span>
+      </div>
       {abertas.length === 0 ? (
         <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>Nenhuma remessa em aberto no momento.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 28 }}>
           {Object.keys(porOficina).map((ofId) => (
-            <div key={ofId} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 14, boxShadow: "var(--shadow-card)" }}>
+            <div key={ofId} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 13, padding: 14, boxShadow: "var(--shadow-sm)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                 <Factory size={16} style={{ color: "var(--accent)" }} />
                 <span style={{ fontSize: 14, fontWeight: 600 }}>{nomeOficina(Number(ofId))}</span>
@@ -190,7 +197,11 @@ export default function ControleOficinas({ session, perfil }) {
         </div>
       )}
 
-      <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px" }}>Fechadas recentemente</h3>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 12px" }}>
+        <span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)" }} />
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Fechadas recentemente</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{fechadasRecentes.length}</span>
+      </div>
       {fechadasRecentes.length === 0 ? (
         <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>Nenhuma remessa fechada ainda.</div>
       ) : (
@@ -221,21 +232,8 @@ export default function ControleOficinas({ session, perfil }) {
       )}
 
       {novaSaida && <ModalNovaSaida pedidos={pedidos} oficinas={oficinas} movimentos={movimentos} clientes={clientes} session={session} onFechar={() => setNovaSaida(false)} onOk={() => { setNovaSaida(false); carregar(); }} />}
-      {retornar && <ModalRegistrarRetorno dados={retornar} session={session} onFechar={() => setRetornar(null)} onOk={() => { setRetornar(null); carregar(); }} />}
-    </div>
-  );
-}
-
-function Stat({ Icon, label, valor, cor, bg }) {
-  return (
-    <div style={{ flex: "1 1 180px", padding: "16px 18px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, boxShadow: "var(--shadow-card)", display: "flex", alignItems: "flex-start", gap: 12 }}>
-      <div style={{ width: 38, height: 38, borderRadius: 10, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Icon size={18} style={{ color: cor }} />
-      </div>
-      <div>
-        <div style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 3 }}>{label}</div>
-        <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{valor}</div>
-      </div>
+      {retornar && <ModalRegistrarRetorno dados={retornar} session={session} onFechar={() => setRetornar(null)} onOk={(info) => { setRetornar(null); carregar(); setAviso(avisoDeMovimento(info)); }} />}
+      <Toast aviso={aviso} onFechar={() => setAviso(null)} />
     </div>
   );
 }
@@ -363,7 +361,7 @@ function ModalRegistrarRetorno({ dados, session, onFechar, onOk }) {
     });
     if (m.error) { setSalvando(false); return setErro("Falha ao registrar a movimentação: " + m.error.message); }
     setSalvando(false);
-    onOk();
+    onOk({ destino, qtd: q, referencia: pedido?.referencia || "#" + remessa.pedido_id });
   }
 
   return (
@@ -402,7 +400,7 @@ function ModalRegistrarRetorno({ dados, session, onFechar, onOk }) {
 function Overlay({ children, onFechar }) {
   return (
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 20, position: "relative" }}>
+      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 20, position: "relative", boxShadow: "var(--shadow-lg)" }}>
         <button onClick={onFechar} aria-label="Fechar" style={{ position: "absolute", top: 12, right: 12, background: "transparent", border: "none", padding: 6, cursor: "pointer", color: "var(--text-3)", display: "flex", alignItems: "center", borderRadius: 6 }}><X size={16} /></button>
         {children}
       </div>

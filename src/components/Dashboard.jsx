@@ -224,14 +224,14 @@ export default function Dashboard({ perfil, onNavegar }) {
 
   return (
     <div className="fade-in" style={{ padding: "20px 24px", maxWidth: 1280, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div style={{ fontSize: 12, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 500 }}>{fmtDataExtenso()}</div>
-          <div style={{ fontSize: 24, fontWeight: 500, color: "var(--text)", marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".09em", fontWeight: 700 }}>{fmtDataExtenso()}</div>
+          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-.02em", color: "var(--text)", marginTop: 5 }}>
             {saudacao()}{primeiroNome && `, ${primeiroNome}`}.
           </div>
         </div>
-        <button onClick={carregar} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>
+        <button onClick={carregar} className="tap" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>
           <RefreshCw size={14} /> Atualizar
         </button>
       </div>
@@ -239,7 +239,8 @@ export default function Dashboard({ perfil, onNavegar }) {
       {stats.pedidoAtrasadoDestaque && (
         <button
           onClick={() => onNavegar?.("atrasos")}
-          style={{ width: "100%", textAlign: "left", padding: "14px 16px", background: "var(--danger-bg)", borderLeft: "3px solid var(--danger)", borderRadius: "0 8px 8px 0", border: "none", borderLeftWidth: 3, borderLeftStyle: "solid", borderLeftColor: "var(--danger)", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 20 }}
+          className="lift"
+          style={{ width: "100%", textAlign: "left", padding: "14px 16px", background: "var(--danger-bg)", border: "none", borderLeft: "3px solid var(--danger)", borderRadius: 12, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 20 }}
         >
           <AlertTriangle size={20} style={{ color: "var(--danger)", flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
@@ -259,27 +260,25 @@ export default function Dashboard({ perfil, onNavegar }) {
           <button
             key={c.titulo}
             onClick={c.onClick}
-            style={{ textAlign: "left", padding: 16, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, cursor: c.onClick ? "pointer" : "default", boxShadow: "var(--shadow-card)", transition: "transform .12s, box-shadow .15s" }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "var(--shadow-md)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "var(--shadow-card)"; }}
+            className="lift"
+            style={{ textAlign: "left", padding: "15px 17px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 13, cursor: c.onClick ? "pointer" : "default", boxShadow: "var(--shadow-sm)" }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <c.Icon size={18} style={{ color: c.cor }} />
-              </div>
-              <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 600, letterSpacing: 0.5 }}>{c.titulo}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
+              <span style={{ width: 7, height: 7, borderRadius: 99, background: c.cor, flexShrink: 0 }} />
+              <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".07em", color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.titulo}</span>
+              <c.Icon size={15} strokeWidth={2} style={{ marginLeft: "auto", color: "var(--text-3)", flexShrink: 0 }} />
             </div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>{c.valor}</div>
-            <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>{c.sub}</div>
+            <div style={{ fontSize: 29, fontWeight: 800, letterSpacing: "-.02em", color: "var(--text)", lineHeight: 1 }}>{c.valor}</div>
+            <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 7 }}>{c.sub}</div>
           </button>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14, marginBottom: 16 }}>
-        <div style={{ padding: "18px 20px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-card)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 14, marginBottom: 14 }}>
+        <div style={{ padding: "18px 20px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, boxShadow: "var(--shadow-sm)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>Fluxo de produção</div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>Fluxo de produção</div>
               <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>Distribuição das peças pelas etapas</div>
             </div>
           </div>
@@ -315,9 +314,9 @@ export default function Dashboard({ perfil, onNavegar }) {
           </div>
         </div>
 
-        <div style={{ padding: "18px 20px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-card)" }}>
+        <div style={{ padding: "18px 20px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, boxShadow: "var(--shadow-sm)" }}>
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Peças finalizadas</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Peças finalizadas</div>
             <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>Últimos 7 dias</div>
           </div>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", height: 90, gap: 6, marginBottom: 8 }}>
@@ -344,10 +343,10 @@ export default function Dashboard({ perfil, onNavegar }) {
         </div>
       </div>
 
-      <div style={{ padding: "18px 20px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-card)" }}>
+      <div style={{ padding: "18px 20px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, boxShadow: "var(--shadow-sm)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Atividade recente</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Atividade recente</div>
             <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>Últimas movimentações no sistema</div>
           </div>
         </div>

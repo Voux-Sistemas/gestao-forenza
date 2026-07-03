@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
 import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock } from "lucide-react";
 import StatCard from "./StatCard.jsx";
+import Toast, { avisoDeMovimento } from "./Toast.jsx";
 
 const LOCAIS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
 const COLUNAS = ["Entrada", "Corte", "Oficina", "Acabamento"];
@@ -42,6 +43,7 @@ export default function Quadro({ session, perfil }) {
   const [carregando, setCarregando] = useState(true);
   const [mover, setMover] = useState(null);
   const [novoAberto, setNovoAberto] = useState(false);
+  const [aviso, setAviso] = useState(null);
 
   const carregar = useCallback(async () => {
     const [p, m, c, o, r] = await Promise.all([
@@ -78,7 +80,7 @@ export default function Quadro({ session, perfil }) {
   if (!podeVerTudo && !perfil?.setor) return <div style={{ padding: 28, color: "var(--text-2)" }}>Seu usuário ainda não tem um setor definido.</div>;
 
   return (
-    <div className="fade-in" style={{ padding: "20px 22px" }}>
+    <div className="fade-in" style={{ padding: "24px 26px" }}>
       {podeVerTudo && (() => {
         let pedProducao = 0, atrasados = 0, criticos = 0, pcProducao = 0, pcEstoque = 0, pcPerda = 0, nEstoque = 0;
         pedidos.forEach((pe) => {
@@ -106,7 +108,7 @@ export default function Quadro({ session, perfil }) {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
         <div>
-          <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Quadro de produção</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Quadro de produção</h2>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Clique num card para mover as peças entre as etapas.</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -213,7 +215,8 @@ export default function Quadro({ session, perfil }) {
         ))}
       </div>
 
-      {mover && <ModalMover dados={mover} oficinas={oficinas} remessas={remessas} movimentos={movimentos} session={session} podeEditar={podeEditar} ehMaster={ehMaster} onFechar={() => setMover(null)} onOk={() => { setMover(null); carregar(); }} />}
+      {mover && <ModalMover dados={mover} oficinas={oficinas} remessas={remessas} movimentos={movimentos} session={session} podeEditar={podeEditar} ehMaster={ehMaster} onFechar={() => setMover(null)} onOk={(info) => { setMover(null); carregar(); setAviso(avisoDeMovimento(info)); }} />}
+      <Toast aviso={aviso} onFechar={() => setAviso(null)} />
       {novoAberto && <ModalNovo clientes={clientes} oficinas={oficinas} onFechar={() => setNovoAberto(false)} onOk={() => { setNovoAberto(false); carregar(); }} />}
     </div>
   );
@@ -293,7 +296,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     });
     setSalvando(false);
     if (error) return setErro(error.message);
-    onOk();
+    onOk({ destino, qtd: q, referencia: pedido.referencia });
   }
 
   return (
@@ -794,7 +797,7 @@ const inpMini = { width: "100%", padding: "7px 9px", fontSize: 13, borderRadius:
 function Overlay({ children, onFechar }) {
   return (
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow-lg)" }}>
         {children}
       </div>
     </div>
@@ -878,5 +881,5 @@ const coluna = { minWidth: 246, width: 246, background: "var(--surface-2)", bord
 const card = { textAlign: "left", width: "100%", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, padding: "12px 13px", display: "block", cursor: "pointer", boxShadow: "var(--shadow-sm)" };
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
-const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
+const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 15px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "none", background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "#fff", boxShadow: "var(--shadow-sm)", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };

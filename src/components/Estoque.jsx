@@ -65,8 +65,11 @@ export default function Estoque({ session, perfil }) {
   ];
 
   return (
-    <div className="fade-in" style={{ padding: "20px 22px" }}>
-      <h2 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 16px" }}>Estoque</h2>
+    <div className="fade-in" style={{ padding: "24px 26px", maxWidth: 1280, margin: "0 auto" }}>
+      <div style={{ marginBottom: 18 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Estoque</h2>
+        <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Inspecione as peças que chegam e acompanhe o que está pronto.</div>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(168px, 1fr))", gap: 12, marginBottom: 22 }}>
         {kpis.map((k) => (
@@ -197,7 +200,7 @@ function ModalBaixa({ dados, session, onFechar, onOk }) {
 
   return (
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 20, boxShadow: "var(--shadow-lg)" }}>
         <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Dar baixa do estoque</h3>
         <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pe.referencia} · {tipo === "Primeira" ? "1ª" : "2ª"} qualidade · {disponivel} disponível(is)</p>
         <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5, fontWeight: 500 }}>Quantidade</label>
@@ -307,5 +310,5 @@ const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9,
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
 const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer", transition: "background .15s" };
 
-const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
+const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 14px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "none", background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "#fff", boxShadow: "var(--shadow-sm)", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };

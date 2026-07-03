@@ -33,14 +33,15 @@ export default function Shell({ session }) {
   const podeAdministrar = ["master", "chefe_geral"].includes(perfil?.papel);
   const iniciais = (perfil?.nome || "U").trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
 
+  // Ordem segue o fluxo real da fábrica: entrada → produção → saída, depois monitoramento e admin.
   const navItens = [
     { id: "inicio", label: "Início", icon: LayoutDashboard },
     { id: "triagem", label: "Pilotagem", icon: Inbox },
     { id: "quadro", label: "Quadro", icon: LayoutGrid },
     { id: "oficinas", label: "Oficinas", icon: Factory },
-    { id: "atrasos", label: "Alertas", icon: AlertTriangle },
     { id: "estoque", label: "Estoque", icon: Package },
-    { id: "cadastros", label: "Cadastros", icon: Users },
+    { id: "atrasos", label: "Alertas", icon: AlertTriangle },
+    { id: "cadastros", label: "Cadastros", icon: Users, separado: true },
   ];
 
   function conteudo() {
@@ -81,13 +82,16 @@ export default function Shell({ session }) {
               const Icone = item.icon;
               const ativo = pagina === item.id;
               return (
-                <button key={item.id} className={ativo ? "" : "tap"} onClick={() => setPagina(item.id)} style={{
-                  display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", borderRadius: 9,
-                  border: "none", cursor: "pointer", color: ativo ? "var(--accent)" : "var(--text-2)",
-                  background: ativo ? "var(--accent-bg)" : "transparent",
-                }}>
-                  <Icone size={15} /> {item.label}
-                </button>
+                <React.Fragment key={item.id}>
+                  {item.separado && <span aria-hidden="true" style={{ width: 1, alignSelf: "stretch", margin: "6px 6px", background: "var(--border)", flexShrink: 0 }} />}
+                  <button className={ativo ? "" : "tap"} onClick={() => setPagina(item.id)} style={{
+                    display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", borderRadius: 9,
+                    border: "none", cursor: "pointer", color: ativo ? "var(--accent)" : "var(--text-2)",
+                    background: ativo ? "var(--accent-bg)" : "transparent",
+                  }}>
+                    <Icone size={15} /> {item.label}
+                  </button>
+                </React.Fragment>
               );
             })}
           </nav>

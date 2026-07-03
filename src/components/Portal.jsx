@@ -70,20 +70,23 @@ export default function Portal({ session, perfil }) {
   }
 
   return (
-    <div style={{ padding: "20px 22px", maxWidth: 760, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>Meus pedidos</h2>
+    <div className="fade-in" style={{ padding: "24px 22px", maxWidth: 760, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 22, gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Meus pedidos</h2>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Acompanhe suas solicitações e a produção em tempo real.</div>
+        </div>
         <button onClick={() => setNova(true)} style={btnPrimary}><Plus size={16} /> Nova solicitação</button>
       </div>
 
       <section style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", margin: "0 0 10px" }}>Solicitações</h3>
+        <h3 style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--text-2)", margin: "0 0 10px" }}>Solicitações</h3>
         {solAtivas.length === 0 ? <p style={txtVazio}>Você ainda não tem solicitações em andamento.</p> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {solAtivas.map((s) => {
               const st = STATUS_SOL[s.status] || STATUS_SOL.em_triagem;
               return (
-                <div key={s.id} onClick={() => setConversa(s)} style={{ ...cartao, cursor: "pointer" }}>
+                <div key={s.id} className="lift" onClick={() => setConversa(s)} style={{ ...cartao, cursor: "pointer" }}>
                   <div style={{ display: "flex", gap: 12 }}>
                     {s.imagem_url && <img src={s.imagem_url} alt="Referência" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />}
                     <div style={{ flex: 1 }}>
@@ -111,7 +114,7 @@ export default function Portal({ session, perfil }) {
       </section>
 
       <section>
-        <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", margin: "0 0 10px" }}>Em produção</h3>
+        <h3 style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--text-2)", margin: "0 0 10px" }}>Em produção</h3>
         {pedidos.length === 0 ? <p style={txtVazio}>Nenhum pedido em produção ainda.</p> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {pedidos.map((pe) => {
@@ -127,8 +130,8 @@ export default function Portal({ session, perfil }) {
                       {pronto ? "Pronto" : "Em produção"}
                     </span>
                   </div>
-                  <div style={{ height: 7, background: "var(--surface-3)", borderRadius: 99, overflow: "hidden" }}>
-                    <div style={{ width: `${pct}%`, height: "100%", background: pronto ? "var(--success)" : "var(--accent)" }} />
+                  <div style={{ height: 8, background: "var(--surface-3)", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: pronto ? "var(--success)" : "linear-gradient(90deg,var(--accent),var(--accent-2))", transition: "width .4s cubic-bezier(.2,.7,.3,1)" }} />
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12, color: "var(--text-3)" }}>
                     <span>{pe.total} peças</span>
@@ -194,7 +197,7 @@ function ModalNova({ clienteId, onFechar, onOk }) {
 
   return (
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow-lg)" }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Nova solicitação</h3>
         <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Conte o que você precisa produzir. A fábrica vai analisar.</p>
         <label style={lbl}>Descrição</label>
@@ -266,7 +269,7 @@ function ModalConversa({ solicitacao, onFechar }) {
 
   return (
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column" }}>
+      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column", boxShadow: "var(--shadow-lg)" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ fontSize: 15, fontWeight: 600 }}>Sua solicitação</div>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
@@ -317,10 +320,10 @@ function ModalConversa({ solicitacao, onFechar }) {
 }
 
 const txtVazio = { fontSize: 13, color: "var(--text-3)", padding: "8px 2px" };
-const cartao = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" };
+const cartao = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 13, padding: "15px 17px", boxShadow: "var(--shadow-sm)" };
 const erroTxt = { fontSize: 12, color: "var(--danger)", margin: "12px 0 0" };
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
-const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
+const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 15px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "none", background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "#fff", boxShadow: "var(--shadow-sm)", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnMini = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 500, padding: "6px 10px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };

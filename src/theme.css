@@ -36,7 +36,8 @@ body{
   text-rendering:optimizeLegibility;font-variant-numeric:tabular-nums;letter-spacing:-.005em;
 }
 h1,h2,h3{letter-spacing:-.02em;}
-button{font-family:inherit;cursor:pointer;
+button,input,select,textarea{font-family:inherit;}
+button{cursor:pointer;
   transition:transform .12s ease,box-shadow .16s ease,background .16s ease,color .16s ease,border-color .16s ease,opacity .16s ease;}
 button:active:not(:disabled){transform:translateY(.5px) scale(.99);}
 input,select,textarea{transition:border-color .15s ease,box-shadow .15s ease,background .15s ease;}
@@ -58,6 +59,8 @@ a{color:var(--accent);}
 .pop{animation:pop .2s cubic-bezier(.2,.7,.3,1) both;}
 @keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
 .pulse-dot{animation:pulseDot 1.4s ease-in-out infinite;}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,-16px) scale(.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes toastBar{from{width:100%}to{width:0%}}
 
 .center-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--text-2);}
 

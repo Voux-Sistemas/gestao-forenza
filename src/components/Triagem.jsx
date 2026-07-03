@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
 import { comprimirImagem } from "../comprimirImagem.js";
-import { Plus, ImagePlus, X } from "lucide-react";
+import { Plus, ImagePlus, X, Trash2, Inbox, ArrowRight } from "lucide-react";
 import Pilotagem from "./Pilotagem.jsx";
 
 const STATUS = {
@@ -71,9 +71,12 @@ export default function Triagem() {
   const atual = aba === "aguardando" ? aguardando : aba === "pilotagem" ? pilotagem : recusadas;
 
   return (
-    <div style={{ padding: "20px 22px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>Pilotagem</h2>
+    <div className="fade-in" style={{ padding: "24px 26px", maxWidth: 1280, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Pilotagem</h2>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Analise as solicitações dos clientes antes de virarem produção.</div>
+        </div>
         <button onClick={() => setNova(true)} style={btnPrimary}><Plus size={16} /> Nova solicitação</button>
       </div>
 
@@ -83,28 +86,41 @@ export default function Triagem() {
         <button onClick={() => setAba("recusadas")} style={subTab(aba === "recusadas")}>Recusadas ({recusadas.length})</button>
       </div>
 
-      {atual.length === 0 ? <p style={txtVazio}>Nenhuma solicitação aqui.</p> : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {atual.length === 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "48px 0", color: "var(--text-3)" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Inbox size={26} style={{ color: "var(--text-3)" }} />
+          </div>
+          <span style={{ fontSize: 14 }}>Nenhuma solicitação aqui.</span>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {atual.map((s) => {
             const st = STATUS[s.status] || STATUS.em_triagem;
+            const clicavel = s.status === "em_pilotagem";
             return (
-              <div key={s.id} onClick={s.status === "em_pilotagem" ? () => setPilotando(s) : undefined} style={{ ...cartao, cursor: s.status === "em_pilotagem" ? "pointer" : "default" }}>
+              <div key={s.id} className={clicavel ? "lift" : ""} onClick={clicavel ? () => setPilotando(s) : undefined} style={{ ...cartao, cursor: clicavel ? "pointer" : "default" }}>
                 <div style={{ display: "flex", gap: 14 }}>
                   {s.imagem_url && (
-                    <a href={s.imagem_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0 }}>
-                      <img src={s.imagem_url} alt="Referência" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />
+                    <a href={s.imagem_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                      <img src={s.imagem_url} alt="Referência" style={{ width: 68, height: 68, objectFit: "cover", borderRadius: 10, border: "1px solid var(--border)" }} />
                     </a>
                   )}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14, fontWeight: 600 }}>{nomeCliente(s.cliente_id)}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: st.bg, color: st.cor }}>{st.label}</span>
-                      {ultimoAutor(s.id) === "cliente" && <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: "var(--success-bg)", color: "var(--success)" }}>Cliente respondeu</span>}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 14.5, fontWeight: 700 }}>{nomeCliente(s.cliente_id)}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 99, background: st.bg, color: st.cor }}>{st.label}</span>
+                      {ultimoAutor(s.id) === "cliente" && <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 99, background: "var(--success-bg)", color: "var(--success)" }}>Cliente respondeu</span>}
+                      <button onClick={(e) => excluir(e, s)} aria-label="Excluir solicitação" title="Excluir solicitação" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 6, borderRadius: 7, border: "1px solid transparent", background: "transparent", color: "var(--text-3)", cursor: "pointer", flexShrink: 0 }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--danger)"; e.currentTarget.style.borderColor = "var(--danger)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-3)"; e.currentTarget.style.borderColor = "transparent"; }}>
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                     <p style={{ fontSize: 13, color: "var(--text)", margin: "0 0 8px", lineHeight: 1.5 }}>{s.descricao}</p>
-                    <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--text-3)" }}>
-                      {s.quantidade != null && <span>Qtd. estimada: {s.quantidade}</span>}
-                      {s.prazo_desejado && <span>Prazo desejado: {formatarData(s.prazo_desejado)}</span>}
+                    <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--text-3)", flexWrap: "wrap" }}>
+                      {s.quantidade != null && <span>Qtd. estimada: <strong style={{ color: "var(--text-2)" }}>{s.quantidade}</strong></span>}
+                      {s.prazo_desejado && <span>Prazo desejado: <strong style={{ color: "var(--text-2)" }}>{formatarData(s.prazo_desejado)}</strong></span>}
                     </div>
                     {s.observacao_fabrica && (
                       <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 8, padding: "8px 10px", background: "var(--surface-2)", borderRadius: 8 }}>
@@ -115,20 +131,18 @@ export default function Triagem() {
                 </div>
 
                 {s.status === "em_pilotagem" && (
-                  <div style={{ marginTop: 10, fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>Abrir pilotagem →</div>
-                )}
-
-                {(s.status === "em_triagem" || s.status === "info_solicitada") && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                    <button onClick={() => setAcao({ s, tipo: "pilotagem" })} style={btnPrimary}>Iniciar pilotagem</button>
-                    <button onClick={() => setConversa(s)} style={btnGhost}>Abrir conversa</button>
-                    <button onClick={() => setAcao({ s, tipo: "recusar" })} style={btnDanger}>Recusar</button>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 12, paddingTop: 11, borderTop: "1px solid var(--border)", width: "100%", fontSize: 12.5, fontWeight: 700, color: "var(--accent)" }}>
+                    Abrir pilotagem <ArrowRight size={14} />
                   </div>
                 )}
 
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-                  <button onClick={(e) => excluir(e, s)} style={btnExcluir}>Excluir</button>
-                </div>
+                {(s.status === "em_triagem" || s.status === "info_solicitada") && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+                    <button onClick={() => setAcao({ s, tipo: "pilotagem" })} style={btnPrimary}>Iniciar pilotagem</button>
+                    <button onClick={() => setConversa(s)} className="tap" style={btnGhost}>Abrir conversa</button>
+                    <button onClick={() => setAcao({ s, tipo: "recusar" })} style={btnDanger}>Recusar</button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -276,7 +290,7 @@ function ModalAcao({ dados, onFechar, onOk }) {
 function Overlay({ children, onFechar }) {
   return (
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow-lg)" }}>
         {children}
       </div>
     </div>
@@ -288,8 +302,7 @@ const subTab = (ativo) => ({
   color: ativo ? "var(--accent)" : "var(--text-2)",
   borderBottom: ativo ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1,
 });
-const txtVazio = { fontSize: 13, color: "var(--text-3)", padding: "16px 2px" };
-const cartao = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" };
+const cartao = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 13, padding: "15px 17px", boxShadow: "var(--shadow-sm)" };
 const erroTxt = { fontSize: 12, color: "var(--danger)", margin: "12px 0 0" };
 function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
   const sol = solicitacao;
@@ -336,7 +349,7 @@ function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
 
   return (
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column" }}>
+      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column", boxShadow: "var(--shadow-lg)" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ fontSize: 15, fontWeight: 600 }}>Conversa com o cliente</div>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
@@ -388,8 +401,7 @@ function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
 
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
-const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
-const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
-const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "8px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" };
-const btnExcluir = { fontSize: 12, fontWeight: 600, padding: "5px 10px", borderRadius: 7, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" };
+const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 15px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "none", background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "#fff", boxShadow: "var(--shadow-sm)", cursor: "pointer" };
+const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "9px 15px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
+const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "9px 15px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" };
 const btnMini = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 500, padding: "6px 10px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };

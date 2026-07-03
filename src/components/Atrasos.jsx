@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 const PRODUCAO = ["Entrada", "Corte", "Oficina", "Acabamento"];
-const CORES_ETAPA = { Entrada: "var(--text-3)", Corte: "#185FA5", Oficina: "var(--warning)", Acabamento: "var(--orange)" };
+const CORES_ETAPA = { Entrada: "var(--text-3)", Corte: "var(--accent)", Oficina: "var(--warning)", Acabamento: "var(--orange)" };
 
 function saldos(pedidoId, total, movimentos) {
   const s = { Entrada: total, Corte: 0, Oficina: 0, Acabamento: 0, Estoque: 0, Perda: 0, Primeira: 0, Segunda: 0, Saida: 0 };
@@ -176,10 +176,10 @@ export default function Atrasos({ onNavegar }) {
   if (carregando) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>;
 
   return (
-    <div className="fade-in" style={{ padding: "20px 24px", maxWidth: 1280, margin: "0 auto" }}>
+    <div className="fade-in" style={{ padding: "24px 26px", maxWidth: 1280, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>Alertas</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Alertas</h2>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Pedidos que precisam da sua atenção agora.</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -323,7 +323,7 @@ function ModalDetalhes({ item, nomeCliente, oficinas, movimentos, onFechar, onAb
 
   return (
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 640, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, position: "relative" }}>
+      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 640, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, position: "relative", boxShadow: "var(--shadow-lg)" }}>
         <button onClick={onFechar} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, background: "transparent", border: "none", padding: 6, cursor: "pointer", color: "var(--text-3)", display: "flex", alignItems: "center", borderRadius: 6 }}><X size={18} /></button>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6, paddingRight: 30 }}>
@@ -426,21 +426,19 @@ function ModalDetalhes({ item, nomeCliente, oficinas, movimentos, onFechar, onAb
 
 function KPI({ Icon, rotulo, valor, descricao, corTexto, corIcone, bg, borda, destaque, ativo, onClick }) {
   const bgFinal = ativo || destaque ? bg : "var(--surface)";
-  const bordaFinal = destaque ? `2px solid ${borda}` : ativo ? `2px solid ${corIcone}` : "1px solid var(--border)";
+  const bordaFinal = destaque ? `1.5px solid ${borda}` : ativo ? `1.5px solid ${corIcone}` : "1px solid var(--border)";
   return (
-    <button onClick={onClick} style={{
-      textAlign: "left", padding: "14px 16px", background: bgFinal, border: bordaFinal,
-      borderRadius: 12, cursor: "pointer", boxShadow: "var(--shadow-card)", transition: "transform .12s, box-shadow .15s",
-    }}
-    onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-    onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-        <Icon size={18} style={{ color: corIcone }} />
-        <span style={{ fontSize: 10, color: corTexto || "var(--text-3)", fontWeight: 600, letterSpacing: 0.5 }}>{rotulo}</span>
+    <button onClick={onClick} className="lift" style={{
+      textAlign: "left", padding: "15px 17px 16px", background: bgFinal, border: bordaFinal,
+      borderRadius: 13, cursor: "pointer", boxShadow: "var(--shadow-sm)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
+        <span style={{ width: 7, height: 7, borderRadius: 99, background: corIcone, flexShrink: 0 }} />
+        <span style={{ fontSize: 10.5, color: corTexto || "var(--text-2)", fontWeight: 700, letterSpacing: ".07em" }}>{rotulo}</span>
+        <Icon size={15} strokeWidth={2} style={{ marginLeft: "auto", color: corTexto || "var(--text-3)" }} />
       </div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: corTexto || "var(--text)", lineHeight: 1 }}>{valor}</div>
-      <div style={{ fontSize: 11, color: corTexto ? corTexto : "var(--text-2)", opacity: corTexto ? 0.85 : 1, marginTop: 4 }}>{descricao}</div>
+      <div style={{ fontSize: 27, fontWeight: 800, letterSpacing: "-.02em", color: corTexto || "var(--text)", lineHeight: 1 }}>{valor}</div>
+      <div style={{ fontSize: 11.5, color: corTexto ? corTexto : "var(--text-2)", opacity: corTexto ? 0.85 : 1, marginTop: 6 }}>{descricao}</div>
     </button>
   );
 }
@@ -450,8 +448,8 @@ function Secao({ cor, titulo, count, children }) {
     <div style={{ marginBottom: 22 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <span style={{ width: 8, height: 8, borderRadius: 99, background: cor }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{titulo}</span>
-        <span style={{ fontSize: 11, color: "var(--text-3)" }}>{count} pedido{count === 1 ? "" : "s"}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>{titulo}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{count}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{children}</div>
     </div>
@@ -461,7 +459,7 @@ function Secao({ cor, titulo, count, children }) {
 function CardCompacto({ item, nomeCliente, onAbrir, onDetalhes, cor }) {
   const { pe, dias, motivo } = item;
   return (
-    <div style={{ padding: "12px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${cor}`, borderRadius: "0 12px 12px 0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <div className="lift" style={{ padding: "12px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${cor}`, borderRadius: 12, boxShadow: "var(--shadow-sm)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: 14, fontWeight: 600 }}>{nomeCliente(pe.cliente_id)}</span>

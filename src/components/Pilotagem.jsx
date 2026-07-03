@@ -105,7 +105,7 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
 
   return (
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 640, maxHeight: "90vh", overflow: "hidden", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column" }}>
+      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 640, maxHeight: "90vh", overflow: "hidden", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column", boxShadow: "var(--shadow-lg)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", gap: 12 }}>
             {sol.imagem_url && <img src={sol.imagem_url} alt="Referência" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />}
@@ -120,7 +120,7 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
         <div style={{ padding: "18px 20px", overflowY: "auto", flex: 1 }}>
           <div style={{ marginBottom: 22 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <label style={{ fontSize: 13, fontWeight: 600 }}>Ficha técnica</label>
+              <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--text-2)" }}>Ficha técnica</label>
               {!aprovada && (
                 <button onClick={salvarFicha} disabled={salvandoFicha} style={btnMini}>
                   {salvandoFicha ? "Salvando…" : fichaSalva ? "Salvo ✓" : "Salvar ficha"}
@@ -144,7 +144,7 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
           </div>
 
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 10 }}>Histórico de pilotagem</label>
+            <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--text-2)", display: "block", marginBottom: 10 }}>Histórico de pilotagem</label>
             {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> :
               comentarios.length === 0 ? <p style={{ fontSize: 13, color: "var(--text-3)", margin: "0 0 12px" }}>Nenhum registro ainda. Escreva o primeiro abaixo.</p> : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
@@ -252,7 +252,7 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
 const erroTxt = { fontSize: 12, color: "var(--danger)", margin: "12px 0 0" };
-const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 13px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" };
-const btnSuccess = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "var(--success)", color: "#fff", cursor: "pointer" };
+const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 13px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "none", background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "#fff", boxShadow: "var(--shadow-sm)", cursor: "pointer" };
+const btnSuccess = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "none", background: "var(--success)", color: "#fff", boxShadow: "var(--shadow-sm)", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnMini = { fontSize: 12, fontWeight: 500, padding: "5px 10px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
