@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient.js";
 import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Receipt, Paperclip, ChevronDown } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
@@ -938,8 +939,8 @@ function Overlay({ children, onFechar, rodape }) {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = anterior; };
   }, []);
-  return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", justifyContent: "flex-end", zIndex: 50 }}>
+  return createPortal(
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", justifyContent: "flex-end", zIndex: 100 }}>
       <div onClick={(e) => e.stopPropagation()} className="drawer-in" style={{ width: "min(480px, 100%)", height: "100%", background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "var(--shadow-lg)", display: "flex", flexDirection: "column" }}>
         <div style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain", padding: 22 }}>
           {children}
@@ -950,7 +951,8 @@ function Overlay({ children, onFechar, rodape }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
