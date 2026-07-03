@@ -72,3 +72,7 @@ a{color:var(--accent);}
 *::-webkit-scrollbar-thumb:hover{background:var(--text-3);border:2px solid transparent;background-clip:padding-box;}
 
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;}}
+
+/* ── gaveta lateral (modal de mover/criar pedido) ── */
+@keyframes drawerIn{from{transform:translateX(32px);opacity:.3}to{transform:none;opacity:1}}
+.drawer-in{animation:drawerIn .24s cubic-bezier(.2,.7,.3,1) both;}

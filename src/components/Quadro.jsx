@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Receipt, Paperclip } from "lucide-react";
+import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Receipt, Paperclip, ChevronDown } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
 import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
@@ -333,8 +333,23 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     onOk({ destino, qtd: q, referencia: pedido.referencia });
   }
 
+  const rodape = podeEditar ? (
+    <>
+      {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px", fontWeight: 600 }}>{local === "Corte" ? "Corte travado — conclua os processos e libere o descanso para mover." : "Acabamento travado — conclua os processos para mover."}</p>}
+      {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px" }}>{erro}</p>}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+        <button onClick={confirmar} disabled={salvando || bloqueado} style={{ ...btnPrimary, flex: 1, opacity: bloqueado ? 0.5 : 1, cursor: bloqueado ? "not-allowed" : "pointer" }}>
+          {salvando ? "Movendo…" : <>Mover <ArrowRight size={15} /></>}
+        </button>
+      </div>
+    </>
+  ) : (
+    <button onClick={onFechar} style={{ ...btnGhost, width: "100%" }}>Fechar</button>
+  );
+
   return (
-    <Overlay onFechar={onFechar}>
+    <Overlay onFechar={onFechar} rodape={rodape}>
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Mover peças</h3>
       <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pedido.referencia} · {saldo} peças em {rotuloLocal(local)}</p>
       <div style={{ marginBottom: 16 }}>
@@ -368,22 +383,9 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
           <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
             {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
           </select>
-          {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0", fontWeight: 600 }}>{local === "Corte" ? "Corte travado — conclua os processos e libere o descanso para mover." : "Acabamento travado — conclua os processos para mover."}</p>}
-          {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0" }}>{erro}</p>}
-          <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-            <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-            <button onClick={confirmar} disabled={salvando || bloqueado} style={{ ...btnPrimary, flex: 1, opacity: bloqueado ? 0.5 : 1, cursor: bloqueado ? "not-allowed" : "pointer" }}>
-              {salvando ? "Movendo…" : <>Mover <ArrowRight size={15} /></>}
-            </button>
-          </div>
         </>
       ) : (
-        <>
-          <p style={{ fontSize: 13, color: "var(--text-2)", margin: "4px 0 0", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>Você tem acesso de visualização. Mover peças e editar processos é só para chefe de setor.</p>
-          <div style={{ display: "flex", marginTop: 16 }}>
-            <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Fechar</button>
-          </div>
-        </>
+        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "4px 0 0", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>Você tem acesso de visualização. Mover peças e editar processos é só para chefe de setor.</p>
       )}
       {pedido.solicitacao_id && (
         <button onClick={() => setVerResumo(true)} style={{ ...btnGhost, width: "100%", marginTop: 10 }}>
@@ -427,7 +429,15 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
   }
 
   return (
-    <Overlay onFechar={onFechar}>
+    <Overlay onFechar={onFechar} rodape={
+      <>
+        {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px" }}>{erro}</p>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+          <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Criar pedido"}</button>
+        </div>
+      </>
+    }>
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Novo pedido</h3>
       <label style={lbl}>Cliente</label>
       <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inp}>
@@ -450,11 +460,6 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
         <option value="">— nenhuma —</option>
         {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
       </select>
-      {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0" }}>{erro}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Criar pedido"}</button>
-      </div>
     </Overlay>
   );
 }
@@ -853,6 +858,7 @@ function agoraTexto() {
 }
 
 function Rastreio({ ordem, processos, podeEditar, onToggle, onObs, onSalvarObs, titulo }) {
+  const [aberto, setAberto] = useState(false);
   const feitos = ordem.filter((n) => processos[n].feito).length;
   const total = ordem.length;
   const pct = Math.round((feitos / total) * 100);
@@ -861,15 +867,20 @@ function Rastreio({ ordem, processos, podeEditar, onToggle, onObs, onSalvarObs, 
 
   return (
     <div style={{ marginTop: 4 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+      <button type="button" onClick={() => setAberto((a) => !a)} aria-expanded={aberto}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8, padding: 0, border: "none", background: "none", cursor: "pointer" }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px" }}>{titulo}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: completo ? "var(--success)" : "var(--text-2)" }}>{feitos}<span style={{ color: "var(--text-3)", fontWeight: 600 }}>/{total}</span></span>
-      </div>
-      <div style={{ height: 6, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden", marginBottom: 16 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: completo ? "var(--success)" : "var(--text-2)" }}>{feitos}<span style={{ color: "var(--text-3)", fontWeight: 600 }}>/{total}</span></span>
+          <ChevronDown size={15} style={{ color: "var(--text-3)", transform: aberto ? "rotate(180deg)" : "none", transition: "transform .16s ease" }} />
+        </span>
+      </button>
+      <div style={{ height: 6, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden", marginBottom: aberto ? 16 : 4 }}>
         <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: completo ? "var(--success)" : "linear-gradient(90deg,var(--accent),var(--accent-2))", transition: "width .4s cubic-bezier(.2,.7,.3,1)" }} />
       </div>
+      {!aberto && <div style={{ fontSize: 11.5, color: "var(--text-3)", marginBottom: 4 }}>Clique no título para {completo ? "ver" : "marcar"} os processos.</div>}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {aberto && <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {ordem.map((nome, i) => {
           const pr = processos[nome];
           const feito = pr.feito;
@@ -912,7 +923,7 @@ function Rastreio({ ordem, processos, podeEditar, onToggle, onObs, onSalvarObs, 
             </div>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -920,18 +931,24 @@ function Rastreio({ ordem, processos, podeEditar, onToggle, onObs, onSalvarObs, 
 const lblMini = { fontSize: 11, color: "var(--text-3)", marginBottom: 3 };
 const inpMini = { width: "100%", padding: "7px 9px", fontSize: 13, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
 
-function Overlay({ children, onFechar }) {
-  // Trava a rolagem da página enquanto o modal está aberto.
+function Overlay({ children, onFechar, rodape }) {
+  // Trava a rolagem da página enquanto a gaveta está aberta.
   useEffect(() => {
     const anterior = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = anterior; };
   }, []);
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", overflowY: "auto", overscrollBehavior: "contain", display: "flex", padding: 20, zIndex: 50 }}>
-      {/* margin:auto centraliza e, quando o modal é mais alto que a tela, mantém o topo alcançável ao rolar */}
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ margin: "auto", width: "100%", maxWidth: 460, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow-lg)" }}>
-        {children}
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", justifyContent: "flex-end", zIndex: 50 }}>
+      <div onClick={(e) => e.stopPropagation()} className="drawer-in" style={{ width: "min(480px, 100%)", height: "100%", background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "var(--shadow-lg)", display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain", padding: 22 }}>
+          {children}
+        </div>
+        {rodape && (
+          <div style={{ flexShrink: 0, padding: "14px 22px", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+            {rodape}
+          </div>
+        )}
       </div>
     </div>
   );
