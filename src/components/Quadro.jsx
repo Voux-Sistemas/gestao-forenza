@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient.js";
 import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
-import StatCard from "./StatCard.jsx";
+
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import Overlay from "./Gaveta.jsx";
 import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal } from "../etapas.js";
@@ -75,30 +75,6 @@ export default function Quadro({ session, perfil }) {
 
   return (
     <div className="fade-in" style={{ padding: "24px 26px" }}>
-      {podeVerTudo && (() => {
-        let pedProducao = 0, atrasados = 0, criticos = 0, pcProducao = 0, pcEstoque = 0, pcPerda = 0, nEstoque = 0;
-        pedidos.forEach((pe) => {
-          const s2 = calcularSaldos(pe.id, pe.total, movimentos);
-          const emProd = somaProducao(s2);
-          pcProducao += emProd; pcEstoque += s2.Estoque; pcPerda += s2.Perda;
-          if (s2.Estoque > 0) nEstoque++;
-          if (emProd > 0) { pedProducao++; const d = diasAtePrazo(pe.prazo); if (d !== null && d < 0) { atrasados++; if (d < -2) criticos++; } }
-        });
-        const stats = [
-          { label: "Pedidos em produção", valor: pedProducao, sub: "ativos agora", subCor: "var(--text-3)", Icon: ClipboardList, cor: "var(--accent)", bg: "var(--accent-bg)" },
-          { label: "Atrasados", valor: atrasados, sub: criticos + " crítico(s)", subCor: "var(--danger)", Icon: AlertTriangle, cor: "var(--danger)", bg: "var(--danger-bg)" },
-          { label: "Peças em produção", valor: pcProducao, sub: "em andamento", subCor: "var(--text-3)", Icon: Package, cor: "var(--warning)", bg: "var(--warning-bg)" },
-          { label: "Em estoque", valor: pcEstoque, sub: nEstoque + " pedido(s)", subCor: "var(--text-3)", Icon: Boxes, cor: "var(--success)", bg: "var(--success-bg)" },
-          { label: "Perdas", valor: pcPerda, sub: "acumulado", subCor: "var(--text-3)", Icon: Trash2, cor: "var(--danger)", bg: "var(--danger-bg)" },
-        ];
-        return (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(168px, 1fr))", gap: 12, marginBottom: 22 }}>
-            {stats.map((m) => (
-              <StatCard key={m.label} label={m.label} valor={m.valor} sub={m.sub} subCor={m.subCor} cor={m.cor} Icon={m.Icon} />
-            ))}
-          </div>
-        );
-      })()}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
         <div>
