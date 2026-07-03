@@ -115,7 +115,7 @@ export default function Quadro({ session, perfil }) {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8, alignItems: "stretch" }}>
         {colunas.map((local) => {
           const cards = pedidos
             .map((pe) => ({ pe, saldo: calcularSaldos(pe.id, pe.total, movimentos) }))
@@ -150,7 +150,7 @@ export default function Quadro({ session, perfil }) {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <IconeCol size={15} style={{ color: CORES[local] }} />
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{rotuloLocal(local)}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.15 }}>{rotuloLocal(local)}</span>
                 <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", fontWeight: 600, background: "var(--surface-2)", borderRadius: 99, padding: "1px 8px" }}>{cards.length}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -904,7 +904,7 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
   );
 }
 
-const coluna = { minWidth: 246, width: 246, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 14, padding: 14, boxShadow: "var(--shadow-card)" };
+const coluna = { flex: "1 1 0", minWidth: 196, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 14, padding: 12, boxShadow: "var(--shadow-card)" };
 const card = { textAlign: "left", width: "100%", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, padding: "12px 13px", display: "block", cursor: "pointer", boxShadow: "var(--shadow-sm)" };
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
