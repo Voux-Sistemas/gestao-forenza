@@ -6,24 +6,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const ETAPAS = [
-  { nome: "Entrada", cor: "var(--text-3)" },
-  { nome: "Corte", cor: "var(--accent)" },
-  { nome: "Oficina", cor: "var(--warning)" },
-  { nome: "Acabamento", cor: "var(--orange)" },
-];
+import { PRODUCAO, CORES_ETAPA, calcularSaldos, somaProducao, rotuloLocal } from "../etapas.js";
 
-function calcularSaldos(pedidoId, total, movimentos) {
-  const s = { Entrada: total, Corte: 0, Oficina: 0, Acabamento: 0, Estoque: 0, Perda: 0, Primeira: 0, Segunda: 0, Saida: 0 };
-  for (const m of movimentos) {
-    if (m.pedido_id !== pedidoId) continue;
-    if (s[m.de_local] === undefined) s[m.de_local] = 0;
-    if (s[m.para_local] === undefined) s[m.para_local] = 0;
-    s[m.de_local] -= m.qtd;
-    s[m.para_local] += m.qtd;
-  }
-  return s;
-}
+const ETAPAS = PRODUCAO.map((nome) => ({ nome, cor: CORES_ETAPA[nome] }));
 
 function diasAtePrazo(prazo) {
   if (!prazo) return null;
@@ -94,15 +79,16 @@ export default function Dashboard({ perfil, onNavegar }) {
   const pedidoInfo = (id) => pedidos.find((p) => p.id === id);
 
   const stats = useMemo(() => {
-    let entrada = 0, corte = 0, oficina = 0, acabamento = 0, estoque = 0, prim = 0, ativos = 0;
+    const porEtapa = Object.fromEntries(PRODUCAO.map((l) => [l, 0]));
+    let estoque = 0, prim = 0, ativos = 0;
     let atrasados = 0, hojeAmanha = 0, em2dias = 0;
     let pedidoAtrasadoDestaque = null;
 
     pedidos.forEach((pe) => {
       const s = calcularSaldos(pe.id, pe.total, movimentos);
-      entrada += s.Entrada; corte += s.Corte; oficina += s.Oficina;
-      acabamento += s.Acabamento; estoque += s.Estoque; prim += s.Primeira;
-      const producao = s.Entrada + s.Corte + s.Oficina + s.Acabamento;
+      PRODUCAO.forEach((l) => { porEtapa[l] += s[l] || 0; });
+      estoque += s.Estoque; prim += s.Primeira || 0;
+      const producao = somaProducao(s);
       if (producao > 0) {
         ativos++;
         const d = diasAtePrazo(pe.prazo);
@@ -120,10 +106,10 @@ export default function Dashboard({ perfil, onNavegar }) {
 
     const pilotagemPendente = solicitacoes.filter((s) => s.status === "em_triagem" || s.status === "info_solicitada").length;
     const emPilotagem = solicitacoes.filter((s) => s.status === "em_pilotagem").length;
-    const totalProd = entrada + corte + oficina + acabamento;
+    const totalProd = PRODUCAO.reduce((a, l) => a + porEtapa[l], 0);
 
     return {
-      entrada, corte, oficina, acabamento, estoque, prim, ativos, totalProd,
+      porEtapa, estoque, prim, ativos, totalProd,
       atrasados, hojeAmanha, em2dias, pedidoAtrasadoDestaque,
       pilotagemPendente, emPilotagem,
     };
@@ -164,7 +150,7 @@ export default function Dashboard({ perfil, onNavegar }) {
         items.push({
           tipo: "retorno_oficina", id: `m${m.id}`, quando: t,
           texto: (
-            <><strong>{m.qtd} peças</strong> voltaram da oficina para <strong>{m.para_local}</strong></>
+            <><strong>{m.qtd} peças</strong> voltaram da oficina para <strong>{rotuloLocal(m.para_local)}</strong></>
           ),
           sub: `${pe.referencia} · ${nomeCliente(pe.cliente_id)}`,
           Icone: ArrowDownLeft, bg: "var(--success-bg)", cor: "var(--success)",
@@ -172,7 +158,7 @@ export default function Dashboard({ perfil, onNavegar }) {
       } else if (m.para_local === "Oficina") {
         items.push({
           tipo: "saida_oficina", id: `m${m.id}`, quando: t,
-          texto: <><strong>{m.qtd} peças</strong> saíram do {m.de_local} para <strong>oficina</strong></>,
+          texto: <><strong>{m.qtd} peças</strong> saíram de {rotuloLocal(m.de_local)} para <strong>oficina</strong></>,
           sub: `${pe.referencia} · ${nomeCliente(pe.cliente_id)}`,
           Icone: ArrowUpRight, bg: "var(--accent-bg)", cor: "var(--accent)",
         });
@@ -288,19 +274,19 @@ export default function Dashboard({ perfil, onNavegar }) {
             <>
               <div style={{ display: "flex", height: 10, borderRadius: 99, overflow: "hidden", marginBottom: 14, background: "var(--surface-2)" }}>
                 {ETAPAS.map((et) => {
-                  const v = stats[et.nome.toLowerCase()];
+                  const v = stats.porEtapa[et.nome];
                   const pct = (v / stats.totalProd) * 100;
-                  return pct > 0 ? <div key={et.nome} style={{ width: `${pct}%`, background: et.cor }} title={`${et.nome} ${v}`} /> : null;
+                  return pct > 0 ? <div key={et.nome} style={{ width: `${pct}%`, background: et.cor }} title={`${rotuloLocal(et.nome)} ${v}`} /> : null;
                 })}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))", gap: 8 }}>
                 {ETAPAS.map((et) => (
                   <div key={et.nome}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 2, background: et.cor }} />
-                      <span style={{ fontSize: 11, color: "var(--text-3)" }}>{et.nome}</span>
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: et.cor, flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, color: "var(--text-3)" }}>{rotuloLocal(et.nome)}</span>
                     </div>
-                    <div style={{ fontSize: 15, fontWeight: 600 }}>{stats[et.nome.toLowerCase()].toLocaleString("pt-BR")}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600 }}>{stats.porEtapa[et.nome].toLocaleString("pt-BR")}</div>
                   </div>
                 ))}
               </div>

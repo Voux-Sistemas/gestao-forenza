@@ -1,16 +1,15 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock } from "lucide-react";
+import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Receipt } from "lucide-react";
 import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
+import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal } from "../etapas.js";
 
-const LOCAIS = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque", "Perda"];
-const COLUNAS = ["Entrada", "Corte", "Oficina", "Acabamento"];
-const CORES = {
-  Entrada: "var(--text-2)", Corte: "var(--accent)", Oficina: "var(--warning)",
-  Acabamento: "var(--accent)", Estoque: "var(--success)", Perda: "var(--danger)",
+const ICONES_COLUNA = {
+  Entrada: Download, "Ficha Técnica de Corte": FileText, Amostra: Shirt,
+  Corte: Scissors, Oficina: Factory, Acabamento: Sparkles,
+  "Contas a Pagar": Receipt, Estoque: Boxes, Perda: Trash2,
 };
-const ICONES_COLUNA = { Entrada: Download, Corte: Scissors, Oficina: Factory, Acabamento: Sparkles, Estoque: Boxes, Perda: Trash2 };
 const PALETA_TAG = [
   { bg: "var(--accent-bg)", cor: "var(--accent)" },
   { bg: "var(--success-bg)", cor: "var(--success)" },
@@ -22,16 +21,6 @@ function corDaTag(txt) {
   let h = 0;
   for (let i = 0; i < txt.length; i++) h = (h * 31 + txt.charCodeAt(i)) >>> 0;
   return PALETA_TAG[h % PALETA_TAG.length];
-}
-
-function calcularSaldos(pedidoId, total, movimentos) {
-  const s = { Entrada: total, Corte: 0, Oficina: 0, Acabamento: 0, Estoque: 0, Perda: 0 };
-  for (const m of movimentos) {
-    if (m.pedido_id !== pedidoId) continue;
-    s[m.de_local] -= m.qtd;
-    s[m.para_local] += m.qtd;
-  }
-  return s;
 }
 
 export default function Quadro({ session, perfil }) {
@@ -87,7 +76,7 @@ export default function Quadro({ session, perfil }) {
         let pedProducao = 0, atrasados = 0, criticos = 0, pcProducao = 0, pcEstoque = 0, pcPerda = 0, nEstoque = 0;
         pedidos.forEach((pe) => {
           const s2 = calcularSaldos(pe.id, pe.total, movimentos);
-          const emProd = s2.Entrada + s2.Corte + s2.Oficina + s2.Acabamento;
+          const emProd = somaProducao(s2);
           pcProducao += emProd; pcEstoque += s2.Estoque; pcPerda += s2.Perda;
           if (s2.Estoque > 0) nEstoque++;
           if (emProd > 0) { pedProducao++; const d = diasAtePrazo(pe.prazo); if (d !== null && d < 0) { atrasados++; if (d < -2) criticos++; } }
@@ -161,7 +150,7 @@ export default function Quadro({ session, perfil }) {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <IconeCol size={15} style={{ color: CORES[local] }} />
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{local}</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{rotuloLocal(local)}</span>
                 <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", fontWeight: 600, background: "var(--surface-2)", borderRadius: 99, padding: "1px 8px" }}>{cards.length}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -291,7 +280,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     setErro(null);
     const q = parseInt(qtd, 10);
     if (!q || q < 1) return setErro("Quantidade inválida.");
-    if (q > saldo) return setErro(`Só há ${saldo} peças em ${local}.`);
+    if (q > saldo) return setErro(`Só há ${saldo} peças em ${rotuloLocal(local)}.`);
     if (bloqueado) return setErro(local === "Corte" ? "Corte travado: libere o descanso do tecido e conclua os processos pendentes antes de mover." : "Acabamento travado: conclua os processos pendentes antes de mover.");
 
     // Saída pra Oficina exige uma oficina selecionada (cria nova remessa)
@@ -340,7 +329,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   return (
     <Overlay onFechar={onFechar}>
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Mover peças</h3>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pedido.referencia} · {saldo} peças em {local}</p>
+      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pedido.referencia} · {saldo} peças em {rotuloLocal(local)}</p>
       <div style={{ marginBottom: 16 }}>
         <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 }}>Oficina responsável</label>
         <select value={oficinaId} onChange={(e) => mudarOficina(e.target.value)} disabled={!podeEditar} style={inpMini}>
@@ -369,7 +358,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
           <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
           <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
           <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
-            {destinos.map((d) => <option key={d} value={d}>{d}</option>)}
+            {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
           </select>
           {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0", fontWeight: 600 }}>{local === "Corte" ? "Corte travado — conclua os processos e libere o descanso para mover." : "Acabamento travado — conclua os processos para mover."}</p>}
           {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0" }}>{erro}</p>}
@@ -610,7 +599,7 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
                       <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                         <div>
                           <div style={{ fontSize: 12.5, fontWeight: 600 }}>
-                            {ehSaida ? "Saiu para oficina" : `Retornou para ${m.para_local}`}
+                            {ehSaida ? "Saiu para oficina" : `Retornou para ${rotuloLocal(m.para_local)}`}
                           </div>
                           <div style={{ fontSize: 11, color: "var(--text-3)", display: "inline-flex", alignItems: "center", gap: 4, marginTop: 2 }}>
                             <Calendar size={10} /> em {fmtDataHora(m.data ? dataMov : m.criado_em)}

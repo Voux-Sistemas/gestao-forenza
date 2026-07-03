@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
 import { LogOut, Moon, Sun, LayoutGrid, Users, AlertTriangle, Factory, Package, Inbox, LayoutDashboard } from "lucide-react";
 import Logo from "./Logo.jsx";
+import { rotuloLocal } from "../etapas.js";
 import Dashboard from "./Dashboard.jsx";
 import Quadro from "./Quadro.jsx";
 import ControleOficinas from "./ControleOficinas.jsx";
@@ -29,7 +30,7 @@ export default function Shell({ session }) {
 
   useEffect(() => { document.documentElement.setAttribute("data-theme", tema); }, [tema]);
 
-  const subtitulo = perfil ? [PAPEL_LABEL[perfil.papel], perfil.setor].filter(Boolean).join(" · ") : "carregando…";
+  const subtitulo = perfil ? [PAPEL_LABEL[perfil.papel], perfil.setor ? rotuloLocal(perfil.setor) : null].filter(Boolean).join(" · ") : "carregando…";
   const podeAdministrar = ["master", "chefe_geral"].includes(perfil?.papel);
   const iniciais = (perfil?.nome || "U").trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
 

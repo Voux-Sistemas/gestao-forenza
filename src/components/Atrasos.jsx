@@ -5,20 +5,7 @@ import {
   ExternalLink, Eye, ChevronDown, Filter, X,
 } from "lucide-react";
 
-const PRODUCAO = ["Entrada", "Corte", "Oficina", "Acabamento"];
-const CORES_ETAPA = { Entrada: "var(--text-3)", Corte: "var(--accent)", Oficina: "var(--warning)", Acabamento: "var(--orange)" };
-
-function saldos(pedidoId, total, movimentos) {
-  const s = { Entrada: total, Corte: 0, Oficina: 0, Acabamento: 0, Estoque: 0, Perda: 0, Primeira: 0, Segunda: 0, Saida: 0 };
-  for (const m of movimentos) {
-    if (m.pedido_id !== pedidoId) continue;
-    if (s[m.de_local] === undefined) s[m.de_local] = 0;
-    if (s[m.para_local] === undefined) s[m.para_local] = 0;
-    s[m.de_local] -= m.qtd;
-    s[m.para_local] += m.qtd;
-  }
-  return s;
-}
+import { PRODUCAO, CORES_ETAPA, calcularSaldos as saldos, somaProducao, rotuloLocal } from "../etapas.js";
 
 function diasAte(prazo) {
   if (!prazo) return null;
@@ -65,8 +52,8 @@ function motivoTravado(pe, s, movimentos, oficinas) {
   const diasParado = diasParadoNoLocal(pe.id, principal, movimentos);
 
   const partes = [];
-  const rotuloEtapa = principal === "Entrada" ? "Entrada" : principal;
-  partes.push(`Parad${principal === "Oficina" || principal === "Entrada" ? "a" : "o"} no ${rotuloEtapa}${diasParado !== null && diasParado > 0 ? ` há ${diasParado} dia${diasParado === 1 ? "" : "s"}` : ""}`);
+  const rotuloEtapa = rotuloLocal(principal);
+  partes.push(`Parado em ${rotuloEtapa}${diasParado !== null && diasParado > 0 ? ` há ${diasParado} dia${diasParado === 1 ? "" : "s"}` : ""}`);
 
   if (principal === "Corte") {
     if (pe.descanso_tecido) partes.push("tecido em descanso");
@@ -118,7 +105,7 @@ export default function Atrasos({ onNavegar }) {
   const analise = useMemo(() => {
     const lista = pedidos.map((pe) => {
       const s = saldos(pe.id, pe.total, movimentos);
-      const emProducao = s.Entrada + s.Corte + s.Oficina + s.Acabamento;
+      const emProducao = somaProducao(s);
       return { pe, s, emProducao };
     }).filter(({ emProducao }) => emProducao > 0);
 
@@ -349,7 +336,7 @@ function ModalDetalhes({ item, nomeCliente, oficinas, movimentos, onFechar, onAb
 
         <div style={{ marginTop: 18 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Progresso das peças</div>
-          <BarraProgresso s={s} total={pe.total} feitas={pe.total - (s.Entrada + s.Corte + s.Oficina + s.Acabamento)} />
+          <BarraProgresso s={s} total={pe.total} feitas={pe.total - somaProducao(s)} />
         </div>
 
         {(pe.tamanho || pe.tecido) && (
@@ -498,14 +485,14 @@ function BarraProgresso({ s, total, feitas }) {
           const q = s[et];
           if (q <= 0) return null;
           const pct = (q / total) * 100;
-          return <div key={et} style={{ width: `${pct}%`, background: CORES_ETAPA[et] }} title={`${et} ${q}`} />;
+          return <div key={et} style={{ width: `${pct}%`, background: CORES_ETAPA[et] }} title={`${rotuloLocal(et)} ${q}`} />;
         })}
       </div>
       <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: 11, color: "var(--text-3)", flexWrap: "wrap" }}>
         {PRODUCAO.filter((et) => s[et] > 0).map((et) => (
           <span key={et}>
             <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: CORES_ETAPA[et], verticalAlign: "middle", marginRight: 4 }} />
-            {et} {s[et]}
+            {rotuloLocal(et)} {s[et]}
           </span>
         ))}
       </div>

@@ -2,18 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
 import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2 } from "lucide-react";
 import StatCard from "./StatCard.jsx";
-
-function saldos(pedidoId, total, movimentos) {
-  const s = { Entrada: total, Corte: 0, Oficina: 0, Acabamento: 0, Estoque: 0, Perda: 0, Primeira: 0, Segunda: 0 };
-  for (const m of movimentos) {
-    if (m.pedido_id !== pedidoId) continue;
-    if (s[m.de_local] === undefined) s[m.de_local] = 0;
-    if (s[m.para_local] === undefined) s[m.para_local] = 0;
-    s[m.de_local] -= m.qtd;
-    s[m.para_local] += m.qtd;
-  }
-  return s;
-}
+import { calcularSaldos as saldos } from "../etapas.js";
 
 export default function Estoque({ session, perfil }) {
   const [aba, setAba] = useState("espera");

@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient.js";
 import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config.js";
 import { Plus, Pencil, Eye, Trash2 } from "lucide-react";
+import { PRODUCAO, rotuloLocal } from "../etapas.js";
 
 export default function Cadastros() {
   const [aba, setAba] = useState("clientes");
@@ -578,7 +579,7 @@ const PAPEIS_STAFF = [
   ["master", "Master"],
 ];
 const labelPapel = (p) => (PAPEIS_STAFF.find(([id]) => id === p) || [null, p])[1];
-const SETORES = ["Entrada", "Corte", "Oficina", "Acabamento", "Estoque"];
+const SETORES = [...PRODUCAO, "Estoque"];
 
 function Funcionarios() {
   const [lista, setLista] = useState([]);
@@ -644,7 +645,7 @@ function Funcionarios() {
                 <span style={{ flex: 2, fontWeight: 500 }}>{f.nome || "—"}</span>
                 <span style={{ flex: 2, color: "var(--text-2)" }}>{f.email ? f.email.split("@")[0] : "—"}</span>
                 <span style={{ flex: 1, color: "var(--text-2)" }}>{labelPapel(f.papel)}</span>
-                <span style={{ flex: 1, color: "var(--text-2)" }}>{f.setor || "—"}</span>
+                <span style={{ flex: 1, color: "var(--text-2)" }}>{f.setor ? rotuloLocal(f.setor) : "—"}</span>
                 <span style={{ flex: 1 }}><Badge ativo={ativo} /></span>
                 <span style={{ width: 210, display: "flex", justifyContent: "flex-end", gap: 6 }}>
                   <button onClick={(e) => { e.stopPropagation(); abrir(f, true); }} style={btnIcon} aria-label="Ver detalhes"><Eye size={15} /></button>
@@ -717,7 +718,7 @@ function NovoFuncionario({ onFechar, onSalvo }) {
         <>
           <label style={{ ...lbl, marginTop: 14 }}>Setor</label>
           <select value={setor} onChange={(e) => setSetor(e.target.value)} style={inp}>
-            {SETORES.map((x) => <option key={x} value={x}>{x}</option>)}
+            {SETORES.map((x) => <option key={x} value={x}>{rotuloLocal(x)}</option>)}
           </select>
         </>
       )}
@@ -772,7 +773,7 @@ function EditarFuncionario({ registro, somenteVer, onFechar, onSalvo }) {
             <>
               <label style={{ ...lbl, marginTop: 14 }}>Setor</label>
               <select value={setor} onChange={(e) => setSetor(e.target.value)} style={inp}>
-                {SETORES.map((x) => <option key={x} value={x}>{x}</option>)}
+                {SETORES.map((x) => <option key={x} value={x}>{rotuloLocal(x)}</option>)}
               </select>
             </>
           )}

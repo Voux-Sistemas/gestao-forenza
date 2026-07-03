@@ -2,20 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { Plus, ImagePlus, X } from "lucide-react";
-
-const PRODUCAO = ["Entrada", "Corte", "Oficina", "Acabamento"];
-
-function saldos(total, movimentos, pedidoId) {
-  const s = { Entrada: total, Corte: 0, Oficina: 0, Acabamento: 0, Estoque: 0, Perda: 0, Primeira: 0, Segunda: 0 };
-  for (const m of movimentos) {
-    if (m.pedido_id !== pedidoId) continue;
-    if (s[m.de_local] === undefined) s[m.de_local] = 0;
-    if (s[m.para_local] === undefined) s[m.para_local] = 0;
-    s[m.de_local] -= m.qtd;
-    s[m.para_local] += m.qtd;
-  }
-  return s;
-}
+import { PRODUCAO, calcularSaldos } from "../etapas.js";
 
 const STATUS_SOL = {
   em_triagem:      { label: "Em análise",            cor: "var(--accent)",  bg: "var(--accent-bg)" },
@@ -61,7 +48,7 @@ export default function Portal({ session, perfil }) {
   const solAtivas = solicitacoes.filter((s) => s.status !== "aprovada");
 
   function statusPedido(pe) {
-    const s = saldos(pe.total, movimentos, pe.id);
+    const s = calcularSaldos(pe.id, pe.total, movimentos);
     const emProd = PRODUCAO.reduce((a, l) => a + s[l], 0) + s.Estoque;
     const pronto = emProd === 0;
     const concluido = pe.total - emProd;

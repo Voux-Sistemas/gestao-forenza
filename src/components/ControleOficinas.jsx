@@ -3,6 +3,7 @@ import { Factory, ArrowUpRight, ArrowDownLeft, Calendar, AlertTriangle, X, Plus,
 import { supabase } from "../supabaseClient.js";
 import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
+import { calcularSaldos, rotuloLocal } from "../etapas.js";
 
 const LOCAIS_PRE_OFICINA = ["Entrada", "Corte"];      // de onde podem sair peças pra oficina
 const DESTINOS_POS_OFICINA = ["Acabamento", "Estoque", "Perda"];
@@ -25,16 +26,6 @@ function fmtData(d) {
   if (!d) return "—";
   const p = d.split("-");
   return p[2] + "/" + p[1] + "/" + p[0];
-}
-
-function calcularSaldos(pedidoId, total, movimentos) {
-  const s = { Entrada: total, Corte: 0, Oficina: 0, Acabamento: 0, Estoque: 0, Perda: 0 };
-  for (const m of movimentos) {
-    if (m.pedido_id !== pedidoId) continue;
-    s[m.de_local] -= m.qtd;
-    s[m.para_local] += m.qtd;
-  }
-  return s;
 }
 
 export default function ControleOficinas({ session, perfil }) {
@@ -293,7 +284,7 @@ function ModalNovaSaida({ pedidos, oficinas, movimentos, clientes, session, onFe
         <option value="">— selecione —</option>
         {pedidosDisponiveis.map(({ p, saldo }) => {
           const cli = clientes.find((c) => c.id === p.cliente_id)?.nome || "—";
-          return <option key={p.id} value={p.id}>{p.referencia} — {cli} (Entrada: {saldo.Entrada}, Corte: {saldo.Corte})</option>;
+          return <option key={p.id} value={p.id}>{p.referencia} — {cli} ({rotuloLocal("Entrada")}: {saldo.Entrada}, Corte: {saldo.Corte})</option>;
         })}
       </select>
 
