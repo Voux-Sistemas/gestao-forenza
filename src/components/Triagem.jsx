@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
 import Overlay from "./Gaveta.jsx";
 import { comprimirImagem } from "../comprimirImagem.js";
-import { Plus, ImagePlus, X, Trash2, Inbox, ArrowRight } from "lucide-react";
+import { Plus, ImagePlus, X, Trash2, Inbox, ArrowRight, MessageCircle } from "lucide-react";
+import { linkWhatsApp } from "../whatsapp.js";
 import Pilotagem from "./Pilotagem.jsx";
 
 const STATUS = {
@@ -50,6 +51,15 @@ export default function Triagem() {
   }, [carregar]);
 
   const nomeCliente = (id) => clientes.find((c) => c.id === id)?.nome || "—";
+
+  function avisarWhatsApp(e, s) {
+    e.stopPropagation();
+    const c = clientes.find((x) => x.id === s.cliente_id);
+    const msg = `Olá${c ? ", " + c.nome : ""}! Você tem uma atualização na sua solicitação aqui na Forenza. Dê uma olhada no portal quando puder. 🙂`;
+    const url = linkWhatsApp(c?.whatsapp, msg);
+    if (!url) return window.alert("Este cliente não tem WhatsApp cadastrado (ou o número está incompleto).\n\nAdicione o número com DDD em Cadastros → Clientes.");
+    window.open(url, "_blank", "noopener");
+  }
 
   async function excluir(e, s) {
     e.stopPropagation();
@@ -112,7 +122,11 @@ export default function Triagem() {
                       <span style={{ fontSize: 14.5, fontWeight: 700 }}>{nomeCliente(s.cliente_id)}</span>
                       <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 99, background: st.bg, color: st.cor }}>{st.label}</span>
                       {ultimoAutor(s.id) === "cliente" && <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 99, background: "var(--success-bg)", color: "var(--success)" }}>Cliente respondeu</span>}
-                      <button onClick={(e) => excluir(e, s)} aria-label="Excluir solicitação" title="Excluir solicitação" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 6, borderRadius: 7, border: "1px solid transparent", background: "transparent", color: "var(--text-3)", cursor: "pointer", flexShrink: 0 }}
+                      <button onClick={(e) => avisarWhatsApp(e, s)} aria-label="Avisar cliente no WhatsApp" title="Avisar cliente no WhatsApp"
+                        style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 99, border: "1px solid var(--success)", background: "var(--success-bg)", color: "var(--success)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, flexShrink: 0 }}>
+                        <MessageCircle size={13} /> WhatsApp
+                      </button>
+                      <button onClick={(e) => excluir(e, s)} aria-label="Excluir solicitação" title="Excluir solicitação" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 6, borderRadius: 7, border: "1px solid transparent", background: "transparent", color: "var(--text-3)", cursor: "pointer", flexShrink: 0 }}
                         onMouseEnter={(e) => { e.currentTarget.style.color = "var(--danger)"; e.currentTarget.style.borderColor = "var(--danger)"; }}
                         onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-3)"; e.currentTarget.style.borderColor = "transparent"; }}>
                         <Trash2 size={14} />
@@ -153,7 +167,7 @@ export default function Triagem() {
       {nova && <ModalNova clientes={clientes} onFechar={() => setNova(false)} onOk={() => { setNova(false); carregar(); }} />}
       {acao && <ModalAcao dados={acao} onFechar={() => setAcao(null)} onOk={() => { setAcao(null); carregar(); }} />}
       {pilotando && <Pilotagem solicitacao={pilotando} clientes={clientes} oficinas={oficinas} onFechar={() => setPilotando(null)} onMudou={carregar} />}
-      {conversa && <ConversaFabrica solicitacao={conversa} onFechar={() => setConversa(null)} onMudou={carregar} />}
+      {conversa && <ConversaFabrica solicitacao={conversa} cliente={clientes.find((c) => c.id === conversa.cliente_id)} onFechar={() => setConversa(null)} onMudou={carregar} />}
     </div>
   );
 }
@@ -295,7 +309,7 @@ const subTab = (ativo) => ({
 });
 const cartao = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 13, padding: "15px 17px", boxShadow: "var(--shadow-sm)" };
 const erroTxt = { fontSize: 12, color: "var(--danger)", margin: "12px 0 0" };
-function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
+function ConversaFabrica({ solicitacao, cliente, onFechar, onMudou }) {
   const sol = solicitacao;
   const [comentarios, setComentarios] = useState([]);
   const [texto, setTexto] = useState("");
@@ -343,6 +357,14 @@ function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ fontSize: 15, fontWeight: 600 }}>Conversa com o cliente</div>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
+          <button onClick={() => {
+            const msg = `Olá${cliente ? ", " + cliente.nome : ""}! Deixei uma mensagem para você na sua solicitação aqui na Forenza. Dê uma olhada no portal quando puder. 🙂`;
+            const url = linkWhatsApp(cliente?.whatsapp, msg);
+            if (!url) return window.alert("Este cliente não tem WhatsApp cadastrado (ou o número está incompleto).\n\nAdicione o número com DDD em Cadastros → Clientes.");
+            window.open(url, "_blank", "noopener");
+          }} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 10, padding: "6px 13px", borderRadius: 99, border: "1px solid var(--success)", background: "var(--success-bg)", color: "var(--success)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+            <MessageCircle size={13} /> Avisar no WhatsApp
+          </button>
         </div>
         <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
           {sol.observacao_fabrica && (

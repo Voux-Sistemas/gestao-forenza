@@ -199,6 +199,7 @@ function DetalheCliente({ registro, editarInicial, onFechar, onSalvo }) {
   const [editando, setEditando] = useState(novo || editarInicial);
   const [nome, setNome] = useState(registro?.nome || "");
   const [contato, setContato] = useState(registro?.contato || "");
+  const [whatsapp, setWhatsapp] = useState(registro?.whatsapp || "");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [login, setLogin] = useState(null);
@@ -220,7 +221,7 @@ function DetalheCliente({ registro, editarInicial, onFechar, onSalvo }) {
       if (senha.length < 6) return setErro("A senha do login precisa ter ao menos 6 caracteres.");
     }
     setSalvando(true);
-    const dados = { nome: nome.trim(), contato: contato.trim() || null };
+    const dados = { nome: nome.trim(), contato: contato.trim() || null, whatsapp: whatsapp.trim() || null };
 
     let clienteId;
     if (novo) {
@@ -264,6 +265,8 @@ function DetalheCliente({ registro, editarInicial, onFechar, onSalvo }) {
           <input value={nome} onChange={(e) => setNome(e.target.value)} autoFocus style={inp} />
           <label style={{ ...lbl, marginTop: 14 }}>Contato</label>
           <input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="telefone, e-mail, responsável…" style={inp} />
+          <label style={{ ...lbl, marginTop: 14 }}>WhatsApp</label>
+          <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="com DDD, ex: (11) 98888-7777" style={inp} />
           <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>Acesso ao portal</div>
             {login ? (
@@ -283,6 +286,7 @@ function DetalheCliente({ registro, editarInicial, onFechar, onSalvo }) {
         <>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <Campo rotulo="Contato" valor={registro.contato} />
+            <Campo rotulo="WhatsApp" valor={registro.whatsapp} />
             <Campo rotulo="Status" valor={registro.ativo ? "Ativo" : "Inativo"} />
           </div>
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
