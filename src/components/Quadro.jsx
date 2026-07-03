@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Receipt } from "lucide-react";
+import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Receipt, Paperclip } from "lucide-react";
+import { comprimirImagem } from "../comprimirImagem.js";
 import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal } from "../etapas.js";
@@ -216,6 +217,12 @@ export default function Quadro({ session, perfil }) {
                         </div>
                       </div>
                     )}
+                    {local === "Amostra" && (pe.anexo_amostra || pe.obs_amostra) && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+                        {pe.anexo_amostra && <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: "var(--surface)", color: "var(--accent)", border: "1px solid var(--border)" }}><Paperclip size={10} /> anexo</span>}
+                        {pe.obs_amostra && <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 99, background: "var(--surface)", color: "var(--text-2)", border: "1px solid var(--border)" }}>obs</span>}
+                      </div>
+                    )}
                     {procBadges.length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
                         {procBadges.map((b, i) => (
@@ -337,6 +344,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
           {(oficinas || []).filter((o) => o.ativo).map((o) => <option key={o.id} value={String(o.id)}>{o.nome_empresa}</option>)}
         </select>
       </div>
+      {local === "Amostra" && <PainelAmostra pedido={pedido} podeEditar={podeEditar} />}
       {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
@@ -620,6 +628,97 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
     </div>
   );
 }
+function PainelAmostra({ pedido, podeEditar }) {
+  const [obs, setObs] = useState(pedido.obs_amostra || "");
+  const [anexo, setAnexo] = useState(pedido.anexo_amostra || null);
+  const [anexoNome, setAnexoNome] = useState(pedido.anexo_amostra_nome || "");
+  const [subindo, setSubindo] = useState(false);
+  const [salvo, setSalvo] = useState(false);
+
+  async function persist(campos) {
+    const { error } = await supabase.from("pedidos").update(campos).eq("id", pedido.id);
+    if (error) window.alert("Não foi possível salvar: " + error.message + (error.message && error.message.includes("column") ? "\n\nParece que falta rodar o SQL das colunas da amostra." : ""));
+    return !error;
+  }
+
+  async function salvarObs() {
+    if (await persist({ obs_amostra: obs.trim() || null })) {
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 1600);
+    }
+  }
+
+  async function subirAnexo(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) return window.alert("Arquivo muito grande — o limite é 15 MB.");
+    setSubindo(true);
+    const pronto = await comprimirImagem(file); // imagens são comprimidas; outros tipos passam direto
+    const nomeSeguro = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const caminho = `amostras/${pedido.id}/${Date.now()}_${nomeSeguro}`;
+    const up = await supabase.storage.from("anexos").upload(caminho, pronto);
+    if (up.error) {
+      setSubindo(false);
+      return window.alert("Falha ao subir o anexo: " + up.error.message + (/bucket/i.test(up.error.message) ? "\n\nParece que falta criar o bucket 'anexos' no Supabase." : ""));
+    }
+    const ok = await persist({ anexo_amostra: caminho, anexo_amostra_nome: file.name });
+    setSubindo(false);
+    if (ok) { setAnexo(caminho); setAnexoNome(file.name); }
+  }
+
+  async function removerAnexo() {
+    if (!window.confirm("Remover o anexo da amostra?")) return;
+    if (anexo) await supabase.storage.from("anexos").remove([anexo]);
+    if (await persist({ anexo_amostra: null, anexo_amostra_nome: null })) { setAnexo(null); setAnexoNome(""); }
+  }
+
+  const urlAnexo = anexo ? supabase.storage.from("anexos").getPublicUrl(anexo).data.publicUrl : null;
+
+  return (
+    <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Amostra</div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <label style={lblMini}>Observação</label>
+        {salvo && <span style={{ fontSize: 11, color: "var(--success)", fontWeight: 600 }}>salvo ✓</span>}
+      </div>
+      <textarea
+        value={obs}
+        onChange={(e) => setObs(e.target.value)}
+        onBlur={salvarObs}
+        disabled={!podeEditar}
+        rows={3}
+        placeholder="Anotações sobre a amostra: ajustes, aprovação do cliente…"
+        style={{ ...inpMini, width: "100%", resize: "vertical", fontFamily: "inherit", lineHeight: 1.45 }}
+      />
+
+      <div style={{ ...lblMini, marginTop: 12 }}>Anexo</div>
+      {anexo ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 11px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 9 }}>
+          <Paperclip size={14} style={{ color: "var(--accent)", flexShrink: 0 }} />
+          <a href={urlAnexo} target="_blank" rel="noreferrer" style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {anexoNome || "Abrir anexo"}
+          </a>
+          {podeEditar && (
+            <button onClick={removerAnexo} aria-label="Remover anexo" style={{ display: "inline-flex", padding: 5, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" }}>
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+      ) : podeEditar ? (
+        <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 12px", border: "1px dashed var(--border-strong, var(--border))", borderRadius: 9, fontSize: 12.5, fontWeight: 600, color: "var(--text-2)", cursor: subindo ? "wait" : "pointer", background: "var(--surface-2)" }}>
+          <Paperclip size={14} />
+          {subindo ? "Enviando…" : "Anexar arquivo (foto, PDF…)"}
+          <input type="file" onChange={subirAnexo} disabled={subindo} style={{ display: "none" }} />
+        </label>
+      ) : (
+        <div style={{ fontSize: 12, color: "var(--text-3)" }}>Sem anexo.</div>
+      )}
+    </div>
+  );
+}
+
 function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
   const [tamanho, setTamanho] = useState(pedido.tamanho || "");
   const [tecido, setTecido] = useState(pedido.tecido || "");
