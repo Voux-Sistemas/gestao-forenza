@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { LogOut, Moon, Sun, LayoutGrid, Users, AlertTriangle, Factory, Package, Inbox, LayoutDashboard } from "lucide-react";
+import { LogOut, Moon, Sun, LayoutGrid, Users, AlertTriangle, Factory, Package, Inbox, LayoutDashboard, Receipt } from "lucide-react";
 import Logo from "./Logo.jsx";
 import { rotuloLocal } from "../etapas.js";
 import Dashboard from "./Dashboard.jsx";
@@ -11,6 +11,7 @@ import Atrasos from "./Atrasos.jsx";
 import Estoque from "./Estoque.jsx";
 import Triagem from "./Triagem.jsx";
 import Portal from "./Portal.jsx";
+import ContasAPagar from "./ContasAPagar.jsx";
 
 const PAPEL_LABEL = {
   funcionario: "Funcionário", chefe_setor: "Chefe de setor",
@@ -42,6 +43,7 @@ export default function Shell({ session }) {
     { id: "oficinas", label: "Oficinas", icon: Factory },
     { id: "estoque", label: "Estoque", icon: Package },
     { id: "atrasos", label: "Alertas", icon: AlertTriangle },
+    { id: "contas", label: "Contas a Pagar", icon: Receipt },
     { id: "cadastros", label: "Cadastros", icon: Users, separado: true },
   ];
 
@@ -54,6 +56,7 @@ export default function Shell({ session }) {
     if (pagina === "estoque" && podeAdministrar) return <Estoque session={session} perfil={perfil} />;
     if (pagina === "triagem" && podeAdministrar) return <Triagem />;
     if (pagina === "oficinas" && podeAdministrar) return <ControleOficinas session={session} perfil={perfil} />;
+    if (pagina === "contas" && podeAdministrar) return <ContasAPagar />;
     return <Quadro session={session} perfil={perfil} />;
   }
 

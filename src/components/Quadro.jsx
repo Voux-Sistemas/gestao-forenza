@@ -1,16 +1,16 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Receipt, Paperclip, ChevronDown } from "lucide-react";
+import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
 import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal } from "../etapas.js";
 
 const ICONES_COLUNA = {
-  Entrada: Download, "Ficha Técnica de Corte": FileText, Amostra: Shirt,
-  Corte: Scissors, Oficina: Factory, Acabamento: Sparkles,
-  "Contas a Pagar": Receipt, Estoque: Boxes, Perda: Trash2,
+  Entrada: Download, "Ficha Técnica de Corte": FileText, Corte: Scissors,
+  Amostra: Shirt, Oficina: Factory, Aviação: Tags,
+  Acabamento: Sparkles, Estoque: Boxes, Perda: Trash2,
 };
 const PALETA_TAG = [
   { bg: "var(--accent-bg)", cor: "var(--accent)" },

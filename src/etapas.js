@@ -7,11 +7,11 @@
 export const PRODUCAO = [
   "Entrada",
   "Ficha Técnica de Corte",
-  "Amostra",
   "Corte",
+  "Amostra",
   "Oficina",
+  "Aviação",
   "Acabamento",
-  "Contas a Pagar",
 ];
 
 // Colunas visíveis no quadro kanban.
@@ -27,11 +27,11 @@ export const rotuloLocal = (local) => LABELS[local] || local;
 export const CORES_ETAPA = {
   Entrada: "var(--text-3)",
   "Ficha Técnica de Corte": "var(--accent)",
-  Amostra: "var(--warning)",
   Corte: "var(--accent)",
+  Amostra: "var(--warning)",
   Oficina: "var(--warning)",
+  Aviação: "var(--accent)",
   Acabamento: "var(--orange)",
-  "Contas a Pagar": "var(--success)",
   Estoque: "var(--success)",
   Perda: "var(--danger)",
 };
