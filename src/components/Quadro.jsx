@@ -44,6 +44,8 @@ export default function Quadro({ session, perfil }) {
   const [mover, setMover] = useState(null);
   const [novoAberto, setNovoAberto] = useState(false);
   const [aviso, setAviso] = useState(null);
+  const [arrastando, setArrastando] = useState(null); // { pedido, local, saldo } do card sendo arrastado
+  const [colunaHover, setColunaHover] = useState(null); // coluna destacada durante o arraste
 
   const carregar = useCallback(async () => {
     const [p, m, c, o, r] = await Promise.all([
@@ -109,7 +111,7 @@ export default function Quadro({ session, perfil }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Quadro de produção</h2>
-          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Clique num card para mover as peças entre as etapas.</div>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Clique num card ou arraste-o para outra coluna para mover as peças.</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {podeVerTudo && (
@@ -135,8 +137,28 @@ export default function Quadro({ session, perfil }) {
               return (pe.referencia || "").toLowerCase().includes(q) || (pe.marca || "").toLowerCase().includes(q) || nomeCliente(pe.cliente_id).toLowerCase().includes(q);
             });
           const IconeCol = ICONES_COLUNA[local] || Package;
+          const alvoValido = arrastando && arrastando.local !== local;
+          const destacada = alvoValido && colunaHover === local;
           return (
-            <div key={local} style={{ ...coluna, borderTop: `3px solid ${CORES[local]}` }}>
+            <div
+              key={local}
+              onDragOver={(e) => { if (alvoValido) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (colunaHover !== local) setColunaHover(local); } }}
+              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setColunaHover((c) => (c === local ? null : c)); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setColunaHover(null);
+                if (alvoValido) setMover({ ...arrastando, destinoInicial: local });
+                setArrastando(null);
+              }}
+              style={{
+                ...coluna,
+                borderTop: `3px solid ${CORES[local]}`,
+                outline: destacada ? "2px dashed var(--accent)" : "none",
+                outlineOffset: -2,
+                background: destacada ? "var(--accent-bg)" : coluna.background,
+                transition: "background .12s ease",
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <IconeCol size={15} style={{ color: CORES[local] }} />
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{local}</span>
@@ -150,7 +172,23 @@ export default function Quadro({ session, perfil }) {
                   const pintarCard = urg && (urg.nivel === "atrasado" || urg.nivel === "hoje");
                   const estiloCard = pintarCard ? { ...card, background: urg.bg, border: `1px solid ${urg.borda}` } : card;
                   return (
-                  <button key={pe.id} className="lift" onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })} style={estiloCard}>
+                  <button
+                    key={pe.id}
+                    className="lift"
+                    draggable={podeEditar}
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", String(pe.id)); // necessário pro Firefox iniciar o arraste
+                      setArrastando({ pedido: pe, local, saldo: saldo[local] });
+                    }}
+                    onDragEnd={() => { setArrastando(null); setColunaHover(null); }}
+                    onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })}
+                    style={{
+                      ...estiloCard,
+                      cursor: podeEditar ? "grab" : "pointer",
+                      opacity: arrastando?.pedido?.id === pe.id && arrastando?.local === local ? 0.4 : 1,
+                    }}
+                  >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 13.5, fontWeight: 600 }}>{nomeCliente(pe.cliente_id)}</span>
                       {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: "var(--text-2)", background: "var(--surface-2)" }}>{pe.marca}</span>}
@@ -223,9 +261,9 @@ export default function Quadro({ session, perfil }) {
 }
 
 function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar, ehMaster, onFechar, onOk }) {
-  const { pedido, local, saldo } = dados;
+  const { pedido, local, saldo, destinoInicial } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
-  const [destino, setDestino] = useState(destinos[0]);
+  const [destino, setDestino] = useState(destinoInicial && destinos.includes(destinoInicial) ? destinoInicial : destinos[0]);
   const [qtd, setQtd] = useState(saldo);
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
