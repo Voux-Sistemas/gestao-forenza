@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient.js";
 import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import { calcularSaldos, rotuloLocal } from "../etapas.js";
+import Overlay from "./Gaveta.jsx";
 
 const LOCAIS_PRE_OFICINA = ["Entrada", "Corte"];      // de onde podem sair peças pra oficina
 const DESTINOS_POS_OFICINA = ["Acabamento", "Estoque", "Perda"];
@@ -385,17 +386,6 @@ function ModalRegistrarRetorno({ dados, session, onFechar, onOk }) {
         <button onClick={confirmar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Registrar retorno"}</button>
       </div>
     </Overlay>
-  );
-}
-
-function Overlay({ children, onFechar }) {
-  return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 20, position: "relative", boxShadow: "var(--shadow-lg)" }}>
-        <button onClick={onFechar} aria-label="Fechar" style={{ position: "absolute", top: 12, right: 12, background: "transparent", border: "none", padding: 6, cursor: "pointer", color: "var(--text-3)", display: "flex", alignItems: "center", borderRadius: 6 }}><X size={16} /></button>
-        {children}
-      </div>
-    </div>
   );
 }
 

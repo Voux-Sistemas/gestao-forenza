@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 
 import { PRODUCAO, CORES_ETAPA, calcularSaldos as saldos, somaProducao, rotuloLocal } from "../etapas.js";
+import Gaveta from "./Gaveta.jsx";
 
 function diasAte(prazo) {
   if (!prazo) return null;
@@ -309,9 +310,7 @@ function ModalDetalhes({ item, nomeCliente, oficinas, movimentos, onFechar, onAb
   const procAcab = Array.isArray(pe.processos_acabamento) ? pe.processos_acabamento : [];
 
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 640, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, position: "relative", boxShadow: "var(--shadow-lg)" }}>
-        <button onClick={onFechar} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, background: "transparent", border: "none", padding: 6, cursor: "pointer", color: "var(--text-3)", display: "flex", alignItems: "center", borderRadius: 6 }}><X size={18} /></button>
+    <Gaveta onFechar={onFechar} largura={640} zIndex={105}>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6, paddingRight: 30 }}>
           <div style={{ minWidth: 0 }}>
@@ -406,8 +405,8 @@ function ModalDetalhes({ item, nomeCliente, oficinas, movimentos, onFechar, onAb
             <ExternalLink size={14} /> Abrir no Quadro
           </button>
         </div>
-      </div>
-    </div>
+      
+    </Gaveta>
   );
 }
 

@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient.js";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { Plus, ImagePlus, X } from "lucide-react";
 import { PRODUCAO, calcularSaldos } from "../etapas.js";
+import Gaveta from "./Gaveta.jsx";
 
 const STATUS_SOL = {
   em_triagem:      { label: "Em análise",            cor: "var(--accent)",  bg: "var(--accent-bg)" },
@@ -183,8 +184,7 @@ function ModalNova({ clienteId, onFechar, onOk }) {
   }
 
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow-lg)" }}>
+    <Gaveta onFechar={onFechar} largura={440}>
         <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Nova solicitação</h3>
         <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Conte o que você precisa produzir. A fábrica vai analisar.</p>
         <label style={lbl}>Descrição</label>
@@ -210,8 +210,8 @@ function ModalNova({ clienteId, onFechar, onOk }) {
           <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
           <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Enviando…" : "Enviar"}</button>
         </div>
-      </div>
-    </div>
+      
+    </Gaveta>
   );
 }
 
@@ -255,8 +255,7 @@ function ModalConversa({ solicitacao, onFechar }) {
   }
 
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column", boxShadow: "var(--shadow-lg)" }}>
+    <Gaveta onFechar={onFechar} largura={520} zIndex={105}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ fontSize: 15, fontWeight: 600 }}>Sua solicitação</div>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
@@ -301,8 +300,8 @@ function ModalConversa({ solicitacao, onFechar }) {
             <button onClick={enviar} disabled={enviando} style={btnPrimary}>Enviar</button>
           </div>
         </div>
-      </div>
-    </div>
+      
+    </Gaveta>
   );
 }
 

@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config.js";
 import { Plus, Pencil, Eye, Trash2 } from "lucide-react";
 import { PRODUCAO, rotuloLocal } from "../etapas.js";
+import Overlay from "./Gaveta.jsx";
 
 export default function Cadastros() {
   const [aba, setAba] = useState("clientes");
@@ -811,16 +812,6 @@ function Badge({ ativo }) {
       background: ativo ? "var(--success-bg)" : "var(--surface-3)",
       color: ativo ? "var(--success)" : "var(--text-3)",
     }}>{ativo ? "Ativo" : "Inativo"}</span>
-  );
-}
-
-function Overlay({ children, onFechar }) {
-  return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 460, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow-lg)" }}>
-        {children}
-      </div>
-    </div>
   );
 }
 

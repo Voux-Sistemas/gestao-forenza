@@ -5,6 +5,7 @@ import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, 
 import { comprimirImagem } from "../comprimirImagem.js";
 import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
+import Overlay from "./Gaveta.jsx";
 import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal } from "../etapas.js";
 
 const ICONES_COLUNA = {
@@ -932,30 +933,6 @@ function Rastreio({ ordem, processos, podeEditar, onToggle, onObs, onSalvarObs, 
 const lblMini = { fontSize: 11, color: "var(--text-3)", marginBottom: 3 };
 const inpMini = { width: "100%", padding: "7px 9px", fontSize: 13, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
 
-function Overlay({ children, onFechar, rodape }) {
-  // Trava a rolagem da página enquanto a gaveta está aberta.
-  useEffect(() => {
-    const anterior = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = anterior; };
-  }, []);
-  return createPortal(
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", justifyContent: "flex-end", zIndex: 100 }}>
-      <div onClick={(e) => e.stopPropagation()} className="drawer-in" style={{ width: "min(480px, 100%)", height: "100%", background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "var(--shadow-lg)", display: "flex", flexDirection: "column" }}>
-        <div style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain", padding: 22 }}>
-          {children}
-        </div>
-        {rodape && (
-          <div style={{ flexShrink: 0, padding: "14px 22px", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
-            {rodape}
-          </div>
-        )}
-      </div>
-    </div>,
-    document.body
-  );
-}
-
 function fmtDataResumo(d) {
   if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
   const [y, m, dd] = d.split("-");
@@ -980,8 +957,7 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
   }, [solicitacaoId]);
 
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", overflowY: "auto", overscrollBehavior: "contain", display: "flex", padding: 16, zIndex: 70 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ margin: "auto", width: "100%", maxWidth: 520, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+    <Overlay onFechar={onFechar} largura={520} zIndex={110}>
         <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Ficha e histórico da pilotagem</h3>
         {descricao && <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{descricao}</p>}
         {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> : (
@@ -1024,8 +1000,8 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
           </>
         )}
         <button onClick={onFechar} style={{ ...btnGhost, width: "100%", marginTop: 20 }}>Fechar</button>
-      </div>
-    </div>
+      
+    </Overlay>
   );
 }
 

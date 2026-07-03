@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
+import Overlay from "./Gaveta.jsx";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { Plus, ImagePlus, X, Trash2, Inbox, ArrowRight } from "lucide-react";
 import Pilotagem from "./Pilotagem.jsx";
@@ -287,16 +288,6 @@ function ModalAcao({ dados, onFechar, onOk }) {
   );
 }
 
-function Overlay({ children, onFechar }) {
-  return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow-lg)" }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 const subTab = (ativo) => ({
   padding: "9px 14px", fontSize: 13, fontWeight: 500, border: "none", background: "none", cursor: "pointer",
   color: ativo ? "var(--accent)" : "var(--text-2)",
@@ -348,8 +339,7 @@ function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
   }
 
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column", boxShadow: "var(--shadow-lg)" }}>
+    <Overlay onFechar={onFechar} largura={520} zIndex={105}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ fontSize: 15, fontWeight: 600 }}>Conversa com o cliente</div>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
@@ -394,8 +384,8 @@ function ConversaFabrica({ solicitacao, onFechar, onMudou }) {
             <button onClick={enviar} disabled={enviando} style={btnPrimary}>Enviar</button>
           </div>
         </div>
-      </div>
-    </div>
+      
+    </Overlay>
   );
 }
 

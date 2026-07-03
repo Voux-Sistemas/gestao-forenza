@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
+import Gaveta from "./Gaveta.jsx";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { X, Send, ImagePlus } from "lucide-react";
 
@@ -104,8 +105,7 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
   }
 
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 640, maxHeight: "90vh", overflow: "hidden", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, display: "flex", flexDirection: "column", boxShadow: "var(--shadow-lg)" }}>
+    <Gaveta onFechar={onFechar} largura={640} zIndex={105}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", gap: 12 }}>
             {sol.imagem_url && <img src={sol.imagem_url} alt="Referência" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />}
@@ -114,7 +114,6 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
               <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
             </div>
           </div>
-          <button onClick={onFechar} aria-label="Fechar" style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 7, background: "none", color: "var(--text-2)", display: "inline-flex" }}><X size={16} /></button>
         </div>
 
         <div style={{ padding: "18px 20px", overflowY: "auto", flex: 1 }}>
@@ -185,9 +184,9 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
           <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Fechar</button>
           <button onClick={aprovarDireto} disabled={gerando} style={{ ...btnSuccess, flex: 1 }}>{gerando ? "Gerando pedido…" : "Aprovar piloto → gerar pedido"}</button>
         </div>
-      </div>
+      
 
-    </div>
+    </Gaveta>
   );
 }
 
@@ -222,8 +221,7 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
   }
 
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 70 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+    <Gaveta onFechar={onFechar} largura={420} zIndex={110}>
         <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Aprovar e gerar pedido</h3>
         <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Confirme os dados do pedido que vai entrar na produção.</p>
         <div style={{ display: "flex", gap: 10 }}>
@@ -244,8 +242,8 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
           <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
           <button onClick={confirmar} disabled={salvando} style={{ ...btnSuccess, flex: 1 }}>{salvando ? "Gerando…" : "Gerar pedido"}</button>
         </div>
-      </div>
-    </div>
+      
+    </Gaveta>
   );
 }
 

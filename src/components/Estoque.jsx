@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient.js";
 import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2 } from "lucide-react";
 import StatCard from "./StatCard.jsx";
 import { calcularSaldos as saldos } from "../etapas.js";
+import Overlay from "./Gaveta.jsx";
 
 export default function Estoque({ session, perfil }) {
   const [aba, setAba] = useState("espera");
@@ -188,8 +189,7 @@ function ModalBaixa({ dados, session, onFechar, onOk }) {
   }
 
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 20, boxShadow: "var(--shadow-lg)" }}>
+    <Overlay onFechar={onFechar} largura={440} zIndex={105}>
         <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Dar baixa do estoque</h3>
         <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pe.referencia} · {tipo === "Primeira" ? "1ª" : "2ª"} qualidade · {disponivel} disponível(is)</p>
         <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5, fontWeight: 500 }}>Quantidade</label>
@@ -201,8 +201,8 @@ function ModalBaixa({ dados, session, onFechar, onOk }) {
           <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
           <button onClick={confirmar} disabled={salvando} style={{ ...btnDanger, flex: 1 }}>{salvando ? "Salvando…" : "Confirmar baixa"}</button>
         </div>
-      </div>
-    </div>
+      
+    </Overlay>
   );
 }
 
@@ -274,16 +274,6 @@ function ModalInspecao({ dados, session, onFechar, onOk }) {
         <button onClick={confirmar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Confirmar"}</button>
       </div>
     </Overlay>
-  );
-}
-
-function Overlay({ children, onFechar }) {
-  return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 420, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow-lg)" }}>
-        {children}
-      </div>
-    </div>
   );
 }
 
