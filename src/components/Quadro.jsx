@@ -921,9 +921,16 @@ const lblMini = { fontSize: 11, color: "var(--text-3)", marginBottom: 3 };
 const inpMini = { width: "100%", padding: "7px 9px", fontSize: 13, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
 
 function Overlay({ children, onFechar }) {
+  // Trava a rolagem da página enquanto o modal está aberto.
+  useEffect(() => {
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = anterior; };
+  }, []);
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}>
-      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow-lg)" }}>
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", overflowY: "auto", overscrollBehavior: "contain", display: "flex", padding: 20, zIndex: 50 }}>
+      {/* margin:auto centraliza e, quando o modal é mais alto que a tela, mantém o topo alcançável ao rolar */}
+      <div onClick={(e) => e.stopPropagation()} className="pop" style={{ margin: "auto", width: "100%", maxWidth: 460, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow-lg)" }}>
         {children}
       </div>
     </div>
@@ -954,8 +961,8 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
   }, [solicitacaoId]);
 
   return (
-    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 70 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "85vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
+    <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", overflowY: "auto", overscrollBehavior: "contain", display: "flex", padding: 16, zIndex: 70 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ margin: "auto", width: "100%", maxWidth: 520, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22 }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Ficha e histórico da pilotagem</h3>
         {descricao && <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{descricao}</p>}
         {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> : (
