@@ -92,7 +92,7 @@ export default function Shell({ session }) {
   // Funcionários e clientes não navegam: cabeçalho simples, sem menus.
   if (!podeAdministrar) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <header style={{ position: "sticky", top: 0, zIndex: 30, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 22px", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-sm)" }}>
           <Logo size={32} fonte={16} legenda="Gestão de produção" />
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -101,7 +101,7 @@ export default function Shell({ session }) {
             <button className="tap" onClick={() => supabase.auth.signOut()} aria-label="Sair" style={iconBtn}><LogOut size={16} /></button>
           </div>
         </header>
-        <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>{conteudo()}</main>
+        <main style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>{conteudo()}</main>
       </div>
     );
   }
@@ -162,7 +162,7 @@ export default function Shell({ session }) {
               );
             })}
           </nav>
-          <main style={{ flex: 1, minWidth: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>{conteudo()}</main>
+          <main style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>{conteudo()}</main>
         </div>
       </div>
     </div>

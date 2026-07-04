@@ -74,7 +74,7 @@ export default function Quadro({ session, perfil }) {
   if (!podeVerTudo && !perfil?.setor) return <div style={{ padding: 28, color: "var(--text-2)" }}>Seu usuário ainda não tem um setor definido.</div>;
 
   return (
-    <div className="fade-in" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "20px 26px 0" }}>
+    <div className="fade-in" style={{ height: "100%", display: "flex", flexDirection: "column", padding: "20px 26px 0" }}>
 
       <div style={{ flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
         <div>
