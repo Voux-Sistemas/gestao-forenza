@@ -167,7 +167,7 @@ export default function Atrasos({ onNavegar }) {
     <div className="fade-in" style={{ padding: "24px 26px", maxWidth: 1280, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Alertas</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Notificações</h2>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Pedidos que precisam da sua atenção agora.</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
