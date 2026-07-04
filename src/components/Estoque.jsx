@@ -39,11 +39,11 @@ export default function Estoque({ session, perfil }) {
 
   const computados = pedidos.map((pe) => ({ pe, s: saldos(pe.id, pe.total, movimentos) }));
   const emEspera = computados.filter(({ s }) => s.Estoque > 0);
-  const primeira = computados.filter(({ s }) => s.Primeira > 0);
-  const segunda = computados.filter(({ s }) => s.Segunda > 0);
+  const primeira = computados.filter(({ s }) => (s.Primeira || 0) > 0);
+  const segunda = computados.filter(({ s }) => (s.Segunda || 0) > 0);
 
   let totEspera = 0, totPrim = 0, totSeg = 0;
-  computados.forEach(({ s }) => { totEspera += s.Estoque; totPrim += s.Primeira; totSeg += s.Segunda; });
+  computados.forEach(({ s }) => { totEspera += s.Estoque; totPrim += s.Primeira || 0; totSeg += s.Segunda || 0; });
   const totConcl = totPrim + totSeg;
   const aprov = totConcl > 0 ? Math.round((totPrim / totConcl) * 100) : null;
 
