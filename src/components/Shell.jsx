@@ -122,18 +122,8 @@ export default function Shell({ session }) {
   };
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {/* ── Faixa da logo (largura total) ── */}
-      <header style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 22px", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-sm)", zIndex: 30 }}>
-        <Logo size={32} fonte={16} legenda="Gestão de produção" />
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {chipUsuario}
-          {botaoTema}
-        </div>
-      </header>
-
-      <div style={{ flex: 1, display: "flex", alignItems: "stretch", minHeight: 0 }}>
-        {/* ── Lateral premium (verde da marca) ── */}
+    <div style={{ height: "100vh", display: "flex", alignItems: "stretch", overflow: "hidden" }}>
+        {/* ── Lateral premium em altura total (verde da marca) ── */}
         <aside style={{ width: lateralAberta ? 200 : 58, flexShrink: 0, display: "flex", flexDirection: "column", gap: 4, background: VERDE.fundo, padding: "12px 9px", transition: "width .18s ease", overflowY: "auto", overflowX: "hidden" }}>
           {itemLateral({ id: "_toggle", label: lateralAberta ? "Recolher" : "Expandir menu", icon: lateralAberta ? X : Menu }, { onClick: () => setLateralAberta((a) => !a), cor: VERDE.apagado })}
           <div style={{ height: 1, background: VERDE.divisa, margin: "5px 3px 8px", flexShrink: 0 }} />
@@ -145,8 +135,17 @@ export default function Shell({ session }) {
           </div>
         </aside>
 
-        {/* ── Coluna principal: menu de páginas + conteúdo ── */}
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      {/* ── Coluna principal: faixa da logo + menu de páginas + conteúdo ── */}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      {/* ── Faixa da logo (ao lado da lateral) ── */}
+      <header style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 22px", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-sm)", zIndex: 30 }}>
+        <Logo size={32} fonte={16} legenda="Gestão de produção" />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {chipUsuario}
+          {botaoTema}
+        </div>
+      </header>
+
           <nav style={{ flexShrink: 0, display: "flex", gap: 4, padding: "8px 16px", borderBottom: "1px solid var(--border)", background: "var(--surface)", overflowX: "auto" }}>
             {ITENS_TOPO.map((item) => {
               const Icone = item.icon;
@@ -162,8 +161,7 @@ export default function Shell({ session }) {
               );
             })}
           </nav>
-          <main style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>{conteudo()}</main>
-        </div>
+        <main style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>{conteudo()}</main>
       </div>
     </div>
   );
