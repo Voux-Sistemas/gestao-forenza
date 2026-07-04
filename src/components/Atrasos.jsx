@@ -87,12 +87,13 @@ export default function Atrasos({ onNavegar }) {
   const [detalhes, setDetalhes] = useState(null);
 
   const carregar = useCallback(async () => {
-    const [p, m, c, o] = await Promise.all([
-      supabase.from("pedidos").select("*"),
-      supabase.from("movimentos").select("*").order("id"),
+    const [p, c, o] = await Promise.all([
+      supabase.from("pedidos").select("*").eq("arquivado", false),
       supabase.from("clientes").select("id, nome"),
       supabase.from("oficinas").select("id, nome_empresa"),
     ]);
+    const ids = (p.data || []).map((x) => x.id);
+    const m = ids.length ? await supabase.from("movimentos").select("*").in("pedido_id", ids).order("id") : { data: [] };
     setPedidos(p.data || []);
     setMovimentos(m.data || []);
     setClientes(c.data || []);

@@ -55,14 +55,17 @@ export default function Dashboard({ perfil, onNavegar }) {
   const [carregando, setCarregando] = useState(true);
 
   const carregar = useCallback(async () => {
-    const [p, m, c, o, s, cm] = await Promise.all([
-      supabase.from("pedidos").select("*"),
-      supabase.from("movimentos").select("*").order("id", { ascending: false }).limit(500),
+    const [p, c, o, s, cm] = await Promise.all([
+      supabase.from("pedidos").select("*").eq("arquivado", false),
       supabase.from("clientes").select("id, nome"),
       supabase.from("oficinas").select("id, nome_empresa"),
       supabase.from("solicitacoes").select("id, cliente_id, descricao, status, criado_em").order("id", { ascending: false }).limit(20),
       supabase.from("comentarios_pilotagem").select("id, solicitacao_id, autor, texto, criado_em").order("id", { ascending: false }).limit(20),
     ]);
+    const idsAtivos = (p.data || []).map((x) => x.id);
+    const m = idsAtivos.length
+      ? await supabase.from("movimentos").select("*").in("pedido_id", idsAtivos).order("id", { ascending: false })
+      : { data: [] };
     setPedidos(p.data || []);
     setMovimentos(m.data || []);
     setClientes(c.data || []);

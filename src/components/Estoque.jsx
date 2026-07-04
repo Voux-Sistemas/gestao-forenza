@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient.js";
 import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2 } from "lucide-react";
 import StatCard from "./StatCard.jsx";
 import { calcularSaldos as saldos } from "../etapas.js";
+import { arquivarSeConcluido } from "../arquivamento.js";
 import Overlay from "./Gaveta.jsx";
 
 export default function Estoque({ session, perfil }) {
@@ -16,11 +17,12 @@ export default function Estoque({ session, perfil }) {
   const podeBaixar = ["master", "chefe_geral"].includes(perfil?.papel);
 
   const carregar = useCallback(async () => {
-    const [p, m, c] = await Promise.all([
-      supabase.from("pedidos").select("*").order("id"),
-      supabase.from("movimentos").select("*").order("id"),
+    const [p, c] = await Promise.all([
+      supabase.from("pedidos").select("*").eq("arquivado", false).order("id"),
       supabase.from("clientes").select("*"),
     ]);
+    const ids = (p.data || []).map((x) => x.id);
+    const m = ids.length ? await supabase.from("movimentos").select("*").in("pedido_id", ids).order("id") : { data: [] };
     setPedidos(p.data || []); setMovimentos(m.data || []); setClientes(c.data || []);
     setCarregando(false);
   }, []);
@@ -185,6 +187,7 @@ function ModalBaixa({ dados, session, onFechar, onOk }) {
     });
     setSalvando(false);
     if (error) return setErro(error.message);
+    await arquivarSeConcluido(pe.id); // se foi a última peça sob gestão, o pedido é arquivado
     onOk();
   }
 

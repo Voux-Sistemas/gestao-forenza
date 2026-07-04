@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { LogOut, Moon, Sun, LayoutGrid, Users, Bell, Factory, Package, Inbox, Home, Receipt, Menu, X } from "lucide-react";
+import { LogOut, Moon, Sun, LayoutGrid, Users, Bell, Factory, Package, Inbox, Home, Receipt, Archive, Menu, X } from "lucide-react";
 import Logo from "./Logo.jsx";
 import { rotuloLocal } from "../etapas.js";
 import Dashboard from "./Dashboard.jsx";
@@ -12,6 +12,7 @@ import Estoque from "./Estoque.jsx";
 import Triagem from "./Triagem.jsx";
 import Portal from "./Portal.jsx";
 import ContasAPagar from "./ContasAPagar.jsx";
+import Historico from "./Historico.jsx";
 
 const PAPEL_LABEL = {
   funcionario: "Funcionário", chefe_setor: "Chefe de setor",
@@ -31,6 +32,7 @@ const ITENS_LATERAL = [
   { id: "inicio", label: "Início", icon: Home },
   { id: "atrasos", label: "Notificações", icon: Bell },
   { id: "contas", label: "Contas a Pagar", icon: Receipt },
+  { id: "historico", label: "Histórico", icon: Archive },
 ];
 
 // Paleta da lateral — família do verde da marca.
@@ -69,6 +71,7 @@ export default function Shell({ session }) {
     if (pagina === "triagem" && podeAdministrar) return <Triagem />;
     if (pagina === "oficinas" && podeAdministrar) return <ControleOficinas session={session} perfil={perfil} />;
     if (pagina === "contas" && podeAdministrar) return <ContasAPagar />;
+    if (pagina === "historico" && podeAdministrar) return <Historico />;
     return <Quadro session={session} perfil={perfil} />;
   }
 

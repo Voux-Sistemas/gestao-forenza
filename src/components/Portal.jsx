@@ -31,7 +31,7 @@ export default function Portal({ session, perfil }) {
     if (!clienteId) { setCarregando(false); return; }
     const [s, p] = await Promise.all([
       supabase.from("solicitacoes").select("*").eq("cliente_id", clienteId).order("id", { ascending: false }),
-      supabase.from("pedidos").select("*").eq("cliente_id", clienteId).order("id", { ascending: false }),
+      supabase.from("pedidos").select("*").eq("cliente_id", clienteId).eq("arquivado", false).order("id", { ascending: false }),
     ]);
     const peds = p.data || [];
     const ids = peds.map((x) => x.id);

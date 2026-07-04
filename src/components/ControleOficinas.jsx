@@ -42,13 +42,14 @@ export default function ControleOficinas({ session, perfil }) {
   const [expandida, setExpandida] = useState(null); // id da remessa expandida
 
   const carregar = useCallback(async () => {
-    const [p, m, o, r, c] = await Promise.all([
-      supabase.from("pedidos").select("*").order("id", { ascending: false }),
-      supabase.from("movimentos").select("*").order("id"),
+    const [p, o, r, c] = await Promise.all([
+      supabase.from("pedidos").select("*").eq("arquivado", false).order("id", { ascending: false }),
       supabase.from("oficinas").select("*").eq("ativo", true).order("nome_empresa"),
       supabase.from("remessas_oficina").select("*").order("id", { ascending: false }),
       supabase.from("clientes").select("id, nome"),
     ]);
+    const idsAtivos = (p.data || []).map((x) => x.id);
+    const m = idsAtivos.length ? await supabase.from("movimentos").select("*").in("pedido_id", idsAtivos).order("id") : { data: [] };
     setPedidos(p.data || []);
     setMovimentos(m.data || []);
     setOficinas(o.data || []);

@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient.js";
 import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { gerarPdfEtapa } from "../pdfEtapa.js";
+import { arquivarSeConcluido } from "../arquivamento.js";
 
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import Overlay from "./Gaveta.jsx";
@@ -41,13 +42,16 @@ export default function Quadro({ session, perfil }) {
   const [colunaHover, setColunaHover] = useState(null); // coluna destacada durante o arraste
 
   const carregar = useCallback(async () => {
-    const [p, m, c, o, r] = await Promise.all([
-      supabase.from("pedidos").select("*").order("id"),
-      supabase.from("movimentos").select("*").order("id"),
+    const [p, c, o] = await Promise.all([
+      supabase.from("pedidos").select("*").eq("arquivado", false).order("id"),
       supabase.from("clientes").select("*").order("nome"),
       supabase.from("oficinas").select("*").order("nome_empresa"),
-      supabase.from("remessas_oficina").select("*").order("id"),
     ]);
+    const ids = (p.data || []).map((x) => x.id);
+    const [m, r] = ids.length ? await Promise.all([
+      supabase.from("movimentos").select("*").in("pedido_id", ids).order("id"),
+      supabase.from("remessas_oficina").select("*").in("pedido_id", ids).order("id"),
+    ]) : [{ data: [] }, { data: [] }];
     setPedidos(p.data || []); setMovimentos(m.data || []);
     setClientes(c.data || []); setOficinas(o.data || []); setRemessas(r.data || []);
     setCarregando(false);
@@ -324,6 +328,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     });
     setSalvando(false);
     if (error) return setErro(error.message);
+    if (destino === "Perda") await arquivarSeConcluido(pedido.id); // última peça perdida pode concluir o pedido
     onOk({ destino, qtd: q, referencia: pedido.referencia });
   }
 
