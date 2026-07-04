@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags } from "lucide-react";
+import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
+import { gerarPdfEtapa } from "../pdfEtapa.js";
 
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import Overlay from "./Gaveta.jsx";
@@ -135,6 +136,12 @@ export default function Quadro({ session, perfil }) {
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
                 {cards.map(({ pe, saldo }) => {
                   const urg = urgenciaDoCard(pe, local);
+                  const partes = COLUNAS.filter((l) => saldo[l] > 0); // divisões do pedido pelo fluxo
+                  const parte = partes.indexOf(local) + 1;
+                  const baixarPdf = (e) => {
+                    e.stopPropagation();
+                    gerarPdfEtapa({ pedido: pe, cliente: nomeCliente(pe.cliente_id), local, qtd: saldo[local], parte, totalPartes: partes.length });
+                  };
                   const procBadges = badgesDoCard(pe, local);
                   const infoRem = local === "Oficina" ? infoRemessasOficina(pe, remessas, oficinas) : null;
                   const pintarCard = urg && (urg.nivel === "atrasado" || urg.nivel === "hoje");
@@ -157,9 +164,18 @@ export default function Quadro({ session, perfil }) {
                       opacity: arrastando?.pedido?.id === pe.id && arrastando?.local === local ? 0.4 : 1,
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13.5, fontWeight: 600 }}>{nomeCliente(pe.cliente_id)}</span>
-                      {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: "var(--text-2)", background: "var(--surface-2)" }}>{pe.marca}</span>}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nomeCliente(pe.cliente_id)}</span>
+                      {partes.length > 1 && (
+                        <span title={`Parte ${parte} de ${partes.length} deste pedido`} style={{ fontSize: 10.5, fontWeight: 700, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: "var(--accent)", background: "var(--accent-bg)", flexShrink: 0 }}>{parte}/{partes.length}</span>
+                      )}
+                      {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: "var(--text-2)", background: "var(--surface-2)", flexShrink: 0 }}>{pe.marca}</span>}
+                      <span role="button" tabIndex={0} title="Baixar PDF desta etapa" aria-label="Baixar PDF desta etapa"
+                        onClick={baixarPdf}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); baixarPdf(e); } }}
+                        style={{ display: "inline-flex", padding: 4, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer", flexShrink: 0 }}>
+                        <FileDown size={12} />
+                      </span>
                     </div>
                     <div style={{ fontSize: 11.5, color: "var(--text-3)", fontWeight: 500, margin: "2px 0 6px" }}>{pe.referencia}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -410,6 +426,7 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
   const [total, setTotal] = useState("");
   const [prazo, setPrazo] = useState("");
   const [grade, setGrade] = useState({}); // { tamanho: quantidade digitada }
+  const [extras, setExtras] = useState([]); // tamanhos fora do padrão adicionados à tabela
   const [tamanhoExtra, setTamanhoExtra] = useState("");
   const [cor, setCor] = useState("");
   const [peso, setPeso] = useState("");
@@ -418,23 +435,19 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
-  const tamanhos = Object.keys(grade);
-  const usaGrade = tamanhos.length > 0;
-  const somaGrade = tamanhos.reduce((a, t) => a + (parseInt(grade[t], 10) || 0), 0);
-
-  function alternarTamanho(t) {
-    setGrade((g) => {
-      const novo = { ...g };
-      if (novo[t] !== undefined) delete novo[t];
-      else novo[t] = "";
-      return novo;
-    });
-  }
+  const linhasGrade = [...TAMANHOS_PADRAO, ...extras];
+  const somaGrade = linhasGrade.reduce((a, t) => a + (parseInt(grade[t], 10) || 0), 0);
+  const usaGrade = somaGrade > 0;
 
   function adicionarTamanhoExtra() {
     const t = tamanhoExtra.trim().toUpperCase();
-    if (t && grade[t] === undefined) setGrade((g) => ({ ...g, [t]: "" }));
+    if (t && !linhasGrade.includes(t)) setExtras((e) => [...e, t]);
     setTamanhoExtra("");
+  }
+
+  function removerExtra(t) {
+    setExtras((e) => e.filter((x) => x !== t));
+    setGrade((g) => { const novo = { ...g }; delete novo[t]; return novo; });
   }
 
   async function salvar() {
@@ -444,9 +457,7 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
     let t;
     let gradeFinal = null;
     if (usaGrade) {
-      const pendente = tamanhos.find((x) => !parseInt(grade[x], 10) || parseInt(grade[x], 10) < 1);
-      if (pendente) return setErro(`Preencha a quantidade do tamanho ${pendente} (ou remova-o da grade).`);
-      gradeFinal = Object.fromEntries(tamanhos.map((x) => [x, parseInt(grade[x], 10)]));
+      gradeFinal = Object.fromEntries(linhasGrade.map((x) => [x, parseInt(grade[x], 10)]).filter(([, q]) => q >= 1));
       t = somaGrade;
     } else {
       t = parseInt(total, 10);
@@ -486,37 +497,29 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
           <input value={marca} onChange={(e) => setMarca(e.target.value)} style={inp} /></div>
       </div>
       <label style={{ ...lbl, marginTop: 16 }}>Grade (tamanhos)</label>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-        {[...TAMANHOS_PADRAO, ...tamanhos.filter((t) => !TAMANHOS_PADRAO.includes(t))].map((t) => {
-          const ativo = grade[t] !== undefined;
-          return (
-            <button key={t} type="button" onClick={() => alternarTamanho(t)}
-              style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, borderRadius: 99, cursor: "pointer",
-                border: `1px solid ${ativo ? "var(--accent)" : "var(--border)"}`,
-                background: ativo ? "var(--accent-bg)" : "var(--surface)",
-                color: ativo ? "var(--accent)" : "var(--text-2)" }}>
+      <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 110px", background: "var(--surface-2)", padding: "7px 12px", fontSize: 10.5, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".4px" }}>
+          <span>Tamanho</span><span>Quantidade</span>
+        </div>
+        {linhasGrade.map((t) => (
+          <div key={t} style={{ display: "grid", gridTemplateColumns: "1fr 110px", alignItems: "center", padding: "5px 12px", borderTop: "1px solid var(--border)" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 8 }}>
               {t}
-            </button>
-          );
-        })}
+              {extras.includes(t) && (
+                <button type="button" onClick={() => removerExtra(t)} aria-label={`Remover tamanho ${t}`} title="Remover tamanho" style={{ display: "inline-flex", border: "none", background: "none", color: "var(--text-3)", cursor: "pointer", padding: 2 }}><Trash2 size={12} /></button>
+              )}
+            </span>
+            <input type="number" min="0" placeholder="—" value={grade[t] ?? ""}
+              onChange={(e) => setGrade((g) => ({ ...g, [t]: e.target.value }))} style={{ ...inp, padding: "7px 10px" }} />
+          </div>
+        ))}
       </div>
-      <div style={{ display: "flex", gap: 6, marginBottom: usaGrade ? 12 : 0 }}>
+      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
         <input value={tamanhoExtra} onChange={(e) => setTamanhoExtra(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); adicionarTamanhoExtra(); } }}
           placeholder="Outro tamanho (ex: 42, G3, Único)…" style={{ ...inp, flex: 1 }} />
         <button type="button" onClick={adicionarTamanhoExtra} style={{ ...btnGhost, padding: "0 14px" }}><Plus size={15} /></button>
       </div>
-      {usaGrade && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8, padding: "12px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
-          {tamanhos.map((t) => (
-            <div key={t}>
-              <label style={{ ...lblMini, fontWeight: 700 }}>{t}</label>
-              <input type="number" min="1" placeholder="qtd" value={grade[t]}
-                onChange={(e) => setGrade((g) => ({ ...g, [t]: e.target.value }))} style={{ ...inp, padding: "8px 10px" }} />
-            </div>
-          ))}
-        </div>
-      )}
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
         <div style={{ flex: 1 }}><label style={lbl}>Total de peças</label>
           {usaGrade
