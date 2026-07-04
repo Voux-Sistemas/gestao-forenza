@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { LogOut, Moon, Sun, LayoutGrid, Users, AlertTriangle, Factory, Package, Inbox, LayoutDashboard, Receipt } from "lucide-react";
-import Logo, { MarcaForenza } from "./Logo.jsx";
+import { LogOut, Moon, Sun, LayoutGrid, Users, AlertTriangle, Factory, Package, Inbox, LayoutDashboard, Receipt, Menu, X } from "lucide-react";
+import Logo from "./Logo.jsx";
 import { rotuloLocal } from "../etapas.js";
 import Dashboard from "./Dashboard.jsx";
 import Quadro from "./Quadro.jsx";
@@ -19,7 +19,7 @@ const PAPEL_LABEL = {
 };
 const iconBtn = { border: "1px solid var(--border)", borderRadius: 8, padding: 8, color: "var(--text-2)", background: "none", display: "inline-flex", cursor: "pointer" };
 
-// Menu superior: navegação principal, na ordem do fluxo da fábrica.
+// Menu superior: as páginas da operação (Quadro também mora na lateral).
 const ITENS_TOPO = [
   { id: "inicio", label: "Início", icon: LayoutDashboard },
   { id: "triagem", label: "Pilotagem", icon: Inbox },
@@ -27,13 +27,27 @@ const ITENS_TOPO = [
   { id: "oficinas", label: "Oficinas", icon: Factory },
   { id: "estoque", label: "Estoque", icon: Package },
   { id: "atrasos", label: "Alertas", icon: AlertTriangle },
+];
+// Lateral premium: acesso fixo + sessão.
+const ITENS_LATERAL = [
+  { id: "quadro", label: "Quadro", icon: LayoutGrid },
+  { id: "cadastros", label: "Cadastros", icon: Users },
   { id: "contas", label: "Contas a Pagar", icon: Receipt },
 ];
+
+// Paleta da lateral — família do verde da marca.
+const VERDE = {
+  fundo: "linear-gradient(180deg, #0A4A3C 0%, #04342C 55%, #02231E 100%)",
+  ativoBg: "#9FE1CB", ativoTexto: "#04342C",
+  texto: "#CFEBE0", apagado: "#5DCAA5",
+  divisa: "rgba(159,225,203,0.18)", sair: "#F09595",
+};
 
 export default function Shell({ session }) {
   const [perfil, setPerfil] = useState(null);
   const [tema, setTema] = useState("light");
   const [pagina, setPagina] = useState("inicio");
+  const [lateralAberta, setLateralAberta] = useState(() => localStorage.getItem("forenza-lateral") === "1");
 
   useEffect(() => {
     supabase.from("perfis").select("nome, papel, setor, cliente_id").eq("id", session.user.id).single()
@@ -41,6 +55,7 @@ export default function Shell({ session }) {
   }, [session]);
 
   useEffect(() => { document.documentElement.setAttribute("data-theme", tema); }, [tema]);
+  useEffect(() => { localStorage.setItem("forenza-lateral", lateralAberta ? "1" : "0"); }, [lateralAberta]);
 
   const subtitulo = perfil ? [PAPEL_LABEL[perfil.papel], perfil.setor ? rotuloLocal(perfil.setor) : null].filter(Boolean).join(" · ") : "carregando…";
   const podeAdministrar = ["master", "chefe_geral"].includes(perfil?.papel);
@@ -69,6 +84,12 @@ export default function Shell({ session }) {
     </div>
   );
 
+  const botaoTema = (
+    <button className="tap" onClick={() => setTema((t) => (t === "light" ? "dark" : "light"))} aria-label="Mudar tema" style={iconBtn}>
+      {tema === "light" ? <Moon size={16} /> : <Sun size={16} />}
+    </button>
+  );
+
   // Funcionários e clientes não navegam: cabeçalho simples, sem menus.
   if (!podeAdministrar) {
     return (
@@ -77,9 +98,7 @@ export default function Shell({ session }) {
           <Logo size={32} fonte={16} legenda="Gestão de produção" />
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {chipUsuario}
-            <button className="tap" onClick={() => setTema((t) => (t === "light" ? "dark" : "light"))} aria-label="Mudar tema" style={iconBtn}>
-              {tema === "light" ? <Moon size={16} /> : <Sun size={16} />}
-            </button>
+            {botaoTema}
             <button className="tap" onClick={() => supabase.auth.signOut()} aria-label="Sair" style={iconBtn}><LogOut size={16} /></button>
           </div>
         </header>
@@ -88,41 +107,54 @@ export default function Shell({ session }) {
     );
   }
 
-  const btnTrilho = (ativo) => ({
-    width: 42, height: 42, display: "inline-flex", alignItems: "center", justifyContent: "center",
-    borderRadius: 11, border: "none", cursor: "pointer",
-    color: ativo ? "var(--accent)" : "var(--text-2)",
-    background: ativo ? "var(--accent-bg)" : "transparent",
-  });
+  const itemLateral = ({ id, label, icon: Icone }, extras = {}) => {
+    const ativo = pagina === id;
+    return (
+      <button key={id} onClick={extras.onClick || (() => setPagina(id))} title={!lateralAberta ? label : undefined} aria-label={label} style={{
+        display: "flex", alignItems: "center", gap: 12, width: "100%",
+        padding: lateralAberta ? "10px 12px" : "10px 0", justifyContent: lateralAberta ? "flex-start" : "center",
+        fontSize: 13, fontWeight: 600, letterSpacing: ".2px", borderRadius: 10, border: "none", cursor: "pointer", whiteSpace: "nowrap",
+        color: extras.cor || (ativo ? VERDE.ativoTexto : VERDE.texto),
+        background: ativo && !extras.cor ? VERDE.ativoBg : "transparent",
+      }}>
+        <Icone size={17} style={{ flexShrink: 0 }} /> {lateralAberta && label}
+      </button>
+    );
+  };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "stretch" }}>
-      {/* ── Trilho lateral mínimo: marca, Cadastros e ações de sessão ── */}
-      <aside style={{ width: 62, flexShrink: 0, position: "sticky", top: 0, height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, background: "var(--surface)", borderRight: "1px solid var(--border)", padding: "14px 0", zIndex: 40 }}>
-        <div style={{ marginBottom: 14 }}><MarcaForenza size={30} /></div>
-        <button className={pagina === "cadastros" ? "" : "tap"} onClick={() => setPagina("cadastros")} title="Cadastros" aria-label="Cadastros" style={btnTrilho(pagina === "cadastros")}>
-          <Users size={18} />
-        </button>
-        <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-          <button className="tap" onClick={() => setTema((t) => (t === "light" ? "dark" : "light"))} title="Mudar tema" aria-label="Mudar tema" style={btnTrilho(false)}>
-            {tema === "light" ? <Moon size={18} /> : <Sun size={18} />}
-          </button>
-          <button className="tap" onClick={() => supabase.auth.signOut()} title="Sair" aria-label="Sair" style={{ ...btnTrilho(false), color: "var(--danger)" }}>
-            <LogOut size={18} />
-          </button>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* ── Faixa da logo (largura total) ── */}
+      <header style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 22px", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-sm)", zIndex: 30 }}>
+        <Logo size={32} fonte={16} legenda="Gestão de produção" />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {chipUsuario}
+          {botaoTema}
         </div>
-      </aside>
+      </header>
 
-      {/* ── Coluna principal: menu superior + conteúdo ── */}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-        <header style={{ position: "sticky", top: 0, zIndex: 30, display: "flex", alignItems: "center", gap: 10, padding: "9px 18px", borderBottom: "1px solid var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-sm)" }}>
-          <nav style={{ display: "flex", gap: 4, overflowX: "auto", flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", alignItems: "stretch", minHeight: 0 }}>
+        {/* ── Lateral premium (verde da marca) ── */}
+        <aside style={{ width: lateralAberta ? 200 : 58, flexShrink: 0, display: "flex", flexDirection: "column", gap: 4, background: VERDE.fundo, padding: "12px 9px", transition: "width .18s ease", overflowY: "auto", overflowX: "hidden" }}>
+          {itemLateral({ id: "_toggle", label: lateralAberta ? "Recolher" : "Expandir menu", icon: lateralAberta ? X : Menu }, { onClick: () => setLateralAberta((a) => !a), cor: VERDE.apagado })}
+          <div style={{ height: 1, background: VERDE.divisa, margin: "5px 3px 8px", flexShrink: 0 }} />
+          {ITENS_LATERAL.map((i) => itemLateral(i))}
+          <div style={{ marginTop: "auto", flexShrink: 0 }}>
+            <div style={{ height: 1, background: VERDE.divisa, margin: "0 3px 6px" }} />
+            {itemLateral({ id: "_sair", label: "Sair", icon: LogOut }, { onClick: () => supabase.auth.signOut(), cor: VERDE.sair })}
+            {lateralAberta && <div style={{ fontSize: 10.5, color: VERDE.apagado, letterSpacing: ".8px", padding: "4px 12px 2px" }}>FORENZA · {new Date().getFullYear()}</div>}
+          </div>
+        </aside>
+
+        {/* ── Coluna principal: menu de páginas + conteúdo ── */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <nav style={{ flexShrink: 0, display: "flex", gap: 4, padding: "8px 16px", borderBottom: "1px solid var(--border)", background: "var(--surface)", overflowX: "auto" }}>
             {ITENS_TOPO.map((item) => {
               const Icone = item.icon;
               const ativo = pagina === item.id;
               return (
                 <button key={item.id} className={ativo ? "" : "tap"} onClick={() => setPagina(item.id)} style={{
-                  display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 13px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", borderRadius: 9,
+                  display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", borderRadius: 9,
                   border: "none", cursor: "pointer", color: ativo ? "var(--accent)" : "var(--text-2)",
                   background: ativo ? "var(--accent-bg)" : "transparent",
                 }}>
@@ -131,9 +163,8 @@ export default function Shell({ session }) {
               );
             })}
           </nav>
-          {chipUsuario}
-        </header>
-        <main style={{ flex: 1, minWidth: 0 }}>{conteudo()}</main>
+          <main style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>{conteudo()}</main>
+        </div>
       </div>
     </div>
   );
