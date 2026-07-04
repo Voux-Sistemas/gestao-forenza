@@ -41,8 +41,8 @@ export default function Estoque({ session, perfil }) {
 
   const computados = pedidos.map((pe) => ({ pe, s: saldos(pe.id, pe.total, movimentos) }));
   const emEspera = computados.filter(({ s }) => s.Estoque > 0);
-  const primeira = computados.filter(({ s }) => (s.Primeira || 0) > 0);
-  const segunda = computados.filter(({ s }) => (s.Segunda || 0) > 0);
+  // Um pedido = um card: quem tem peças em 1ª ou 2ª qualidade aparece uma única vez.
+  const prontos = computados.filter(({ s }) => (s.Primeira || 0) + (s.Segunda || 0) > 0);
 
   let totEspera = 0, totPrim = 0, totSeg = 0;
   computados.forEach(({ s }) => { totEspera += s.Estoque; totPrim += s.Primeira || 0; totSeg += s.Segunda || 0; });
@@ -71,8 +71,7 @@ export default function Estoque({ session, perfil }) {
 
       <div style={{ display: "flex", gap: 4, marginBottom: 18, borderBottom: "1px solid var(--border)" }}>
         <button onClick={() => setAba("espera")} style={subTab(aba === "espera")}>Em espera ({emEspera.length})</button>
-        <button onClick={() => setAba("primeira")} style={subTab(aba === "primeira")}>1ª qualidade ({primeira.length})</button>
-        <button onClick={() => setAba("segunda")} style={subTab(aba === "segunda")}>2ª qualidade ({segunda.length})</button>
+        <button onClick={() => setAba("estoque")} style={subTab(aba === "estoque")}>Em estoque ({prontos.length})</button>
       </div>
 
       {aba === "espera" && (
@@ -104,43 +103,46 @@ export default function Estoque({ session, perfil }) {
         )
       )}
 
-      {(aba === "primeira" || aba === "segunda") && (() => {
-        const eh1 = aba === "primeira";
-        const lista = eh1 ? primeira : segunda;
-        const local = eh1 ? "Primeira" : "Segunda";
-        const cor = eh1 ? "var(--success)" : "var(--orange)";
-        const bg = eh1 ? "var(--success-bg)" : "var(--orange-bg)";
-        const rotulo = eh1 ? "1ª qualidade" : "2ª qualidade";
-        if (lista.length === 0) return <Vazio texto={`Nenhuma peça em ${rotulo} no estoque.`} />;
-        return (
+      {aba === "estoque" && (
+        prontos.length === 0 ? <Vazio texto="Nenhuma peça em estoque no momento." /> : (
           <div style={grade}>
-            {lista.map(({ pe, s }) => (
-              <div key={pe.id} className="lift" style={cartao}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pe.referencia}</span>
-                      {pe.marca && <span style={tag}>{pe.marca}</span>}
+            {prontos.map(({ pe, s }) => {
+              const d1 = s.Primeira || 0;
+              const d2 = s.Segunda || 0;
+              return (
+                <div key={pe.id} className="lift" style={cartao}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pe.referencia}</span>
+                        {pe.marca && <span style={tag}>{pe.marca}</span>}
+                      </div>
+                      <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 3 }}>{nomeCliente(pe.cliente_id)}</div>
                     </div>
-                    <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 3 }}>{nomeCliente(pe.cliente_id)}</div>
+                    <Package size={17} strokeWidth={2} style={{ color: "var(--text-3)", flexShrink: 0, marginTop: 2 }} />
                   </div>
-                  <span style={{ fontSize: 10.5, fontWeight: 700, color: cor, background: bg, padding: "3px 9px", borderRadius: 99, whiteSpace: "nowrap" }}>{rotulo}</span>
+                  <div style={{ display: "flex", gap: 8, margin: "14px 0", paddingTop: 13, borderTop: "1px solid var(--border)" }}>
+                    <div style={{ flex: 1, padding: "8px 11px", borderRadius: 9, background: "var(--success-bg)" }}>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".4px", color: "var(--success)" }}>1ª QUALIDADE</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2, color: d1 > 0 ? "var(--success)" : "var(--text-3)" }}>{d1}</div>
+                    </div>
+                    <div style={{ flex: 1, padding: "8px 11px", borderRadius: 9, background: "var(--orange-bg)" }}>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".4px", color: "var(--orange)" }}>2ª QUALIDADE</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2, color: d2 > 0 ? "var(--orange)" : "var(--text-3)" }}>{d2}</div>
+                    </div>
+                  </div>
+                  <GradeTabela grade={pe.grade} />
+                  {podeBaixar && (
+                    <button onClick={() => setDarBaixa({ pe, disp1: d1, disp2: d2 })} style={{ ...btnDanger, width: "100%" }}>
+                      <Trash2 size={14} /> Dar baixa
+                    </button>
+                  )}
                 </div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 7, margin: "15px 0 15px", paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-                  <span style={{ fontSize: 30, fontWeight: 800, color: cor, lineHeight: 1, letterSpacing: "-.02em" }}>{s[local]}</span>
-                  <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>peça{s[local] === 1 ? "" : "s"} em estoque</span>
-                </div>
-                <GradeTabela grade={pe.grade} />
-                {podeBaixar && (
-                  <button onClick={() => setDarBaixa({ pe, tipo: local, disponivel: s[local] })} style={{ ...btnDanger, width: "100%" }}>
-                    <Trash2 size={14} /> Dar baixa
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
-        );
-      })()}
+        )
+      )}
 
       {inspecionar && <ModalInspecao dados={inspecionar} session={session} onFechar={() => setInspecionar(null)} onOk={() => { setInspecionar(null); carregar(); }} />}
       {darBaixa && <ModalBaixa dados={darBaixa} session={session} onFechar={() => setDarBaixa(null)} onOk={() => { setDarBaixa(null); carregar(); }} />}
@@ -188,44 +190,65 @@ function Vazio({ texto }) {
 }
 
 function ModalBaixa({ dados, session, onFechar, onOk }) {
-  const { pe, tipo, disponivel } = dados;
-  const [qtd, setQtd] = useState(String(disponivel));
+  const { pe, disp1, disp2 } = dados;
+  const [q1, setQ1] = useState(String(disp1));
+  const [q2, setQ2] = useState(String(disp2));
   const [motivo, setMotivo] = useState("");
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
+  const n1 = Math.max(0, parseInt(q1, 10) || 0);
+  const n2 = Math.max(0, parseInt(q2, 10) || 0);
+  const totalBaixa = n1 + n2;
+
   async function confirmar() {
     setErro(null);
-    const q = parseInt(qtd, 10);
-    if (!q || q < 1) return setErro("Quantidade inválida.");
-    if (q > disponivel) return setErro(`Só há ${disponivel} peça(s) disponível(is).`);
-    if (!window.confirm(`Confirmar baixa de ${q} peça(s) de ${tipo === "Primeira" ? "1ª" : "2ª"} qualidade? Esta ação não pode ser desfeita.`)) return;
+    if (n1 > disp1) return setErro(`Só há ${disp1} peça(s) de 1ª qualidade.`);
+    if (n2 > disp2) return setErro(`Só há ${disp2} peça(s) de 2ª qualidade.`);
+    if (totalBaixa < 1) return setErro("Informe ao menos 1 peça para dar baixa.");
+    if (!window.confirm(`Confirmar baixa de ${totalBaixa} peça(s)? Esta ação não pode ser desfeita.`)) return;
     setSalvando(true);
-    const { error } = await supabase.from("movimentos").insert({
-      pedido_id: pe.id, de_local: tipo, para_local: "Saida", qtd: q,
-      usuario_id: session.user.id, observacao: motivo.trim() || null,
-    });
+    for (const [tipo, q] of [["Primeira", n1], ["Segunda", n2]]) {
+      if (q < 1) continue;
+      const { error } = await supabase.from("movimentos").insert({
+        pedido_id: pe.id, de_local: tipo, para_local: "Saida", qtd: q,
+        usuario_id: session.user.id, observacao: motivo.trim() || null,
+      });
+      if (error) { setSalvando(false); return setErro(error.message); }
+    }
     setSalvando(false);
-    if (error) return setErro(error.message);
     await arquivarSeConcluido(pe.id); // se foi a última peça sob gestão, o pedido é arquivado
     onOk();
   }
 
+  const linhaQualidade = (rotulo, cor, disponivel, valor, aoMudar) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10, opacity: disponivel > 0 ? 1 : 0.45 }}>
+      <div>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: cor }}>{rotulo}</div>
+        <div style={{ fontSize: 11, color: "var(--text-3)" }}>{disponivel} disponível(is)</div>
+      </div>
+      <input type="number" min="0" max={disponivel} value={valor} disabled={disponivel === 0} onChange={(e) => aoMudar(e.target.value)}
+        style={{ width: 100, padding: "9px 11px", fontSize: 14, textAlign: "right", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" }} />
+    </div>
+  );
+
   return (
     <Overlay onFechar={onFechar} largura={440} zIndex={105}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Dar baixa do estoque</h3>
-        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 14px" }}>{pe.referencia} · {tipo === "Primeira" ? "1ª" : "2ª"} qualidade · {disponivel} disponível(is)</p>
+        <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Dar baixa — {pe.referencia}</h3>
+        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 14px" }}>Informe quantas peças saem de cada qualidade.</p>
         <GradeTabela grade={pe.grade} margem="0 0 16px" />
-        <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5, fontWeight: 500 }}>Quantidade</label>
-        <input type="number" min="1" max={disponivel} value={qtd} onChange={(e) => setQtd(e.target.value)} autoFocus style={{ width: "100%", padding: "10px 12px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" }} />
-        <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", margin: "14px 0 5px", fontWeight: 500 }}>Motivo (opcional)</label>
+        {linhaQualidade("1ª qualidade", "var(--success)", disp1, q1, setQ1)}
+        {linhaQualidade("2ª qualidade", "var(--orange)", disp2, q2, setQ2)}
+        <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", margin: "6px 0 5px", fontWeight: 500 }}>Motivo / destino (opcional)</label>
         <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Venda, envio ao cliente, avaria…" style={{ width: "100%", padding: "10px 12px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" }} />
         {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "10px 0 0" }}>{erro}</p>}
         <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
           <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-          <button onClick={confirmar} disabled={salvando} style={{ ...btnDanger, flex: 1 }}>{salvando ? "Salvando…" : "Confirmar baixa"}</button>
+          <button onClick={confirmar} disabled={salvando || totalBaixa < 1} style={{ ...btnDanger, flex: 1, opacity: totalBaixa < 1 ? 0.55 : 1 }}>
+            {salvando ? "Salvando…" : `Confirmar baixa de ${totalBaixa}`}
+          </button>
         </div>
-      
+        <p style={{ fontSize: 11, color: "var(--text-3)", textAlign: "center", margin: "12px 0 0" }}>Baixando todas as peças, o pedido é concluído e vai para o Histórico.</p>
     </Overlay>
   );
 }
