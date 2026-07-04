@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { LogOut, Moon, Sun, LayoutGrid, Users, Bell, Factory, Package, Inbox, LayoutDashboard, Receipt, Menu, X } from "lucide-react";
+import { LogOut, Moon, Sun, LayoutGrid, Users, Bell, Factory, Package, Inbox, Home, Receipt, Menu, X } from "lucide-react";
 import Logo from "./Logo.jsx";
 import { rotuloLocal } from "../etapas.js";
 import Dashboard from "./Dashboard.jsx";
@@ -28,10 +28,9 @@ const ITENS_TOPO = [
 ];
 // Lateral premium: acesso fixo + sessão.
 const ITENS_LATERAL = [
-  { id: "inicio", label: "Início", icon: LayoutDashboard },
+  { id: "inicio", label: "Início", icon: Home },
   { id: "atrasos", label: "Notificações", icon: Bell },
   { id: "contas", label: "Contas a Pagar", icon: Receipt },
-  { id: "cadastros", label: "Cadastros", icon: Users },
 ];
 
 // Paleta da lateral — família do verde da marca.
@@ -130,6 +129,7 @@ export default function Shell({ session }) {
           {ITENS_LATERAL.map((i) => itemLateral(i))}
           <div style={{ marginTop: "auto", flexShrink: 0 }}>
             <div style={{ height: 1, background: VERDE.divisa, margin: "0 3px 6px" }} />
+            {itemLateral({ id: "cadastros", label: "Cadastros", icon: Users })}
             {itemLateral({ id: "_sair", label: "Sair", icon: LogOut }, { onClick: () => supabase.auth.signOut(), cor: VERDE.sair })}
             {lateralAberta && <div style={{ fontSize: 10.5, color: VERDE.apagado, letterSpacing: ".8px", padding: "4px 12px 2px" }}>FORENZA · {new Date().getFullYear()}</div>}
           </div>
