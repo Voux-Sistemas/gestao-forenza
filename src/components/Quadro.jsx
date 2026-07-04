@@ -55,7 +55,7 @@ export default function Quadro({ session, perfil }) {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const podeEditar = perfil?.papel !== "funcionario";
+  const podeEditar = perfil?.papel !== "cliente"; // funcionários também marcam processos e movem peças
   const ehMaster = perfil?.papel === "master";
   const [busca, setBusca] = useState("");
 
@@ -259,7 +259,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   const [salvando, setSalvando] = useState(false);
   const [verResumo, setVerResumo] = useState(false);
   const [oficinaId, setOficinaId] = useState(pedido.oficina_id ? String(pedido.oficina_id) : "");
-  const [bloqueado, setBloqueado] = useState((local === "Corte" && corteBloqueado(pedido)) || (local === "Acabamento" && acabamentoBloqueado(pedido)));
+  const [bloqueado, setBloqueado] = useState(local === "Corte" && corteBloqueado(pedido));
   // remessas em aberto desse pedido (saída pra oficina ainda não fechada)
   const remessasAbertas = (remessas || []).filter((r) => r.pedido_id === pedido.id && !r.data_fechamento);
   const [remessaId, setRemessaId] = useState(remessasAbertas[0]?.id || "");
@@ -282,7 +282,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     const q = parseInt(qtd, 10);
     if (!q || q < 1) return setErro("Quantidade inválida.");
     if (q > saldo) return setErro(`Só há ${saldo} peças em ${rotuloLocal(local)}.`);
-    if (bloqueado) return setErro(local === "Corte" ? "Corte travado: libere o descanso do tecido e conclua os processos pendentes antes de mover." : "Acabamento travado: conclua os processos pendentes antes de mover.");
+    if (bloqueado) return setErro("Corte travado: o tecido está em descanso. Libere o descanso antes de mover.");
 
     // Saída pra Oficina exige uma oficina selecionada (cria nova remessa)
     if (destino === "Oficina" && !oficinaId) return setErro("Selecione a oficina responsável antes de enviar.");
@@ -329,7 +329,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
 
   const rodape = podeEditar ? (
     <>
-      {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px", fontWeight: 600 }}>{local === "Corte" ? "Corte travado — conclua os processos e libere o descanso para mover." : "Acabamento travado — conclua os processos para mover."}</p>}
+      {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px", fontWeight: 600 }}>Corte travado — o tecido está em descanso. Libere o descanso para mover.</p>}
       {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
@@ -552,15 +552,9 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
 const PROCESSOS_CORTE = ["Caseado", "Entretelado", "Estampado", "Travete", "Ilhós", "Estamparia", "Bordado", "Termo Colante"];
 const PROCESSOS_ACABAMENTO = ["Caseado", "Estampado", "Travete", "Ilhós", "Termo Colante", "Plaquinha", "Zíper"];
 
-function acabamentoBloqueado(pedido) {
-  const pc = pedido.processos_acabamento || {};
-  return PROCESSOS_ACABAMENTO.some((n) => !(pc[n] && pc[n].feito));
-}
-
 function corteBloqueado(pedido) {
-  if (pedido.descanso_tecido) return true;
-  const pc = pedido.processos_corte || {};
-  return PROCESSOS_CORTE.some((n) => !(pc[n] && pc[n].feito));
+  // Única trava do fluxo: tecido em descanso. Processos pendentes são apenas informativos.
+  return !!pedido.descanso_tecido;
 }
 
 function diasAtePrazo(prazo) {
@@ -829,7 +823,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
   }
 
   function reportar(d, procs) {
-    onBloqueioChange(d || PROCESSOS_CORTE.some((n) => !procs[n].feito));
+    onBloqueioChange(d); // só o descanso trava
   }
   useEffect(() => { reportar(descanso, processos); }, []);
 
@@ -886,7 +880,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
       <Rastreio ordem={PROCESSOS_CORTE} processos={processos} podeEditar={podeEditar} onToggle={toggleFeito} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do corte" />
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
-          {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. As peças <strong>não podem seguir</strong> até concluir todos — registre a observação do que falta.
+          {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. Registre a observação do que falta.
         </div>
       )}
     </div>
@@ -908,7 +902,7 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
     const { error } = await supabase.from("pedidos").update(campos).eq("id", pedido.id);
     if (error) window.alert("Não foi possível salvar: " + error.message);
   }
-  function reportar(procs) { onBloqueioChange(PROCESSOS_ACABAMENTO.some((n) => !procs[n].feito)); }
+  function reportar() { onBloqueioChange(false); } // processos pendentes não travam o acabamento
   useEffect(() => { reportar(processos); }, []);
 
   function toggleFeito(nome) {
@@ -931,7 +925,7 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
       <Rastreio ordem={PROCESSOS_ACABAMENTO} processos={processos} podeEditar={podeEditar} onToggle={toggleFeito} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do acabamento" />
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
-          {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. As peças <strong>não podem seguir</strong> até concluir todos.
+          {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}.
         </div>
       )}
     </div>
