@@ -94,6 +94,7 @@ export default function Estoque({ session, perfil }) {
                   <span style={{ fontSize: 30, fontWeight: 800, color: "var(--warning)", lineHeight: 1, letterSpacing: "-.02em" }}>{s.Estoque}</span>
                   <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>de {pe.total} aguardando inspeção</span>
                 </div>
+                <GradeTabela grade={pe.grade} />
                 <button onClick={() => setInspecionar({ pe, disponivel: s.Estoque })} style={{ ...btnPrimary, width: "100%" }}>
                   Inspecionar <ArrowRight size={15} />
                 </button>
@@ -129,6 +130,7 @@ export default function Estoque({ session, perfil }) {
                   <span style={{ fontSize: 30, fontWeight: 800, color: cor, lineHeight: 1, letterSpacing: "-.02em" }}>{s[local]}</span>
                   <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>peça{s[local] === 1 ? "" : "s"} em estoque</span>
                 </div>
+                <GradeTabela grade={pe.grade} />
                 {podeBaixar && (
                   <button onClick={() => setDarBaixa({ pe, tipo: local, disponivel: s[local] })} style={{ ...btnDanger, width: "100%" }}>
                     <Trash2 size={14} /> Dar baixa
@@ -153,6 +155,24 @@ function Legenda({ cor, rotulo, valor }) {
       <span style={{ fontSize: 13, color: "var(--text-2)" }}>{rotulo}</span>
       <strong style={{ fontSize: 13, color: "var(--text)" }}>{valor}</strong>
     </span>
+  );
+}
+
+// Tabela fixa (somente leitura) com os tamanhos e quantidades da grade do pedido.
+function GradeTabela({ grade, margem = "0 0 14px" }) {
+  if (!grade || Object.keys(grade).length === 0) return null;
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: 9, overflow: "hidden", margin: margem }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 96px", background: "var(--surface-2)", padding: "5px 11px", fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".4px" }}>
+        <span>Tamanho</span><span style={{ textAlign: "right" }}>Quantidade</span>
+      </div>
+      {Object.entries(grade).map(([t, q]) => (
+        <div key={t} style={{ display: "grid", gridTemplateColumns: "1fr 96px", padding: "4px 11px", borderTop: "1px solid var(--border)", fontSize: 12.5 }}>
+          <span style={{ fontWeight: 600 }}>{t}</span>
+          <span style={{ textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>{q}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -194,7 +214,8 @@ function ModalBaixa({ dados, session, onFechar, onOk }) {
   return (
     <Overlay onFechar={onFechar} largura={440} zIndex={105}>
         <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Dar baixa do estoque</h3>
-        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pe.referencia} · {tipo === "Primeira" ? "1ª" : "2ª"} qualidade · {disponivel} disponível(is)</p>
+        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 14px" }}>{pe.referencia} · {tipo === "Primeira" ? "1ª" : "2ª"} qualidade · {disponivel} disponível(is)</p>
+        <GradeTabela grade={pe.grade} margem="0 0 16px" />
         <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5, fontWeight: 500 }}>Quantidade</label>
         <input type="number" min="1" max={disponivel} value={qtd} onChange={(e) => setQtd(e.target.value)} autoFocus style={{ width: "100%", padding: "10px 12px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" }} />
         <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", margin: "14px 0 5px", fontWeight: 500 }}>Motivo (opcional)</label>
@@ -246,7 +267,8 @@ function ModalInspecao({ dados, session, onFechar, onOk }) {
   return (
     <Overlay onFechar={onFechar}>
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Inspecionar — {pe.referencia}</h3>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{disponivel} peças aguardando classificação</p>
+      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 14px" }}>{disponivel} peças aguardando classificação</p>
+      <GradeTabela grade={pe.grade} margem="0 0 16px" />
 
       <div style={{ display: "flex", gap: 10 }}>
         <div style={{ flex: 1 }}>
