@@ -29,7 +29,6 @@ const ITENS_TOPO = [
 // Lateral premium: acesso fixo + sessão.
 const ITENS_LATERAL = [
   { id: "inicio", label: "Início", icon: LayoutDashboard },
-  { id: "quadro", label: "Quadro", icon: LayoutGrid },
   { id: "atrasos", label: "Notificações", icon: Bell },
   { id: "contas", label: "Contas a Pagar", icon: Receipt },
   { id: "cadastros", label: "Cadastros", icon: Users },
@@ -102,7 +101,7 @@ export default function Shell({ session }) {
             <button className="tap" onClick={() => supabase.auth.signOut()} aria-label="Sair" style={iconBtn}><LogOut size={16} /></button>
           </div>
         </header>
-        <main style={{ flex: 1, minWidth: 0 }}>{conteudo()}</main>
+        <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>{conteudo()}</main>
       </div>
     );
   }
@@ -163,7 +162,7 @@ export default function Shell({ session }) {
               );
             })}
           </nav>
-          <main style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>{conteudo()}</main>
+          <main style={{ flex: 1, minWidth: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>{conteudo()}</main>
         </div>
       </div>
     </div>

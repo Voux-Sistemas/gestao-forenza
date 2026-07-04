@@ -74,9 +74,9 @@ export default function Quadro({ session, perfil }) {
   if (!podeVerTudo && !perfil?.setor) return <div style={{ padding: 28, color: "var(--text-2)" }}>Seu usuário ainda não tem um setor definido.</div>;
 
   return (
-    <div className="fade-in" style={{ padding: "24px 26px" }}>
+    <div className="fade-in" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "20px 26px 0" }}>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
+      <div style={{ flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Quadro de produção</h2>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Clique num card ou arraste-o para outra coluna para mover as peças.</div>
@@ -94,7 +94,7 @@ export default function Quadro({ session, perfil }) {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8, alignItems: "stretch" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 10, overflowX: "auto", alignItems: "stretch", paddingBottom: 2 }}>
         {colunas.map((local) => {
           const cards = pedidos
             .map((pe) => ({ pe, saldo: calcularSaldos(pe.id, pe.total, movimentos) }))
@@ -127,12 +127,12 @@ export default function Quadro({ session, perfil }) {
                 transition: "background .12s ease",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <IconeCol size={15} style={{ color: CORES[local] }} />
                 <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.15 }}>{rotuloLocal(local)}</span>
                 <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", fontWeight: 600, background: "var(--surface-2)", borderRadius: 99, padding: "1px 8px" }}>{cards.length}</span>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
                 {cards.map(({ pe, saldo }) => {
                   const urg = urgenciaDoCard(pe, local);
                   const procBadges = badgesDoCard(pe, local);
@@ -218,7 +218,7 @@ export default function Quadro({ session, perfil }) {
         })}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 18, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--border)", flexWrap: "wrap", fontSize: 12, color: "var(--text-2)" }}>
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 18, marginTop: 10, padding: "9px 0", borderTop: "1px solid var(--border)", flexWrap: "wrap", fontSize: 12, color: "var(--text-2)" }}>
         <span style={{ fontWeight: 600, color: "var(--text-3)" }}>Prazo do cartão:</span>
         {[["No prazo", "var(--border-strong)"], ["Vence em 2 dias", "var(--warning)"], ["Vence amanhã", "var(--orange)"], ["Vence hoje / atrasado", "var(--danger)"]].map(([txt, cor]) => (
           <span key={txt} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -1085,7 +1085,7 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
   );
 }
 
-const coluna = { flex: "1 1 0", minWidth: 196, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 14, padding: 12, boxShadow: "var(--shadow-card)" };
+const coluna = { flex: "1 1 0", minWidth: 196, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 14, padding: 12, boxShadow: "var(--shadow-card)" };
 const card = { textAlign: "left", width: "100%", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, padding: "12px 13px", display: "block", cursor: "pointer", boxShadow: "var(--shadow-sm)" };
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
