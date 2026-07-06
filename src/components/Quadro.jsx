@@ -151,7 +151,7 @@ export default function Quadro({ session, perfil }) {
                       pedido: pe, cliente: nomeCliente(pe.cliente_id), local, qtd: saldo[local],
                       parte, totalPartes: partes.length,
                       oficina: (oficinas || []).find((o) => o.id === pe.oficina_id)?.nome_empresa || null,
-                      processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], pe.total), obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
+                      processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], pe.total), grade: (mapaProc[n] && mapaProc[n].grade) || null, obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
                     });
                   };
                   const procBadges = badgesDoCard(pe, local);
@@ -828,7 +828,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
     const saved = pedido.processos_corte || {};
     PROCESSOS_CORTE.forEach((nome) => {
       const sv = saved[nome] || {};
-      base[nome] = { qtd: qtdProcesso(sv, pedido.total), obs: sv.obs || "", data: sv.data || "", feito_em: sv.feito_em || "" };
+      base[nome] = { qtd: qtdProcesso(sv, pedido.total), grade: sv.grade ? { ...sv.grade } : undefined, obs: sv.obs || "", data: sv.data || "", feito_em: sv.feito_em || "" };
     });
     return base;
   });
@@ -919,7 +919,7 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
     const saved = pedido.processos_acabamento || {};
     PROCESSOS_ACABAMENTO.forEach((nome) => {
       const sv = saved[nome] || {};
-      base[nome] = { qtd: qtdProcesso(sv, pedido.total), obs: sv.obs || "", data: sv.data || "", feito_em: sv.feito_em || "" };
+      base[nome] = { qtd: qtdProcesso(sv, pedido.total), grade: sv.grade ? { ...sv.grade } : undefined, obs: sv.obs || "", data: sv.data || "", feito_em: sv.feito_em || "" };
     });
     return base;
   });
@@ -972,8 +972,10 @@ function agoraTexto() {
   return new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-function Rastreio({ ordem, processos, totalPecas, podeEditar, onQtd, onSalvarQtd, onTudo, onObs, onSalvarObs, titulo }) {
-  const [aberto, setAberto] = useState(false);
+function Rastreio({ ordem, processos, totalPecas, gradePedido, podeEditar, onQtd, onQtdTam, onSalvarQtd, onTudo, onObs, onSalvarObs, titulo }) {
+  const [aberto, setAberto] = useState(true); // rastreio já começa aberto
+  const [expandido, setExpandido] = useState(null); // processo com a grade de tamanhos aberta
+  const temGrade = gradePedido && Object.keys(gradePedido).length > 0;
   const feitos = ordem.filter((n) => processos[n].qtd >= totalPecas).length;
   const total = ordem.length;
   const somaFeita = ordem.reduce((a, n) => a + processos[n].qtd, 0);
@@ -994,7 +996,6 @@ function Rastreio({ ordem, processos, totalPecas, podeEditar, onQtd, onSalvarQtd
       <div style={{ height: 6, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden", marginBottom: aberto ? 16 : 4 }}>
         <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: completo ? "var(--success)" : "linear-gradient(90deg,var(--accent),var(--accent-2))", transition: "width .4s cubic-bezier(.2,.7,.3,1)" }} />
       </div>
-      {!aberto && <div style={{ fontSize: 11.5, color: "var(--text-3)", marginBottom: 4 }}>Clique no título para {completo ? "ver" : "registrar"} os processos.</div>}
 
       {aberto && <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {ordem.map((nome, i) => {
@@ -1004,6 +1005,7 @@ function Rastreio({ ordem, processos, totalPecas, podeEditar, onQtd, onSalvarQtd
           const atual = !feito && i === idxAtual;
           const ultimo = i === ordem.length - 1;
           const cor = feito ? "var(--success)" : parcial || atual ? "var(--accent)" : "var(--border-strong)";
+          const grExp = expandido === nome;
           return (
             <div key={nome} style={{ position: "relative", display: "flex", gap: 12, paddingBottom: ultimo ? 0 : 6 }}>
               {!ultimo && <span style={{ position: "absolute", left: 12, top: 27, bottom: -4, width: 2, borderRadius: 2, background: feito ? "var(--success)" : "var(--border)" }} />}
@@ -1045,12 +1047,40 @@ function Rastreio({ ordem, processos, totalPecas, podeEditar, onQtd, onSalvarQtd
                 <div style={{ height: 4, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden", marginTop: 5 }}>
                   <div style={{ width: `${Math.round((pr.qtd / totalPecas) * 100)}%`, height: "100%", borderRadius: 99, background: feito ? "var(--success)" : "var(--accent)", transition: "width .25s ease" }} />
                 </div>
+
+                {temGrade && (
+                  <button type="button" onClick={() => setExpandido(grExp ? null : nome)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 6, padding: 0, border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "var(--accent)" }}>
+                    <ChevronDown size={12} style={{ transform: grExp ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+                    {grExp ? "ocultar tamanhos" : "detalhar por tamanho"}
+                  </button>
+                )}
+                {temGrade && grExp && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(74px, 1fr))", gap: 6, marginTop: 8, padding: 10, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 9 }}>
+                    {Object.entries(gradePedido).map(([tam, totTam]) => {
+                      const feitoTam = (pr.grade || {})[tam] || 0;
+                      return (
+                        <div key={tam}>
+                          <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", marginBottom: 2 }}>{tam} <span style={{ color: "var(--text-3)", fontWeight: 600 }}>({totTam})</span></div>
+                          {podeEditar ? (
+                            <input type="number" min="0" max={totTam} value={feitoTam}
+                              onChange={(e) => onQtdTam(nome, tam, e.target.value)} onBlur={onSalvarQtd}
+                              aria-label={`${nome} tamanho ${tam}`}
+                              style={{ ...inpMini, width: "100%", padding: "5px 6px", fontSize: 12, textAlign: "center" }} />
+                          ) : (
+                            <div style={{ fontSize: 12.5, fontWeight: 700, textAlign: "center", padding: "5px 0", color: feitoTam >= totTam ? "var(--success)" : feitoTam > 0 ? "var(--accent)" : "var(--text-3)" }}>{feitoTam}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {feito ? (
-                  pr.feito_em && <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> em {pr.feito_em}</div>
+                  pr.feito_em && <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> em {pr.feito_em}</div>
                 ) : (
                   <div style={{ marginTop: 6 }}>
                     <input value={pr.obs} onChange={(e) => onObs(nome, e.target.value)} onBlur={onSalvarObs} disabled={!podeEditar} placeholder="Observação (opcional)…" style={{ ...inpMini, fontSize: 12 }} />
-                    {pr.data && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3 }}>nota desde {pr.data}</div>}
                   </div>
                 )}
               </div>

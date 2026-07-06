@@ -138,6 +138,15 @@ export function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalPartes,
       doc.setTextColor(...(completo ? VERDE_ESCURO : parcial ? AMBAR : CINZA));
       doc.text(`${feitas}/${pedido.total}`, larg - mx, y, { align: "right" });
       y += 4.5;
+      if (grade && Object.keys(grade).length > 0) {
+        const partes = Object.entries(grade).filter(([, q]) => (parseInt(q, 10) || 0) > 0).map(([t, q]) => `${t}: ${q}`);
+        if (partes.length) {
+          doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
+          const gl = doc.splitTextToSize("Por tamanho — " + partes.join("   "), larg - mx * 2 - 7);
+          doc.text(gl, mx + 7, y);
+          y += gl.length * 4;
+        }
+      }
       if (obsLinhas.length) {
         doc.setFont("helvetica", "italic").setFontSize(8.5).setTextColor(...CINZA);
         doc.text(obsLinhas, mx + 7, y);
