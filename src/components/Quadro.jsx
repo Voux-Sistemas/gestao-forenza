@@ -865,6 +865,10 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
   function alternarTudo(nome) {
     const antes = processos[nome];
     const completo = antes.qtd >= pedido.total;
+    const pergunta = completo
+      ? `Zerar o processo "${nome}"? As ${antes.qtd} peça(s) marcadas voltarão para 0.`
+      : `Marcar TODAS as ${pedido.total} peça(s) de "${nome}" como feitas?`;
+    if (!window.confirm(pergunta)) return;
     const np = { ...processos, [nome]: { ...antes, qtd: completo ? 0 : pedido.total, feito_em: completo ? antes.feito_em : agoraTexto() } };
     setProcessos(np);
     persist({ processos_corte: np });
@@ -943,6 +947,10 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
   function alternarTudo(nome) {
     const antes = processos[nome];
     const completo = antes.qtd >= pedido.total;
+    const pergunta = completo
+      ? `Zerar o processo "${nome}"? As ${antes.qtd} peça(s) marcadas voltarão para 0.`
+      : `Marcar TODAS as ${pedido.total} peça(s) de "${nome}" como feitas?`;
+    if (!window.confirm(pergunta)) return;
     const np = { ...processos, [nome]: { ...antes, qtd: completo ? 0 : pedido.total, feito_em: completo ? antes.feito_em : agoraTexto() } };
     setProcessos(np);
     persist({ processos_acabamento: np });

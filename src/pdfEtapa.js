@@ -57,9 +57,10 @@ export function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalPartes,
   doc.roundedRect(mx, y, larg - mx * 2, 19, 2.5, 2.5, "F");
   doc.setFont("helvetica", "bold").setFontSize(21).setTextColor(...VERDE_ESCURO);
   const qtdTxt = `${qtd} peças`;
+  const largQtd = doc.getTextWidth(qtdTxt); // medir com a fonte grande, antes de trocar
   doc.text(qtdTxt, mx + 7, y + 12.5);
   doc.setFont("helvetica", "normal").setFontSize(11).setTextColor(90);
-  doc.text(`em ${rotuloLocal(local)}`, mx + 9 + doc.getTextWidth(qtdTxt), y + 12.5);
+  doc.text(`em ${rotuloLocal(local)}`, mx + 10 + largQtd, y + 12.5);
   doc.setFontSize(9.5).setTextColor(...CINZA);
   doc.text(`pedido completo: ${pedido.total} peças`, larg - mx - 7, y + 12, { align: "right" });
   y += 28;
