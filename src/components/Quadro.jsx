@@ -144,7 +144,14 @@ export default function Quadro({ session, perfil }) {
                   const parte = partes.indexOf(local) + 1;
                   const baixarPdf = (e) => {
                     e.stopPropagation();
-                    gerarPdfEtapa({ pedido: pe, cliente: nomeCliente(pe.cliente_id), local, qtd: saldo[local], parte, totalPartes: partes.length });
+                    const listaProc = local === "Corte" ? PROCESSOS_CORTE : local === "Acabamento" ? PROCESSOS_ACABAMENTO : null;
+                    const mapaProc = (local === "Corte" ? pe.processos_corte : pe.processos_acabamento) || {};
+                    gerarPdfEtapa({
+                      pedido: pe, cliente: nomeCliente(pe.cliente_id), local, qtd: saldo[local],
+                      parte, totalPartes: partes.length,
+                      oficina: (oficinas || []).find((o) => o.id === pe.oficina_id)?.nome_empresa || null,
+                      processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], pe.total), obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
+                    });
                   };
                   const procBadges = badgesDoCard(pe, local);
                   const infoRem = local === "Oficina" ? infoRemessasOficina(pe, remessas, oficinas) : null;
@@ -257,7 +264,7 @@ export default function Quadro({ session, perfil }) {
 function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar, ehMaster, onFechar, onOk }) {
   const { pedido, local, saldo, destinoInicial } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
-  const [destino, setDestino] = useState(destinoInicial && destinos.includes(destinoInicial) ? destinoInicial : destinos[0]);
+  const [destino, setDestino] = useState(destinoInicial && destinos.includes(destinoInicial) ? destinoInicial : "");
   const [qtd, setQtd] = useState(saldo);
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
@@ -287,6 +294,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     if (!q || q < 1) return setErro("Quantidade inválida.");
     if (q > saldo) return setErro(`Só há ${saldo} peças em ${rotuloLocal(local)}.`);
     if (bloqueado) return setErro("Corte travado: o tecido está em descanso. Libere o descanso antes de mover.");
+    if (!destino) return setErro("Selecione o destino.");
 
     // Saída pra Oficina exige uma oficina selecionada (cria nova remessa)
     if (destino === "Oficina" && !oficinaId) return setErro("Selecione a oficina responsável antes de enviar.");
@@ -374,7 +382,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       <div style={{ marginBottom: 16 }}>
         <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 }}>Oficina responsável</label>
         <select value={oficinaId} onChange={(e) => mudarOficina(e.target.value)} disabled={!podeEditar} style={inpMini}>
-          <option value="">— nenhuma —</option>
+          <option value="">Selecionar…</option>
           {(oficinas || []).filter((o) => o.ativo).map((o) => <option key={o.id} value={String(o.id)}>{o.nome_empresa}</option>)}
         </select>
       </div>
@@ -388,6 +396,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
             <>
               <label style={lbl}>Abater de qual remessa</label>
               <select value={remessaId} onChange={(e) => setRemessaId(e.target.value)} style={inp}>
+                <option value="">Selecionar…</option>
                 {remessasAbertas.map((r) => {
                   const ofic = (oficinas || []).find((o) => o.id === r.oficina_id);
                   const restante = r.qtd_enviada - r.qtd_retornada;
@@ -400,6 +409,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
           <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
           <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
           <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
+            <option value="">Selecionar…</option>
             {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
           </select>
         </>
@@ -424,7 +434,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
 const TAMANHOS_PADRAO = ["PP", "P", "M", "G", "GG", "XG"];
 
 function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
-  const [clienteId, setClienteId] = useState(clientes[0]?.id || "");
+  const [clienteId, setClienteId] = useState("");
   const [oficinaId, setOficinaId] = useState("");
   const [referencia, setReferencia] = useState("");
   const [marca, setMarca] = useState("");
@@ -493,6 +503,7 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Novo pedido</h3>
       <label style={lbl}>Cliente</label>
       <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inp}>
+        <option value="">Selecionar…</option>
         {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
       </select>
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
@@ -547,7 +558,7 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
         placeholder="Anotações gerais do pedido…" style={{ ...inp, resize: "vertical", fontFamily: "inherit", lineHeight: 1.45 }} />
       <label style={{ ...lbl, marginTop: 14 }}>Oficina (opcional)</label>
       <select value={oficinaId} onChange={(e) => setOficinaId(e.target.value)} style={inp}>
-        <option value="">— nenhuma —</option>
+        <option value="">Selecionar…</option>
         {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
       </select>
     </Overlay>
@@ -556,6 +567,13 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
 
 const PROCESSOS_CORTE = ["Caseado", "Entretelado", "Estampado", "Travete", "Ilhós", "Estamparia", "Bordado", "Termo Colante"];
 const PROCESSOS_ACABAMENTO = ["Caseado", "Estampado", "Travete", "Ilhós", "Termo Colante", "Plaquinha", "Zíper"];
+
+// Peças com o processo concluído. Converte o formato antigo ({feito: true} => total).
+function qtdProcesso(entrada, total) {
+  if (!entrada) return 0;
+  if (typeof entrada.qtd === "number") return Math.max(0, Math.min(total, entrada.qtd));
+  return entrada.feito ? total : 0;
+}
 
 function corteBloqueado(pedido) {
   // Única trava do fluxo: tecido em descanso. Processos pendentes são apenas informativos.
@@ -581,13 +599,13 @@ function badgesDoCard(pe, local) {
   if (local === "Corte" && pe.descanso_tecido) bs.push({ label: "Tecido descansando", cor: "var(--danger)", bg: "var(--danger-bg)" });
   if (local === "Corte") {
     const pc = pe.processos_corte || {};
-    const pend = PROCESSOS_CORTE.filter((n) => !(pc[n] && pc[n].feito)).length;
-    if (pend > 0) bs.push({ label: pend + " pendente(s)", cor: "var(--warning)", bg: "var(--warning-bg)" });
+    const completos = PROCESSOS_CORTE.filter((n) => qtdProcesso(pc[n], pe.total) >= pe.total).length;
+    if (completos < PROCESSOS_CORTE.length) bs.push({ label: `${completos}/${PROCESSOS_CORTE.length} processos`, cor: "var(--warning)", bg: "var(--warning-bg)" });
   }
   if (local === "Acabamento") {
     const pc = pe.processos_acabamento || {};
-    const pend = PROCESSOS_ACABAMENTO.filter((n) => !(pc[n] && pc[n].feito)).length;
-    if (pend > 0) bs.push({ label: pend + " pendente(s)", cor: "var(--warning)", bg: "var(--warning-bg)" });
+    const completos = PROCESSOS_ACABAMENTO.filter((n) => qtdProcesso(pc[n], pe.total) >= pe.total).length;
+    if (completos < PROCESSOS_ACABAMENTO.length) bs.push({ label: `${completos}/${PROCESSOS_ACABAMENTO.length} processos`, cor: "var(--warning)", bg: "var(--warning-bg)" });
   }
   return bs;
 }
@@ -817,7 +835,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
     const saved = pedido.processos_corte || {};
     PROCESSOS_CORTE.forEach((nome) => {
       const sv = saved[nome] || {};
-      base[nome] = { feito: !!sv.feito, obs: sv.obs || "", data: sv.data || "", feito_em: sv.feito_em || "" };
+      base[nome] = { qtd: qtdProcesso(sv, pedido.total), obs: sv.obs || "", data: sv.data || "", feito_em: sv.feito_em || "" };
     });
     return base;
   });
@@ -838,12 +856,18 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
     persist({ descanso_tecido: novo });
     reportar(novo, processos);
   }
-  function toggleFeito(nome) {
-    const jaFeito = processos[nome].feito;
-    const np = { ...processos, [nome]: { ...processos[nome], feito: !jaFeito, feito_em: !jaFeito ? agoraTexto() : processos[nome].feito_em } };
+  function mudarQtd(nome, valor) {
+    const q = Math.max(0, Math.min(pedido.total, parseInt(valor, 10) || 0));
+    const antes = processos[nome];
+    setProcessos({ ...processos, [nome]: { ...antes, qtd: q, feito_em: q >= pedido.total && antes.qtd < pedido.total ? agoraTexto() : antes.feito_em } });
+  }
+  function salvarQtd() { persist({ processos_corte: processos }); }
+  function alternarTudo(nome) {
+    const antes = processos[nome];
+    const completo = antes.qtd >= pedido.total;
+    const np = { ...processos, [nome]: { ...antes, qtd: completo ? 0 : pedido.total, feito_em: completo ? antes.feito_em : agoraTexto() } };
     setProcessos(np);
     persist({ processos_corte: np });
-    reportar(descanso, np);
   }
   function mudarObs(nome, obs) {
     const data = obs.trim() ? (processos[nome].data || new Date().toLocaleDateString("pt-BR")) : "";
@@ -852,7 +876,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
   function salvarObs() { persist({ processos_corte: processos }); }
   function salvarInfo() { persist({ tamanho: tamanho.trim() || null, tecido: tecido.trim() || null }); }
 
-  const pendentes = PROCESSOS_CORTE.filter((n) => !processos[n].feito);
+  const pendentes = PROCESSOS_CORTE.filter((n) => processos[n].qtd < pedido.total).map((n) => `${n} (faltam ${pedido.total - processos[n].qtd})`);
 
   return (
     <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
@@ -882,7 +906,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
         {descanso ? "Tecido em descanso — corte travado (clique para liberar)" : "Marcar tecido em descanso"}
       </button>
 
-      <Rastreio ordem={PROCESSOS_CORTE} processos={processos} podeEditar={podeEditar} onToggle={toggleFeito} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do corte" />
+      <Rastreio ordem={PROCESSOS_CORTE} processos={processos} totalPecas={pedido.total} podeEditar={podeEditar} onQtd={mudarQtd} onSalvarQtd={salvarQtd} onTudo={alternarTudo} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do corte" />
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
           {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. Registre a observação do que falta.
@@ -898,7 +922,7 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
     const saved = pedido.processos_acabamento || {};
     PROCESSOS_ACABAMENTO.forEach((nome) => {
       const sv = saved[nome] || {};
-      base[nome] = { feito: !!sv.feito, obs: sv.obs || "", data: sv.data || "", feito_em: sv.feito_em || "" };
+      base[nome] = { qtd: qtdProcesso(sv, pedido.total), obs: sv.obs || "", data: sv.data || "", feito_em: sv.feito_em || "" };
     });
     return base;
   });
@@ -910,12 +934,18 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
   function reportar() { onBloqueioChange(false); } // processos pendentes não travam o acabamento
   useEffect(() => { reportar(processos); }, []);
 
-  function toggleFeito(nome) {
-    const jaFeito = processos[nome].feito;
-    const np = { ...processos, [nome]: { ...processos[nome], feito: !jaFeito, feito_em: !jaFeito ? agoraTexto() : processos[nome].feito_em } };
+  function mudarQtd(nome, valor) {
+    const q = Math.max(0, Math.min(pedido.total, parseInt(valor, 10) || 0));
+    const antes = processos[nome];
+    setProcessos({ ...processos, [nome]: { ...antes, qtd: q, feito_em: q >= pedido.total && antes.qtd < pedido.total ? agoraTexto() : antes.feito_em } });
+  }
+  function salvarQtd() { persist({ processos_acabamento: processos }); }
+  function alternarTudo(nome) {
+    const antes = processos[nome];
+    const completo = antes.qtd >= pedido.total;
+    const np = { ...processos, [nome]: { ...antes, qtd: completo ? 0 : pedido.total, feito_em: completo ? antes.feito_em : agoraTexto() } };
     setProcessos(np);
     persist({ processos_acabamento: np });
-    reportar(np);
   }
   function mudarObs(nome, obs) {
     const data = obs.trim() ? (processos[nome].data || new Date().toLocaleDateString("pt-BR")) : "";
@@ -923,11 +953,11 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
   }
   function salvarObs() { persist({ processos_acabamento: processos }); }
 
-  const pendentes = PROCESSOS_ACABAMENTO.filter((n) => !processos[n].feito);
+  const pendentes = PROCESSOS_ACABAMENTO.filter((n) => processos[n].qtd < pedido.total).map((n) => `${n} (faltam ${pedido.total - processos[n].qtd})`);
 
   return (
     <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
-      <Rastreio ordem={PROCESSOS_ACABAMENTO} processos={processos} podeEditar={podeEditar} onToggle={toggleFeito} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do acabamento" />
+      <Rastreio ordem={PROCESSOS_ACABAMENTO} processos={processos} totalPecas={pedido.total} podeEditar={podeEditar} onQtd={mudarQtd} onSalvarQtd={salvarQtd} onTudo={alternarTudo} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do acabamento" />
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
           {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}.
@@ -941,13 +971,14 @@ function agoraTexto() {
   return new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-function Rastreio({ ordem, processos, podeEditar, onToggle, onObs, onSalvarObs, titulo }) {
+function Rastreio({ ordem, processos, totalPecas, podeEditar, onQtd, onSalvarQtd, onTudo, onObs, onSalvarObs, titulo }) {
   const [aberto, setAberto] = useState(false);
-  const feitos = ordem.filter((n) => processos[n].feito).length;
+  const feitos = ordem.filter((n) => processos[n].qtd >= totalPecas).length;
   const total = ordem.length;
-  const pct = Math.round((feitos / total) * 100);
+  const somaFeita = ordem.reduce((a, n) => a + processos[n].qtd, 0);
+  const pct = Math.round((somaFeita / (totalPecas * total)) * 100) || 0;
   const completo = feitos === total;
-  const idxAtual = ordem.findIndex((n) => !processos[n].feito);
+  const idxAtual = ordem.findIndex((n) => processos[n].qtd < totalPecas);
 
   return (
     <div style={{ marginTop: 4 }}>
@@ -955,48 +986,66 @@ function Rastreio({ ordem, processos, podeEditar, onToggle, onObs, onSalvarObs, 
         style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8, padding: 0, border: "none", background: "none", cursor: "pointer" }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px" }}>{titulo}</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: completo ? "var(--success)" : "var(--text-2)" }}>{feitos}<span style={{ color: "var(--text-3)", fontWeight: 600 }}>/{total}</span></span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: completo ? "var(--success)" : "var(--text-2)" }}>{feitos}<span style={{ color: "var(--text-3)", fontWeight: 600 }}>/{total} completos</span></span>
           <ChevronDown size={15} style={{ color: "var(--text-3)", transform: aberto ? "rotate(180deg)" : "none", transition: "transform .16s ease" }} />
         </span>
       </button>
       <div style={{ height: 6, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden", marginBottom: aberto ? 16 : 4 }}>
         <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: completo ? "var(--success)" : "linear-gradient(90deg,var(--accent),var(--accent-2))", transition: "width .4s cubic-bezier(.2,.7,.3,1)" }} />
       </div>
-      {!aberto && <div style={{ fontSize: 11.5, color: "var(--text-3)", marginBottom: 4 }}>Clique no título para {completo ? "ver" : "marcar"} os processos.</div>}
+      {!aberto && <div style={{ fontSize: 11.5, color: "var(--text-3)", marginBottom: 4 }}>Clique no título para {completo ? "ver" : "registrar"} os processos.</div>}
 
       {aberto && <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {ordem.map((nome, i) => {
           const pr = processos[nome];
-          const feito = pr.feito;
+          const feito = pr.qtd >= totalPecas;
+          const parcial = pr.qtd > 0 && !feito;
           const atual = !feito && i === idxAtual;
           const ultimo = i === ordem.length - 1;
-          const cor = feito ? "var(--success)" : atual ? "var(--accent)" : "var(--border-strong)";
+          const cor = feito ? "var(--success)" : parcial || atual ? "var(--accent)" : "var(--border-strong)";
           return (
-            <div key={nome} style={{ position: "relative", display: "flex", gap: 12, paddingBottom: ultimo ? 0 : 4 }}>
+            <div key={nome} style={{ position: "relative", display: "flex", gap: 12, paddingBottom: ultimo ? 0 : 6 }}>
               {!ultimo && <span style={{ position: "absolute", left: 12, top: 27, bottom: -4, width: 2, borderRadius: 2, background: feito ? "var(--success)" : "var(--border)" }} />}
-              <button type="button" onClick={() => podeEditar && onToggle(nome)} disabled={!podeEditar}
-                aria-label={feito ? `${nome} concluído, clique para reabrir` : `Marcar ${nome} como concluído`}
+              <button type="button" onClick={() => podeEditar && onTudo(nome)} disabled={!podeEditar}
+                title={feito ? "Concluído — clique para zerar" : "Marcar todas as peças"}
+                aria-label={feito ? `${nome} concluído, clique para zerar` : `Marcar todas as peças de ${nome}`}
                 style={{
                   position: "relative", zIndex: 1, flexShrink: 0, width: 26, height: 26, borderRadius: 99, padding: 0,
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   border: feito ? "none" : `2px solid ${cor}`,
-                  background: feito ? "var(--success)" : atual ? "var(--accent-bg)" : "var(--surface)",
+                  background: feito ? "var(--success)" : parcial || atual ? "var(--accent-bg)" : "var(--surface)",
                   color: "#fff", cursor: podeEditar ? "pointer" : "default",
                   boxShadow: feito ? "var(--shadow-sm)" : "none",
                 }}>
-                {feito ? <Check size={15} /> : <span style={{ width: 7, height: 7, borderRadius: 99, background: atual ? "var(--accent)" : "transparent" }} />}
+                {feito ? <Check size={15} /> : <span style={{ width: 7, height: 7, borderRadius: 99, background: parcial || atual ? "var(--accent)" : "transparent" }} />}
               </button>
               <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 13.5, fontWeight: 600, color: feito ? "var(--text-2)" : "var(--text)" }}>{nome}</span>
-                  <span style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap",
-                    color: feito ? "var(--success)" : atual ? "var(--accent)" : "var(--text-3)",
-                    background: feito ? "var(--success-bg)" : atual ? "var(--accent-bg)" : "var(--surface-2)" }}>
-                    {feito ? "Concluído" : atual ? "Em andamento" : "Aguardando"}
+                  <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                    {podeEditar && !feito ? (
+                      <>
+                        <input type="number" min="0" max={totalPecas} value={pr.qtd}
+                          onChange={(e) => onQtd(nome, e.target.value)} onBlur={onSalvarQtd}
+                          aria-label={`Peças com ${nome} feito`}
+                          style={{ ...inpMini, width: 64, padding: "5px 7px", fontSize: 12.5, textAlign: "right" }} />
+                        <span style={{ fontSize: 11.5, color: "var(--text-3)", whiteSpace: "nowrap" }}>/{totalPecas}</span>
+                        <button type="button" onClick={() => onTudo(nome)}
+                          style={{ fontSize: 10.5, fontWeight: 700, padding: "4px 8px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>tudo</button>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
+                        color: feito ? "var(--success)" : parcial ? "var(--accent)" : "var(--text-3)" }}>
+                        {pr.qtd}<span style={{ fontWeight: 600, color: "var(--text-3)" }}>/{totalPecas}</span>
+                      </span>
+                    )}
                   </span>
                 </div>
+                <div style={{ height: 4, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden", marginTop: 5 }}>
+                  <div style={{ width: `${Math.round((pr.qtd / totalPecas) * 100)}%`, height: "100%", borderRadius: 99, background: feito ? "var(--success)" : "var(--accent)", transition: "width .25s ease" }} />
+                </div>
                 {feito ? (
-                  pr.feito_em && <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> em {pr.feito_em}</div>
+                  pr.feito_em && <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> em {pr.feito_em}</div>
                 ) : (
                   <div style={{ marginTop: 6 }}>
                     <input value={pr.obs} onChange={(e) => onObs(nome, e.target.value)} onBlur={onSalvarObs} disabled={!podeEditar} placeholder="Observação (opcional)…" style={{ ...inpMini, fontSize: 12 }} />
