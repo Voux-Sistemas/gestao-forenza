@@ -561,12 +561,14 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
 const PROCESSOS_CORTE = ["Caseado", "Entretelado", "Estampado", "Travete", "Ilhós", "Estamparia", "Bordado", "Termo Colante"];
 const PROCESSOS_ACABAMENTO = ["Caseado", "Estampado", "Travete", "Ilhós", "Termo Colante", "Plaquinha", "Zíper"];
 
-// Peças com o processo concluído. Converte o formato antigo ({feito: true} => total).
+// Peças com o processo concluído. Aceita grade por tamanho, total, ou o formato antigo (feito).
 function qtdProcesso(entrada, total) {
   if (!entrada) return 0;
+  if (entrada.grade) return Math.max(0, Math.min(total, Object.values(entrada.grade).reduce((a, b) => a + (parseInt(b, 10) || 0), 0)));
   if (typeof entrada.qtd === "number") return Math.max(0, Math.min(total, entrada.qtd));
   return entrada.feito ? total : 0;
 }
+const zerosDaGrade = (g) => Object.fromEntries(Object.keys(g || {}).map((t) => [t, 0]));
 
 function corteBloqueado(pedido) {
   // Única trava do fluxo: tecido em descanso. Processos pendentes são apenas informativos.
@@ -854,6 +856,14 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
     const antes = processos[nome];
     setProcessos({ ...processos, [nome]: { ...antes, qtd: q, feito_em: q >= pedido.total && antes.qtd < pedido.total ? agoraTexto() : antes.feito_em } });
   }
+  function mudarQtdTam(nome, tamanho, valor) {
+    const max = parseInt((pedido.grade || {})[tamanho], 10) || 0;
+    const q = Math.max(0, Math.min(max, parseInt(valor, 10) || 0));
+    const antes = processos[nome];
+    const g = { ...(antes.grade || zerosDaGrade(pedido.grade)), [tamanho]: q };
+    const soma = Object.values(g).reduce((a, b) => a + (parseInt(b, 10) || 0), 0);
+    setProcessos({ ...processos, [nome]: { ...antes, grade: g, qtd: soma, feito_em: soma >= pedido.total && antes.qtd < pedido.total ? agoraTexto() : antes.feito_em } });
+  }
   function salvarQtd() { persist({ processos_corte: processos }); }
   function alternarTudo(nome) {
     const antes = processos[nome];
@@ -903,7 +913,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
         {descanso ? "Tecido em descanso — corte travado (clique para liberar)" : "Marcar tecido em descanso"}
       </button>
 
-      <Rastreio ordem={PROCESSOS_CORTE} processos={processos} totalPecas={pedido.total} podeEditar={podeEditar} onQtd={mudarQtd} onSalvarQtd={salvarQtd} onTudo={alternarTudo} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do corte" />
+      <Rastreio ordem={PROCESSOS_CORTE} processos={processos} totalPecas={pedido.total} gradePedido={pedido.grade} podeEditar={podeEditar} onQtd={mudarQtd} onQtdTam={mudarQtdTam} onSalvarQtd={salvarQtd} onTudo={alternarTudo} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do corte" />
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
           {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. Registre a observação do que falta.
@@ -936,6 +946,14 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
     const antes = processos[nome];
     setProcessos({ ...processos, [nome]: { ...antes, qtd: q, feito_em: q >= pedido.total && antes.qtd < pedido.total ? agoraTexto() : antes.feito_em } });
   }
+  function mudarQtdTam(nome, tamanho, valor) {
+    const max = parseInt((pedido.grade || {})[tamanho], 10) || 0;
+    const q = Math.max(0, Math.min(max, parseInt(valor, 10) || 0));
+    const antes = processos[nome];
+    const g = { ...(antes.grade || zerosDaGrade(pedido.grade)), [tamanho]: q };
+    const soma = Object.values(g).reduce((a, b) => a + (parseInt(b, 10) || 0), 0);
+    setProcessos({ ...processos, [nome]: { ...antes, grade: g, qtd: soma, feito_em: soma >= pedido.total && antes.qtd < pedido.total ? agoraTexto() : antes.feito_em } });
+  }
   function salvarQtd() { persist({ processos_acabamento: processos }); }
   function alternarTudo(nome) {
     const antes = processos[nome];
@@ -958,7 +976,7 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
 
   return (
     <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
-      <Rastreio ordem={PROCESSOS_ACABAMENTO} processos={processos} totalPecas={pedido.total} podeEditar={podeEditar} onQtd={mudarQtd} onSalvarQtd={salvarQtd} onTudo={alternarTudo} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do acabamento" />
+      <Rastreio ordem={PROCESSOS_ACABAMENTO} processos={processos} totalPecas={pedido.total} gradePedido={pedido.grade} podeEditar={podeEditar} onQtd={mudarQtd} onQtdTam={mudarQtdTam} onSalvarQtd={salvarQtd} onTudo={alternarTudo} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do acabamento" />
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
           {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}.
