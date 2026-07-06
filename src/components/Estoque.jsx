@@ -4,6 +4,7 @@ import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2 } from "lucide-
 import StatCard from "./StatCard.jsx";
 import { calcularSaldos as saldos } from "../etapas.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
+import GradeTabela from "./GradeTabela.jsx";
 import Overlay from "./Gaveta.jsx";
 
 export default function Estoque({ session, perfil }) {
@@ -157,24 +158,6 @@ function Legenda({ cor, rotulo, valor }) {
       <span style={{ fontSize: 13, color: "var(--text-2)" }}>{rotulo}</span>
       <strong style={{ fontSize: 13, color: "var(--text)" }}>{valor}</strong>
     </span>
-  );
-}
-
-// Tabela fixa (somente leitura) com os tamanhos e quantidades da grade do pedido.
-function GradeTabela({ grade, margem = "0 0 14px" }) {
-  if (!grade || Object.keys(grade).length === 0) return null;
-  return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 9, overflow: "hidden", margin: margem }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 96px", background: "var(--surface-2)", padding: "5px 11px", fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".4px" }}>
-        <span>Tamanho</span><span style={{ textAlign: "right" }}>Quantidade</span>
-      </div>
-      {Object.entries(grade).map(([t, q]) => (
-        <div key={t} style={{ display: "grid", gridTemplateColumns: "1fr 96px", padding: "4px 11px", borderTop: "1px solid var(--border)", fontSize: 12.5 }}>
-          <span style={{ fontWeight: 600 }}>{t}</span>
-          <span style={{ textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>{q}</span>
-        </div>
-      ))}
-    </div>
   );
 }
 

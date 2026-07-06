@@ -5,6 +5,7 @@ import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, 
 import { comprimirImagem } from "../comprimirImagem.js";
 import { gerarPdfEtapa } from "../pdfEtapa.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
+import GradeTabela from "./GradeTabela.jsx";
 
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import Overlay from "./Gaveta.jsx";
@@ -362,15 +363,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       {(pedido.grade || pedido.cor || pedido.peso || pedido.volume || pedido.observacoes) && (
         <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Detalhes do pedido</div>
-          {pedido.grade && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
-              {Object.entries(pedido.grade).map(([t, q]) => (
-                <span key={t} style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 99, background: "var(--surface)", border: "1px solid var(--border)" }}>
-                  {t} <span style={{ color: "var(--accent)" }}>{q}</span>
-                </span>
-              ))}
-            </div>
-          )}
+          <GradeTabela grade={pedido.grade} margem="0 0 10px" />
           <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 18px", fontSize: 12.5 }}>
             {pedido.cor && <span><span style={{ color: "var(--text-3)" }}>Cor:</span> {pedido.cor}</span>}
             {pedido.peso && <span><span style={{ color: "var(--text-3)" }}>Peso:</span> {pedido.peso}</span>}

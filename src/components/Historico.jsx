@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient.js";
 import { Search, Eye, ArchiveRestore, Archive, Package } from "lucide-react";
 import Overlay from "./Gaveta.jsx";
 import { calcularSaldos, rotuloLocal } from "../etapas.js";
+import GradeTabela from "./GradeTabela.jsx";
 
 const POR_PAGINA = 50;
 const PERIODOS = [
@@ -194,13 +195,7 @@ function DetalhePedido({ pedido, nomeCliente, onFechar }) {
       <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{nomeCliente} · {(pedido.total || 0).toLocaleString("pt-BR")} peças · arquivado em {fmtData(pedido.arquivado_em)}</p>
 
       <div style={{ padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 16 }}>
-        {pedido.grade && Object.keys(pedido.grade).length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
-            {Object.entries(pedido.grade).map(([t, q]) => (
-              <span key={t} style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 99, background: "var(--surface)", border: "1px solid var(--border)" }}>{t} <span style={{ color: "var(--accent)" }}>{q}</span></span>
-            ))}
-          </div>
-        )}
+        <GradeTabela grade={pedido.grade} margem="0 0 10px" />
         {info("Marca", pedido.marca)}
         {info("Cor", pedido.cor)}
         {info("Peso", pedido.peso)}
