@@ -4,7 +4,7 @@ import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2, FileText, Plus
 import StatCard from "./StatCard.jsx";
 import { calcularSaldos as saldos } from "../etapas.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
-import GradeTabela from "./GradeTabela.jsx";
+import GradeTabela, { normalizarGrade } from "./GradeTabela.jsx";
 import Overlay from "./Gaveta.jsx";
 
 export default function Estoque({ session, perfil }) {
@@ -213,16 +213,17 @@ function ModalFaturamento({ pedido, onFechar, onOk }) {
 
   return (
     <Overlay onFechar={onFechar} largura={720} zIndex={106}>
-      <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Grade de faturamento — {pedido.referencia}</h3>
-      <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "0 0 14px" }}>O que realmente faturou. Pode diferir da grade do pedido.</p>
+      <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Faturamento — {pedido.referencia}</h3>
+      <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "0 0 18px" }}>Compare o que foi pedido com o que realmente faturou.</p>
 
-      {pedido.grade && Object.keys(pedido.grade).length > 0 && (
-        <details style={{ marginBottom: 14 }}>
-          <summary style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", cursor: "pointer" }}>Ver grade do pedido (referência)</summary>
-          <div style={{ marginTop: 8 }}><GradeTabela grade={pedido.grade} margem="0" /></div>
-        </details>
+      {pedido.grade && normalizarGrade(pedido.grade).length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Grade do pedido (referência)</div>
+          <GradeTabela grade={pedido.grade} margem="0" />
+        </div>
       )}
 
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Grade de faturamento</div>
       <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 10 }}>
         <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 640 }}>
           <thead>
