@@ -48,6 +48,18 @@ export default function Shell({ session }) {
   const [tema, setTema] = useState("light");
   const [pagina, setPagina] = useState("inicio");
   const [lateralAberta, setLateralAberta] = useState(() => localStorage.getItem("forenza-lateral") === "1");
+  const [pendentesPilotagem, setPendentesPilotagem] = useState(0);
+
+  // Conta solicitações aguardando análise, para o alerta no menu.
+  useEffect(() => {
+    let vivo = true;
+    async function contar() {
+      const { count } = await supabase.from("solicitacoes").select("id", { count: "exact", head: true }).in("status", ["em_triagem", "info_solicitada"]);
+      if (vivo) setPendentesPilotagem(count || 0);
+    }
+    contar();
+    return () => { vivo = false; };
+  }, [pagina]); // revalida a cada troca de página (ex: ao sair da Pilotagem após analisar)
 
   useEffect(() => {
     supabase.from("perfis").select("nome, papel, setor, cliente_id").eq("id", session.user.id).single()
@@ -153,13 +165,19 @@ export default function Shell({ session }) {
             {ITENS_TOPO.map((item) => {
               const Icone = item.icon;
               const ativo = pagina === item.id;
+              const alerta = item.id === "triagem" && pendentesPilotagem > 0;
               return (
                 <button key={item.id} className={ativo ? "" : "tap"} onClick={() => setPagina(item.id)} style={{
-                  display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", borderRadius: 9,
+                  position: "relative", display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", borderRadius: 9,
                   border: "none", cursor: "pointer", color: ativo ? "var(--accent)" : "var(--text-2)",
                   background: ativo ? "var(--accent-bg)" : "transparent",
                 }}>
                   <Icone size={15} /> {item.label}
+                  {alerta && (
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 18, height: 18, padding: "0 5px", marginLeft: 2, fontSize: 11, fontWeight: 700, lineHeight: 1, color: "#fff", background: "var(--danger)", borderRadius: 99 }}>
+                      {pendentesPilotagem}
+                    </span>
+                  )}
                 </button>
               );
             })}
