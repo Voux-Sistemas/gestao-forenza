@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Factory, ArrowUpRight, ArrowDownLeft, Calendar, AlertTriangle, X, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Factory, ArrowUpRight, ArrowDownLeft, Calendar, AlertTriangle, X, Plus, ChevronDown, ChevronRight, FileDown } from "lucide-react";
 import { supabase } from "../supabaseClient.js";
 import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import { calcularSaldos, rotuloLocal } from "../etapas.js";
+import { gerarPdfEtapa } from "../pdfEtapa.js";
 import Overlay from "./Gaveta.jsx";
 
 const LOCAIS_PRE_OFICINA = ["Entrada", "Corte"];      // de onde podem sair peças pra oficina
@@ -199,25 +200,41 @@ export default function ControleOficinas({ session, perfil }) {
         <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>Nenhuma remessa fechada ainda.</div>
       ) : (
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow-card)" }}>
-          <div style={{ display: "flex", padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 11, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <div style={{ display: "flex", alignItems: "center", padding: "11px 16px", borderBottom: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 10.5, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>
             <span style={{ flex: 2 }}>Pedido</span>
             <span style={{ flex: 1.4 }}>Oficina</span>
             <span style={{ flex: 1 }}>Saída</span>
             <span style={{ flex: 1 }}>Retorno</span>
-            <span style={{ flex: 0.8 }}>Dias</span>
-            <span style={{ flex: 0.8 }}>Peças</span>
+            <span style={{ flex: 0.7, textAlign: "center" }}>Dias</span>
+            <span style={{ flex: 0.7, textAlign: "right" }}>Peças</span>
+            <span style={{ width: 40, textAlign: "right" }}>PDF</span>
           </div>
           {fechadasRecentes.map((r) => {
             const ped = pedidos.find((p) => p.id === r.pedido_id);
             const d = diasEntre(r.data_saida, r.data_fechamento);
+            const baixarPdf = () => {
+              if (!ped) return;
+              gerarPdfEtapa({
+                pedido: ped, cliente: nomeCliente(ped.cliente_id), local: "Oficina", qtd: r.qtd_enviada,
+                parte: 1, totalPartes: 1,
+                oficina: nomeOficina(r.oficina_id),
+                processos: null,
+              });
+            };
             return (
-              <div key={r.id} style={{ display: "flex", padding: "10px 14px", borderTop: "1px solid var(--border)", fontSize: 12.5 }}>
+              <div key={r.id} style={{ display: "flex", alignItems: "center", padding: "13px 16px", borderTop: "1px solid var(--border)", fontSize: 13 }}>
                 <span style={{ flex: 2, fontWeight: 600 }}>{ped?.referencia || "#" + r.pedido_id}</span>
                 <span style={{ flex: 1.4, color: "var(--text-2)" }}>{nomeOficina(r.oficina_id)}</span>
                 <span style={{ flex: 1, color: "var(--text-2)" }}>{fmtData(r.data_saida)}</span>
                 <span style={{ flex: 1, color: "var(--text-2)" }}>{fmtData(r.data_fechamento)}</span>
-                <span style={{ flex: 0.8, color: "var(--text-2)" }}>{d}</span>
-                <span style={{ flex: 0.8, color: "var(--text-2)" }}>{r.qtd_enviada}</span>
+                <span style={{ flex: 0.7, color: "var(--text-2)", textAlign: "center" }}>{d}</span>
+                <span style={{ flex: 0.7, color: "var(--text-2)", textAlign: "right", fontWeight: 600 }}>{r.qtd_enviada}</span>
+                <span style={{ width: 40, display: "flex", justifyContent: "flex-end" }}>
+                  <button onClick={baixarPdf} title="Baixar PDF da remessa" aria-label="Baixar PDF da remessa"
+                    style={{ display: "inline-flex", padding: 6, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>
+                    <FileDown size={14} />
+                  </button>
+                </span>
               </div>
             );
           })}
@@ -236,7 +253,7 @@ function ModalNovaSaida({ pedidos, oficinas, movimentos, clientes, session, onFe
   const [pedidoId, setPedidoId] = useState("");
   const [oficinaId, setOficinaId] = useState("");
   const [qtd, setQtd] = useState("");
-  const [origem, setOrigem] = useState("Corte");
+  const [origem, setOrigem] = useState("");
   const [dataSaida, setDataSaida] = useState(new Date().toISOString().slice(0, 10));
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
@@ -255,6 +272,7 @@ function ModalNovaSaida({ pedidos, oficinas, movimentos, clientes, session, onFe
     setErro(null);
     if (!pedidoId) return setErro("Escolha o pedido.");
     if (!oficinaId) return setErro("Escolha a oficina.");
+    if (!origem) return setErro("Selecione de onde as peças estão saindo.");
     const q = parseInt(qtd, 10);
     if (!q || q < 1) return setErro("Quantidade inválida.");
     if (q > saldoOrigem) return setErro(`Só há ${saldoOrigem} peças em ${origem} desse pedido.`);
@@ -283,7 +301,7 @@ function ModalNovaSaida({ pedidos, oficinas, movimentos, clientes, session, onFe
       <h3 style={tituloModal}>Registrar saída para oficina</h3>
       <label style={lbl}>Pedido</label>
       <select value={pedidoId} onChange={(e) => setPedidoId(e.target.value)} autoFocus style={inp}>
-        <option value="">— selecione —</option>
+        <option value="">Selecionar…</option>
         {pedidosDisponiveis.map(({ p, saldo }) => {
           const cli = clientes.find((c) => c.id === p.cliente_id)?.nome || "—";
           return <option key={p.id} value={p.id}>{p.referencia} — {cli} ({rotuloLocal("Entrada")}: {saldo.Entrada}, Corte: {saldo.Corte})</option>;
@@ -292,13 +310,14 @@ function ModalNovaSaida({ pedidos, oficinas, movimentos, clientes, session, onFe
 
       <label style={{ ...lbl, marginTop: 12 }}>Saindo de</label>
       <select value={origem} onChange={(e) => setOrigem(e.target.value)} style={inp}>
-        {LOCAIS_PRE_OFICINA.map((l) => <option key={l} value={l}>{l}</option>)}
+        <option value="">Selecionar…</option>
+        {LOCAIS_PRE_OFICINA.map((l) => <option key={l} value={l}>{rotuloLocal(l)}</option>)}
       </select>
-      {pedidoSelecionado && <p style={{ fontSize: 11.5, color: "var(--text-3)", margin: "4px 0 0" }}>Disponível em {origem}: <strong>{saldoOrigem}</strong> peça(s)</p>}
+      {pedidoSelecionado && origem && <p style={{ fontSize: 11.5, color: "var(--text-3)", margin: "4px 0 0" }}>Disponível em {rotuloLocal(origem)}: <strong>{saldoOrigem}</strong> peça(s)</p>}
 
       <label style={{ ...lbl, marginTop: 12 }}>Oficina</label>
       <select value={oficinaId} onChange={(e) => setOficinaId(e.target.value)} style={inp}>
-        <option value="">— selecione —</option>
+        <option value="">Selecionar…</option>
         {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
       </select>
 
@@ -327,7 +346,7 @@ function ModalRegistrarRetorno({ dados, session, onFechar, onOk }) {
   const { remessa, pedido } = dados;
   const restante = remessa.qtd_enviada - remessa.qtd_retornada;
   const [qtd, setQtd] = useState(String(restante));
-  const [destino, setDestino] = useState("Acabamento");
+  const [destino, setDestino] = useState("");
   const [dataRetorno, setDataRetorno] = useState(new Date().toISOString().slice(0, 10));
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
@@ -337,6 +356,7 @@ function ModalRegistrarRetorno({ dados, session, onFechar, onOk }) {
     const q = parseInt(qtd, 10);
     if (!q || q < 1) return setErro("Quantidade inválida.");
     if (q > restante) return setErro(`Essa remessa tem ${restante} peça(s) em aberto.`);
+    if (!destino) return setErro("Selecione o destino na fábrica.");
 
     setSalvando(true);
     const novaQtdRet = remessa.qtd_retornada + q;
@@ -378,7 +398,8 @@ function ModalRegistrarRetorno({ dados, session, onFechar, onOk }) {
 
       <label style={{ ...lbl, marginTop: 12 }}>Destino na fábrica</label>
       <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
-        {DESTINOS_POS_OFICINA.map((l) => <option key={l} value={l}>{l}</option>)}
+        <option value="">Selecionar…</option>
+        {DESTINOS_POS_OFICINA.map((l) => <option key={l} value={l}>{rotuloLocal(l)}</option>)}
       </select>
 
       {erro && <p style={erroTxt}>{erro}</p>}
