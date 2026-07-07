@@ -142,6 +142,8 @@ function ModalNova({ clienteId, onFechar, onOk }) {
   const [descricao, setDescricao] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [prazo, setPrazo] = useState("");
+  const [ficha, setFicha] = useState({ referencia: "", marca: "", produto_acabado: "", mao_de_obra: "", data_recebimento: "", prazo_piloto: "" });
+  const setF = (k) => (e) => setFicha((c) => ({ ...c, [k]: e.target.value }));
   const [arquivo, setArquivo] = useState(null);
   const [preview, setPreview] = useState(null);
   const [erro, setErro] = useState(null);
@@ -170,12 +172,15 @@ function ModalNova({ clienteId, onFechar, onOk }) {
       const { data } = supabase.storage.from("referencias").getPublicUrl(path);
       imagemUrl = data.publicUrl;
     }
+    // A ficha já nasce preenchida pelo cliente; a fábrica completa o que faltar na pilotagem.
+    const fichaLimpa = { ...ficha, descricao: descricao.trim() };
     const { error } = await supabase.from("solicitacoes").insert({
       cliente_id: clienteId,
       descricao: descricao.trim(),
       quantidade: quantidade ? parseInt(quantidade, 10) : null,
       prazo_desejado: prazo || null,
       imagem_url: imagemUrl,
+      ficha: fichaLimpa,
       status: "em_triagem",
     });
     setSalvando(false);
@@ -184,16 +189,32 @@ function ModalNova({ clienteId, onFechar, onOk }) {
   }
 
   return (
-    <Gaveta onFechar={onFechar} largura={440}>
+    <Gaveta onFechar={onFechar} largura={460}>
         <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Nova solicitação</h3>
-        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Conte o que você precisa produzir. A fábrica vai analisar.</p>
-        <label style={lbl}>Descrição</label>
+        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Preencha o máximo que puder. A fábrica completa o que faltar.</p>
+
+        <label style={lbl}>Descrição do que você precisa</label>
         <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="O que você quer produzir…" style={{ ...inp, resize: "vertical" }} />
         <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
           <div style={{ flex: 1 }}><label style={lbl}>Quantidade</label><input type="number" min="0" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} style={inp} /></div>
           <div style={{ flex: 1 }}><label style={lbl}>Prazo desejado</label><input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} style={inp} /></div>
         </div>
-        <label style={{ ...lbl, marginTop: 14 }}>Foto de referência (opcional)</label>
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", margin: "22px 0 12px", paddingTop: 16, borderTop: "1px solid var(--border)" }}>Ficha técnica</div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}><label style={lbl}>Referência</label><input value={ficha.referencia} onChange={setF("referencia")} placeholder="código/nome" style={inp} /></div>
+          <div style={{ flex: 1 }}><label style={lbl}>Marca</label><input value={ficha.marca} onChange={setF("marca")} style={inp} /></div>
+        </div>
+        <label style={{ ...lbl, marginTop: 14 }}>Produto acabado</label>
+        <input value={ficha.produto_acabado} onChange={setF("produto_acabado")} placeholder="ex: camiseta gola redonda" style={inp} />
+        <label style={{ ...lbl, marginTop: 14 }}>Mão de obra</label>
+        <input value={ficha.mao_de_obra} onChange={setF("mao_de_obra")} placeholder="ex: costura, estampa…" style={inp} />
+        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+          <div style={{ flex: 1 }}><label style={lbl}>Data de recebimento</label><input type="date" value={ficha.data_recebimento} onChange={setF("data_recebimento")} style={inp} /></div>
+          <div style={{ flex: 1 }}><label style={lbl}>Prazo da peça piloto</label><input type="date" value={ficha.prazo_piloto} onChange={setF("prazo_piloto")} style={inp} /></div>
+        </div>
+
+        <label style={{ ...lbl, marginTop: 18 }}>Foto de referência (opcional)</label>
         {preview ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <img src={preview} alt="Prévia" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />
@@ -210,7 +231,6 @@ function ModalNova({ clienteId, onFechar, onOk }) {
           <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
           <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Enviando…" : "Enviar"}</button>
         </div>
-      
     </Gaveta>
   );
 }

@@ -98,11 +98,27 @@ export default function Triagem() {
       </div>
 
       {atual.length === 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "48px 0", color: "var(--text-3)" }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Inbox size={26} style={{ color: "var(--text-3)" }} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "60px 0", color: "var(--text-3)" }}>
+          <div style={{ width: 60, height: 60, borderRadius: 16, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Inbox size={28} style={{ color: "var(--text-3)" }} />
           </div>
-          <span style={{ fontSize: 14 }}>Nenhuma solicitação aqui.</span>
+          <div style={{ textAlign: "center", maxWidth: 340 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-2)", marginBottom: 4 }}>
+              {aba === "aguardando" ? "Tudo em dia por aqui" : aba === "pilotagem" ? "Nenhuma peça em pilotagem" : "Nenhuma solicitação recusada"}
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              {aba === "aguardando"
+                ? "Não há solicitações aguardando análise. Quando um cliente enviar um pedido pelo portal, ele aparece aqui para você avaliar."
+                : aba === "pilotagem"
+                ? "As solicitações aprovadas para produzir a peça-piloto aparecem nesta aba."
+                : "Solicitações que você recusou ficam guardadas aqui para consulta."}
+            </div>
+          </div>
+          {aba === "aguardando" && (
+            <button onClick={() => setNova(true)} style={{ ...btnGhost, display: "inline-flex", alignItems: "center", gap: 7, marginTop: 4 }}>
+              <Plus size={15} /> Criar solicitação manualmente
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -173,10 +189,12 @@ export default function Triagem() {
 }
 
 function ModalNova({ clientes, onFechar, onOk }) {
-  const [clienteId, setClienteId] = useState(clientes[0]?.id || "");
+  const [clienteId, setClienteId] = useState("");
   const [descricao, setDescricao] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [prazo, setPrazo] = useState("");
+  const [ficha, setFicha] = useState({ referencia: "", marca: "", produto_acabado: "", mao_de_obra: "", data_recebimento: "", prazo_piloto: "" });
+  const setF = (k) => (e) => setFicha((c) => ({ ...c, [k]: e.target.value }));
   const [arquivo, setArquivo] = useState(null);
   const [preview, setPreview] = useState(null);
   const [erro, setErro] = useState(null);
@@ -219,6 +237,7 @@ function ModalNova({ clientes, onFechar, onOk }) {
       quantidade: quantidade ? parseInt(quantidade, 10) : null,
       prazo_desejado: prazo || null,
       imagem_url: imagemUrl,
+      ficha: { ...ficha, descricao: descricao.trim() },
       status: "em_triagem",
     });
     setSalvando(false);
@@ -231,6 +250,7 @@ function ModalNova({ clientes, onFechar, onOk }) {
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Nova solicitação</h3>
       <label style={lbl}>Cliente</label>
       <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inp}>
+        <option value="">Selecionar…</option>
         {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
       </select>
       <label style={{ ...lbl, marginTop: 14 }}>Descrição</label>
@@ -240,7 +260,21 @@ function ModalNova({ clientes, onFechar, onOk }) {
         <div style={{ flex: 1 }}><label style={lbl}>Prazo desejado</label><input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} style={inp} /></div>
       </div>
 
-      <label style={{ ...lbl, marginTop: 14 }}>Foto de referência (opcional)</label>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", margin: "22px 0 12px", paddingTop: 16, borderTop: "1px solid var(--border)" }}>Ficha técnica</div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}><label style={lbl}>Referência</label><input value={ficha.referencia} onChange={setF("referencia")} placeholder="código/nome" style={inp} /></div>
+        <div style={{ flex: 1 }}><label style={lbl}>Marca</label><input value={ficha.marca} onChange={setF("marca")} style={inp} /></div>
+      </div>
+      <label style={{ ...lbl, marginTop: 14 }}>Produto acabado</label>
+      <input value={ficha.produto_acabado} onChange={setF("produto_acabado")} placeholder="ex: camiseta gola redonda" style={inp} />
+      <label style={{ ...lbl, marginTop: 14 }}>Mão de obra</label>
+      <input value={ficha.mao_de_obra} onChange={setF("mao_de_obra")} placeholder="ex: costura, estampa…" style={inp} />
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        <div style={{ flex: 1 }}><label style={lbl}>Data de recebimento</label><input type="date" value={ficha.data_recebimento} onChange={setF("data_recebimento")} style={inp} /></div>
+        <div style={{ flex: 1 }}><label style={lbl}>Prazo da peça piloto</label><input type="date" value={ficha.prazo_piloto} onChange={setF("prazo_piloto")} style={inp} /></div>
+      </div>
+
+      <label style={{ ...lbl, marginTop: 18 }}>Foto de referência (opcional)</label>
       {preview ? (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <img src={preview} alt="Prévia" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />
