@@ -143,17 +143,6 @@ export default function Quadro({ session, perfil }) {
                   const urg = urgenciaDoCard(pe, local);
                   const partes = COLUNAS.filter((l) => saldo[l] > 0); // divisões do pedido pelo fluxo
                   const parte = partes.indexOf(local) + 1;
-                  const baixarPdf = (e) => {
-                    e.stopPropagation();
-                    const listaProc = local === "Corte" ? PROCESSOS_CORTE : local === "Acabamento" ? PROCESSOS_ACABAMENTO : null;
-                    const mapaProc = (local === "Corte" ? pe.processos_corte : pe.processos_acabamento) || {};
-                    gerarPdfEtapa({
-                      pedido: pe, cliente: nomeCliente(pe.cliente_id), local, qtd: saldo[local],
-                      parte, totalPartes: partes.length,
-                      oficina: (oficinas || []).find((o) => o.id === pe.oficina_id)?.nome_empresa || null,
-                      processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], pe.total), grade: (mapaProc[n] && mapaProc[n].grade) || null, obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
-                    });
-                  };
                   const procBadges = badgesDoCard(pe, local);
                   const infoRem = local === "Oficina" ? infoRemessasOficina(pe, remessas, oficinas) : null;
                   const pintarCard = urg && (urg.nivel === "atrasado" || urg.nivel === "hoje");
@@ -169,7 +158,7 @@ export default function Quadro({ session, perfil }) {
                       setArrastando({ pedido: pe, local, saldo: saldo[local] });
                     }}
                     onDragEnd={() => { setArrastando(null); setColunaHover(null); }}
-                    onClick={() => setMover({ pedido: pe, local, saldo: saldo[local] })}
+                    onClick={() => setMover({ pedido: pe, local, saldo: saldo[local], cliente: nomeCliente(pe.cliente_id), parte, totalPartes: partes.length })}
                     style={{
                       ...estiloCard,
                       cursor: podeEditar ? "grab" : "pointer",
@@ -182,12 +171,6 @@ export default function Quadro({ session, perfil }) {
                         <span title={`Parte ${parte} de ${partes.length} deste pedido`} style={{ fontSize: 10.5, fontWeight: 700, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: "var(--accent)", background: "var(--accent-bg)", flexShrink: 0 }}>{parte}/{partes.length}</span>
                       )}
                       {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: "var(--text-2)", background: "var(--surface-2)", flexShrink: 0 }}>{pe.marca}</span>}
-                      <span role="button" tabIndex={0} title="Baixar PDF desta etapa" aria-label="Baixar PDF desta etapa"
-                        onClick={baixarPdf}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); baixarPdf(e); } }}
-                        style={{ display: "inline-flex", padding: 4, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer", flexShrink: 0 }}>
-                        <FileDown size={12} />
-                      </span>
                     </div>
                     <div style={{ fontSize: 11.5, color: "var(--text-3)", fontWeight: 500, margin: "2px 0 6px" }}>{pe.referencia}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -263,8 +246,20 @@ export default function Quadro({ session, perfil }) {
 }
 
 function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar, ehMaster, onFechar, onOk }) {
-  const { pedido, local, saldo, destinoInicial } = dados;
+  const { pedido, local, saldo, destinoInicial, cliente, parte, totalPartes } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
+
+  function baixarPdf() {
+    const listaProc = local === "Corte" ? PROCESSOS_CORTE : local === "Acabamento" ? PROCESSOS_ACABAMENTO : null;
+    const mapaProc = (local === "Corte" ? pedido.processos_corte : pedido.processos_acabamento) || {};
+    gerarPdfEtapa({
+      pedido, cliente: cliente || pedido.referencia, local, qtd: saldo,
+      parte: parte || 1, totalPartes: totalPartes || 1,
+      oficina: (oficinas || []).find((o) => o.id === pedido.oficina_id)?.nome_empresa || null,
+      processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], pedido.total), grade: (mapaProc[n] && mapaProc[n].grade) || null, obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
+    });
+  }
+
   const [destino, setDestino] = useState(destinoInicial && destinos.includes(destinoInicial) ? destinoInicial : "");
   const [qtd, setQtd] = useState(saldo);
   const [erro, setErro] = useState(null);
@@ -359,7 +354,11 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   return (
     <Overlay onFechar={onFechar} rodape={rodape}>
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Mover peças</h3>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{pedido.referencia} · {saldo} peças em {rotuloLocal(local)}</p>
+      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 12px" }}>{pedido.referencia} · {saldo} peças em {rotuloLocal(local)}</p>
+      <button type="button" onClick={baixarPdf}
+        style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "9px 15px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+        <FileDown size={16} style={{ color: "var(--accent)" }} /> Baixar PDF desta etapa
+      </button>
       {(pedido.grade || pedido.cor || pedido.peso || pedido.volume || pedido.observacoes) && (
         <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Detalhes do pedido</div>
