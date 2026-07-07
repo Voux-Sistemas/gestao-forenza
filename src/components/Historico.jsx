@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Search, Eye, ArchiveRestore, Archive, Package } from "lucide-react";
+import { Search, Eye, Trash2, Archive, Package } from "lucide-react";
 import Overlay from "./Gaveta.jsx";
 import { calcularSaldos, rotuloLocal } from "../etapas.js";
 import GradeTabela from "./GradeTabela.jsx";
@@ -25,7 +25,7 @@ function selosSituacao(s) {
   return selos;
 }
 
-export default function Historico() {
+export default function Historico({ ehMaster }) {
   const [clientes, setClientes] = useState([]);
   const [linhas, setLinhas] = useState([]); // { pe, s }
   const [total, setTotal] = useState(0);
@@ -88,10 +88,12 @@ export default function Historico() {
     timerBusca.current = setTimeout(() => { setPagina(0); carregar(0, v, periodo, clientes); }, 400);
   }
 
-  async function desarquivar(pe) {
-    if (!window.confirm(`Desarquivar o pedido ${pe.referencia}? Ele volta a aparecer nas telas do dia a dia.`)) return;
-    const { error } = await supabase.from("pedidos").update({ arquivado: false, arquivado_em: null }).eq("id", pe.id);
-    if (error) return window.alert("Não foi possível desarquivar: " + error.message);
+  async function excluir(pe) {
+    if (!window.confirm(`Excluir permanentemente o pedido ${pe.referencia}? Esta ação NÃO pode ser desfeita e apaga o pedido e todo o seu histórico.`)) return;
+    // Remove os movimentos primeiro (vínculo), depois o pedido.
+    await supabase.from("movimentos").delete().eq("pedido_id", pe.id);
+    const { error } = await supabase.from("pedidos").delete().eq("id", pe.id);
+    if (error) return window.alert("Não foi possível excluir: " + error.message);
     carregar(pagina, busca, periodo, clientes);
   }
 
@@ -149,10 +151,12 @@ export default function Historico() {
                 style={{ display: "inline-flex", padding: 6, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>
                 <Eye size={14} />
               </button>
-              <button className="tap" onClick={() => desarquivar(pe)} title="Desarquivar" aria-label={`Desarquivar ${pe.referencia}`}
-                style={{ display: "inline-flex", padding: 6, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>
-                <ArchiveRestore size={14} />
-              </button>
+              {ehMaster && (
+                <button className="tap" onClick={() => excluir(pe)} title="Excluir permanentemente" aria-label={`Excluir ${pe.referencia}`}
+                  style={{ display: "inline-flex", padding: 6, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" }}>
+                  <Trash2 size={14} />
+                </button>
+              )}
             </span>
           </div>
         ))}

@@ -5,6 +5,7 @@ import StatCard from "./StatCard.jsx";
 import { calcularSaldos as saldos } from "../etapas.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
 import GradeTabela, { normalizarGrade } from "./GradeTabela.jsx";
+import { gerarPdfEtapa } from "../pdfEtapa.js";
 import Overlay from "./Gaveta.jsx";
 
 export default function Estoque({ session, perfil }) {
@@ -38,6 +39,29 @@ export default function Estoque({ session, perfil }) {
   }, [carregar]);
 
   const nomeCliente = (id) => clientes.find((c) => c.id === id)?.nome || "—";
+
+  const [pdfId, setPdfId] = useState(null); // id do pedido gerando PDF
+  async function baixarPdf(pe, qtd) {
+    if (pdfId) return;
+    setPdfId(pe.id);
+    try {
+      const imagens = [];
+      if (pe.anexo_amostra) {
+        const u = supabase.storage.from("anexos").getPublicUrl(pe.anexo_amostra).data.publicUrl;
+        if (u) imagens.push({ url: u, rotulo: "Amostra" });
+      }
+      if (pe.solicitacao_id) {
+        const { data: sol } = await supabase.from("solicitacoes").select("imagem_url").eq("id", pe.solicitacao_id).single();
+        if (sol && sol.imagem_url) imagens.push({ url: sol.imagem_url, rotulo: "Referência" });
+      }
+      await gerarPdfEtapa({
+        pedido: pe, cliente: nomeCliente(pe.cliente_id), local: "Estoque", qtd,
+        parte: 1, totalPartes: 1, oficina: null, processos: null, imagens,
+      });
+    } finally {
+      setPdfId(null);
+    }
+  }
 
   if (carregando) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>;
 
@@ -96,8 +120,11 @@ export default function Estoque({ session, perfil }) {
                   <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>de {pe.total} aguardando inspeção</span>
                 </div>
                 <GradeTabela grade={pe.grade} />
-                <button onClick={() => setInspecionar({ pe, disponivel: s.Estoque })} style={{ ...btnPrimary, width: "100%" }}>
+                <button onClick={() => setInspecionar({ pe, disponivel: s.Estoque })} style={{ ...btnPrimary, width: "100%", marginBottom: 8 }}>
                   Inspecionar <ArrowRight size={15} />
+                </button>
+                <button onClick={() => baixarPdf(pe, s.Estoque)} disabled={pdfId === pe.id} style={{ ...btnGhost, width: "100%" }}>
+                  <FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "PDF"}
                 </button>
               </div>
             ))}
@@ -139,8 +166,11 @@ export default function Estoque({ session, perfil }) {
                       <Trash2 size={14} /> Dar baixa
                     </button>
                   )}
-                  <button onClick={() => setFaturamento(pe)} style={{ ...btnGhost, width: "100%" }}>
+                  <button onClick={() => setFaturamento(pe)} style={{ ...btnGhost, width: "100%", marginBottom: 8 }}>
                     <FileText size={14} /> Grade de faturamento
+                  </button>
+                  <button onClick={() => baixarPdf(pe, d1 + d2)} disabled={pdfId === pe.id} style={{ ...btnGhost, width: "100%" }}>
+                    <FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "PDF do pedido"}
                   </button>
                 </div>
               );

@@ -251,15 +251,52 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   const destinos = LOCAIS.filter((l) => l !== local);
   const [editarGrade, setEditarGrade] = useState(false);
 
-  function baixarPdf() {
-    const listaProc = local === "Corte" ? PROCESSOS_CORTE : local === "Acabamento" ? PROCESSOS_ACABAMENTO : null;
-    const mapaProc = (local === "Corte" ? pedido.processos_corte : pedido.processos_acabamento) || {};
-    gerarPdfEtapa({
-      pedido, cliente: cliente || pedido.referencia, local, qtd: saldo,
-      parte: parte || 1, totalPartes: totalPartes || 1,
-      oficina: (oficinas || []).find((o) => o.id === pedido.oficina_id)?.nome_empresa || null,
-      processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], pedido.total), grade: (mapaProc[n] && mapaProc[n].grade) || null, obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
-    });
+  const [gerandoPdf, setGerandoPdf] = useState(false);
+  async function baixarPdf() {
+    if (gerandoPdf) return;
+    setGerandoPdf(true);
+    try {
+      // Busca o pedido ATUALIZADO do banco — os processos podem ter sido marcados agora,
+      // e o objeto do modal ficaria desatualizado.
+      const { data: fresco } = await supabase.from("pedidos").select("*").eq("id", pedido.id).single();
+      const ped = fresco || pedido;
+
+      const listaProc = local === "Corte" ? PROCESSOS_CORTE : local === "Acabamento" ? PROCESSOS_ACABAMENTO : null;
+      const mapaProc = (local === "Corte" ? ped.processos_corte : ped.processos_acabamento) || {};
+
+      // Remessas de oficina deste pedido (para o PDF da etapa Oficina).
+      let remessasOficina = null;
+      if (local === "Oficina") {
+        const { data: rs } = await supabase.from("remessas_oficina").select("*").eq("pedido_id", ped.id).order("id");
+        remessasOficina = (rs || []).map((r) => ({
+          oficina: (oficinas || []).find((o) => o.id === r.oficina_id)?.nome_empresa || "—",
+          saida: r.data_saida, retorno: r.data_fechamento,
+          enviada: r.qtd_enviada, retornada: r.qtd_retornada,
+        }));
+      }
+
+      // Imagens: foto de referência (da solicitação) e anexo da amostra.
+      const imagens = [];
+      if (ped.anexo_amostra) {
+        const u = supabase.storage.from("anexos").getPublicUrl(ped.anexo_amostra).data.publicUrl;
+        if (u) imagens.push({ url: u, rotulo: "Amostra" });
+      }
+      if (ped.solicitacao_id) {
+        const { data: sol } = await supabase.from("solicitacoes").select("imagem_url").eq("id", ped.solicitacao_id).single();
+        if (sol && sol.imagem_url) imagens.push({ url: sol.imagem_url, rotulo: "Referência" });
+      }
+
+      await gerarPdfEtapa({
+        pedido: ped, cliente: cliente || ped.referencia, local, qtd: saldo,
+        parte: parte || 1, totalPartes: totalPartes || 1,
+        oficina: (oficinas || []).find((o) => o.id === ped.oficina_id)?.nome_empresa || null,
+        processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], ped.total), grade: (mapaProc[n] && mapaProc[n].grade) || null, obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
+        remessasOficina,
+        imagens,
+      });
+    } finally {
+      setGerandoPdf(false);
+    }
   }
 
   const [destino, setDestino] = useState(destinoInicial && destinos.includes(destinoInicial) ? destinoInicial : "");
@@ -357,9 +394,9 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     <Overlay onFechar={onFechar} rodape={rodape}>
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Mover peças</h3>
       <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 12px" }}>{pedido.referencia} · {saldo} peças em {rotuloLocal(local)}</p>
-      <button type="button" onClick={baixarPdf}
-        style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "9px 15px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-        <FileDown size={16} style={{ color: "var(--accent)" }} /> Baixar PDF desta etapa
+      <button type="button" onClick={baixarPdf} disabled={gerandoPdf}
+        style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "9px 15px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 13, fontWeight: 600, opacity: gerandoPdf ? 0.7 : 1 }}>
+        <FileDown size={16} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando PDF…" : "Baixar PDF desta etapa"}
       </button>
       <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>

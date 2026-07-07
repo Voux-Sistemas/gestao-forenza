@@ -83,7 +83,7 @@ export default function Shell({ session }) {
     if (pagina === "triagem" && podeAdministrar) return <Triagem />;
     if (pagina === "oficinas" && podeAdministrar) return <ControleOficinas session={session} perfil={perfil} />;
     if (pagina === "contas" && podeAdministrar) return <ContasAPagar />;
-    if (pagina === "historico" && podeAdministrar) return <Historico />;
+    if (pagina === "historico" && podeAdministrar) return <Historico ehMaster={perfil?.papel === "master"} />;
     return <Quadro session={session} perfil={perfil} />;
   }
 

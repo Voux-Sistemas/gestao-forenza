@@ -14,8 +14,32 @@ const fmtData = (d) => {
   return isNaN(data) ? null : data.toLocaleDateString("pt-BR");
 };
 
+// Baixa uma imagem por URL e devolve { dataUrl, w, h } para embutir no PDF. Null se falhar.
+async function carregarImagem(url) {
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    const dataUrl = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+    const dim = await new Promise((res) => {
+      const img = new Image();
+      img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => res(null);
+      img.src = dataUrl;
+    });
+    if (!dim) return null;
+    const fmt = /png/i.test(blob.type) ? "PNG" : "JPEG";
+    return { dataUrl, w: dim.w, h: dim.h, fmt };
+  } catch { return null; }
+}
+
 // Gera o romaneio em PDF das peças de um pedido em uma etapa.
-export function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalPartes, oficina, processos }) {
+export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, imagens }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const larg = doc.internal.pageSize.getWidth();
   const mx = 16;
@@ -171,6 +195,77 @@ export function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalPartes,
     doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(60);
     doc.text(linhas, mx + 5, y + 6);
     y += linhas.length * 4.6 + 12;
+  }
+
+  // ── Remessas de oficina (para a etapa Oficina) ──
+  if (remessasOficina && remessasOficina.length > 0) {
+    quebraSePreciso(14 + remessasOficina.length * 7);
+    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
+    doc.text("REMESSAS DE OFICINA", mx, y);
+    y += 5;
+    const cols = [50, 30, 30, 24, 24]; // oficina, saída, retorno, enviadas, retorn.
+    const fmtD = (d) => {
+      if (!d) return "—";
+      const dt = /^\d{4}-\d{2}-\d{2}/.test(d) ? new Date(d.slice(0, 10) + "T12:00") : new Date(d);
+      return isNaN(dt) ? "—" : dt.toLocaleDateString("pt-BR");
+    };
+    // cabeçalho
+    let x = mx;
+    doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...CINZA);
+    ["Oficina", "Saída", "Retorno", "Enviadas", "Retorn."].forEach((h, i) => {
+      const alinhar = i >= 3 ? "right" : "left";
+      doc.text(h, alinhar === "right" ? x + cols[i] - 2 : x, y, { align: alinhar });
+      x += cols[i];
+    });
+    y += 5;
+    remessasOficina.forEach((r) => {
+      quebraSePreciso(7);
+      x = mx;
+      const vals = [r.oficina, fmtD(r.saida), r.retorno ? fmtD(r.retorno) : "em aberto", String(r.enviada), String(r.retornada)];
+      const emAberto = !r.retorno;
+      doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...(emAberto ? AMBAR : TINTA));
+      vals.forEach((v, i) => {
+        const alinhar = i >= 3 ? "right" : "left";
+        const txt = i === 0 ? (doc.splitTextToSize(v, cols[i] - 2)[0] || v) : v;
+        doc.text(txt, alinhar === "right" ? x + cols[i] - 2 : x, y, { align: alinhar });
+        x += cols[i];
+      });
+      y += 5;
+      doc.setDrawColor(235).setLineWidth(0.2).line(mx, y - 1.5, larg - mx, y - 1.5);
+    });
+    y += 5;
+  }
+
+  // ── Imagens anexadas (referência e amostra) ──
+  const imgs = [];
+  for (const it of (imagens || [])) {
+    if (!it.url) continue;
+    const carregada = await carregarImagem(it.url);
+    if (carregada) imgs.push({ ...carregada, rotulo: it.rotulo });
+  }
+  if (imgs.length > 0) {
+    quebraSePreciso(12);
+    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
+    doc.text("IMAGENS", mx, y);
+    y += 6;
+    const larguraCol = (larg - mx * 2 - 8) / 2; // duas por linha
+    let x = mx;
+    let alturaLinha = 0;
+    imgs.forEach((im, i) => {
+      const escala = Math.min(larguraCol / im.w, 55 / im.h); // cabe na coluna, máx ~55mm de altura
+      const w = im.w * escala;
+      const h = im.h * escala;
+      if (i % 2 === 0) { quebraSePreciso(h + 10); x = mx; }
+      doc.setDrawColor(210).setLineWidth(0.3).rect(x, y, w, h, "S");
+      try { doc.addImage(im.dataUrl, im.fmt, x, y, w, h); } catch { /* ignora imagem inválida */ }
+      if (im.rotulo) {
+        doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
+        doc.text(im.rotulo, x, y + h + 4);
+      }
+      alturaLinha = Math.max(alturaLinha, h);
+      if (i % 2 === 1 || i === imgs.length - 1) { y += alturaLinha + 10; alturaLinha = 0; }
+      else { x += larguraCol + 8; }
+    });
   }
 
   rodape();
