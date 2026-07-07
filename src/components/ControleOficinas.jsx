@@ -142,10 +142,22 @@ export default function ControleOficinas({ session, perfil }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 28 }}>
           {Object.keys(porOficina).map((ofId) => (
             <div key={ofId} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 13, padding: 14, boxShadow: "var(--shadow-sm)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                 <Factory size={16} style={{ color: "var(--accent)" }} />
                 <span style={{ fontSize: 14, fontWeight: 600 }}>{nomeOficina(Number(ofId))}</span>
                 <span style={{ fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 99, background: "var(--surface-2)", color: "var(--text-2)" }}>{porOficina[ofId].length} remessa(s)</span>
+                {(() => {
+                  const pecasFora = porOficina[ofId].reduce((s, r) => s + (r.qtd_enviada - r.qtd_retornada), 0);
+                  const maxDias = Math.max(...porOficina[ofId].map((r) => diasEntre(r.data_saida, null)));
+                  return (
+                    <>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 99, background: "var(--accent-bg)", color: "var(--accent)" }}>{pecasFora} peça(s) fora</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 99, background: maxDias > 7 ? "var(--danger-bg)" : "var(--surface-2)", color: maxDias > 7 ? "var(--danger)" : "var(--text-2)" }}>
+                        {maxDias > 7 ? `mais antiga há ${maxDias} dias` : `há até ${maxDias} dia${maxDias === 1 ? "" : "s"}`}
+                      </span>
+                    </>
+                  );
+                })()}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {porOficina[ofId].map((r) => {

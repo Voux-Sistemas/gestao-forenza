@@ -85,8 +85,19 @@ export default function Triagem() {
     <div className="fade-in" style={{ padding: "24px 26px", maxWidth: 1280, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Pilotagem</h2>
-          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Analise as solicitações dos clientes antes de virarem produção.</div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
+            Pilotagem
+            {aguardando.length > 0 && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 700, padding: "3px 11px", borderRadius: 99, background: "var(--danger-bg)", color: "var(--danger)" }}>
+                {aguardando.length} aguardando
+              </span>
+            )}
+          </h2>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>
+            {aguardando.length > 0
+              ? `${aguardando.length} solicitação(ões) de cliente esperando sua análise.`
+              : "Analise as solicitações dos clientes antes de virarem produção."}
+          </div>
         </div>
         <button onClick={() => setNova(true)} style={btnPrimary}><Plus size={16} /> Nova solicitação</button>
       </div>
