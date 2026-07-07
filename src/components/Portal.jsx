@@ -48,14 +48,33 @@ export default function Portal({ session, perfil }) {
 
   const solAtivas = solicitacoes.filter((s) => s.status !== "aprovada");
 
+  // Agrupa as etapas internas em estágios "de vitrine" para o cliente.
+  function estagioCliente(s) {
+    if (s.Estoque > 0 && PRODUCAO.reduce((a, l) => a + s[l], 0) === 0) return { nome: "Pronto para retirada", cor: "var(--success)", pct: 100, pronto: true };
+    if ((s.Acabamento || 0) > 0 || (s["Aviação"] || 0) > 0) return { nome: "Em acabamento", cor: "var(--orange)" };
+    if ((s.Corte || 0) > 0 || (s.Oficina || 0) > 0 || (s.Amostra || 0) > 0) return { nome: "Em produção", cor: "var(--accent)" };
+    return { nome: "Em preparação", cor: "var(--text-2)" };
+  }
+
   function statusPedido(pe) {
     const s = calcularSaldos(pe.id, pe.total, movimentos);
     const emProd = PRODUCAO.reduce((a, l) => a + s[l], 0) + s.Estoque;
-    const pronto = emProd === 0;
-    const concluido = pe.total - emProd;
-    const pct = Math.round((concluido / pe.total) * 100);
-    return { pronto, pct };
+    const pronto = emProd === 0 || (s.Estoque > 0 && PRODUCAO.reduce((a, l) => a + s[l], 0) === 0);
+    const concluido = pe.total - PRODUCAO.reduce((a, l) => a + s[l], 0);
+    const pct = Math.min(100, Math.round((concluido / pe.total) * 100));
+    const est = estagioCliente(s);
+    return { pronto: est.pronto || pronto, pct: est.pronto ? 100 : pct, estagio: est };
   }
+
+  // Resumo do topo
+  const resumo = pedidos.reduce((acc, pe) => {
+    const s = calcularSaldos(pe.id, pe.total, movimentos);
+    const prontas = s.Estoque || 0;
+    const emAndamento = PRODUCAO.reduce((a, l) => a + s[l], 0);
+    acc.pecas += emAndamento;
+    acc.prontas += prontas;
+    return acc;
+  }, { pecas: 0, prontas: 0 });
 
   return (
     <div className="fade-in" style={{ padding: "24px 22px", maxWidth: 760, margin: "0 auto" }}>
@@ -66,6 +85,22 @@ export default function Portal({ session, perfil }) {
         </div>
         <button onClick={() => setNova(true)} style={btnPrimary}><Plus size={16} /> Nova solicitação</button>
       </div>
+
+      {pedidos.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 26 }}>
+          {[
+            { rot: "Em produção", val: pedidos.length, sub: "pedido(s) ativo(s)", cor: "var(--text)" },
+            { rot: "Peças em andamento", val: resumo.pecas.toLocaleString("pt-BR"), sub: "sendo produzidas", cor: "var(--accent)" },
+            { rot: "Prontas", val: resumo.prontas.toLocaleString("pt-BR"), sub: "aguardando retirada", cor: "var(--success)" },
+          ].map((c) => (
+            <div key={c.rot} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "13px 15px", background: "var(--surface)" }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase", color: "var(--text-3)" }}>{c.rot}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, marginTop: 3, color: c.cor }}>{c.val}</div>
+              <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>{c.sub}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <section style={{ marginBottom: 28 }}>
         <h3 style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--text-2)", margin: "0 0 10px" }}>Solicitações</h3>
@@ -106,25 +141,40 @@ export default function Portal({ session, perfil }) {
         {pedidos.length === 0 ? <p style={txtVazio}>Nenhum pedido em produção ainda.</p> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {pedidos.map((pe) => {
-              const { pronto, pct } = statusPedido(pe);
+              const { pronto, pct, estagio } = statusPedido(pe);
+              const grade = pe.grade && Object.keys(pe.grade).length > 0 ? Object.entries(pe.grade) : null;
               return (
-                <div key={pe.id} style={cartao}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                <div key={pe.id} style={{ ...cartao, borderColor: pronto ? "var(--success)" : "var(--border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                     <div>
-                      <span style={{ fontSize: 14, fontWeight: 600 }}>{pe.referencia}</span>
+                      <span style={{ fontSize: 14.5, fontWeight: 600 }}>{pe.referencia}</span>
                       {pe.marca && <span style={{ fontSize: 12, color: "var(--text-2)", marginLeft: 8 }}>{pe.marca}</span>}
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: pronto ? "var(--success-bg)" : "var(--accent-bg)", color: pronto ? "var(--success)" : "var(--accent)" }}>
-                      {pronto ? "Pronto" : "Em produção"}
+                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: pronto ? "var(--success-bg)" : "var(--accent-bg)", color: pronto ? "var(--success)" : "var(--accent)" }}>
+                      {pronto ? "✓ Pronto" : "Em produção"}
                     </span>
                   </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".4px" }}>ETAPA ATUAL</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: estagio.cor }}>{estagio.nome}</span>
+                  </div>
+
                   <div style={{ height: 8, background: "var(--surface-3)", borderRadius: 99, overflow: "hidden" }}>
-                    <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: pronto ? "var(--success)" : "linear-gradient(90deg,var(--accent),var(--accent-2))", transition: "width .4s cubic-bezier(.2,.7,.3,1)" }} />
+                    <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: pronto ? "var(--success)" : estagio.cor, transition: "width .4s cubic-bezier(.2,.7,.3,1)" }} />
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12, color: "var(--text-3)" }}>
-                    <span>{pe.total} peças</span>
+                    <span>{pe.total.toLocaleString("pt-BR")} peças{pe.prazo ? ` · prazo ${formatarData(pe.prazo)}` : ""}</span>
                     <span>{pct}%</span>
                   </div>
+
+                  {grade && (
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 11, paddingTop: 11, borderTop: "1px solid var(--border)" }}>
+                      {grade.map(([t, q]) => (
+                        <span key={t} style={{ fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: "var(--surface-2)", color: "var(--text-2)" }}>{t}: {q}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
