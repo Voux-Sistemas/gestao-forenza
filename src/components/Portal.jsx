@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient.js";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { Plus, ImagePlus, X } from "lucide-react";
 import { PRODUCAO, calcularSaldos } from "../etapas.js";
+import { gradePorTamanho } from "./GradeTabela.jsx";
 import Gaveta from "./Gaveta.jsx";
 
 const STATUS_SOL = {
@@ -142,7 +143,7 @@ export default function Portal({ session, perfil }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {pedidos.map((pe) => {
               const { pronto, pct, estagio } = statusPedido(pe);
-              const grade = pe.grade && Object.keys(pe.grade).length > 0 ? Object.entries(pe.grade) : null;
+              const gradeTam = gradePorTamanho(pe.grade); const grade = Object.keys(gradeTam).length > 0 ? Object.entries(gradeTam) : null;
               return (
                 <div key={pe.id} style={{ ...cartao, borderColor: pronto ? "var(--success)" : "var(--border)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>

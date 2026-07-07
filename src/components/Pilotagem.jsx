@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
 import Gaveta from "./Gaveta.jsx";
 import { comprimirImagem } from "../comprimirImagem.js";
+import GradeEditor, { limparGrade } from "./GradeEditor.jsx";
+import { totalGrade } from "./GradeTabela.jsx";
 import { X, Send, ImagePlus } from "lucide-react";
 
 function dataHora(iso) {
@@ -194,16 +196,21 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
   const [referencia, setReferencia] = useState("");
   const [marca, setMarca] = useState("");
   const [total, setTotal] = useState(sol.quantidade ? String(sol.quantidade) : "");
+  const [gradeVar, setGradeVar] = useState([{ variante: "", qtds: {} }]);
   const [prazo, setPrazo] = useState(sol.prazo_desejado || "");
   const [oficinaId, setOficinaId] = useState("");
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
+  const gradeFinal = limparGrade(gradeVar);
+  const somaGrade = totalGrade(gradeFinal || []);
+  const usaGrade = somaGrade > 0;
+
   async function confirmar() {
     setErro(null);
     if (!referencia.trim()) return setErro("Informe a referência do pedido.");
-    const t = parseInt(total, 10);
-    if (!t || t < 1) return setErro("Informe o total de peças.");
+    const t = usaGrade ? somaGrade : parseInt(total, 10);
+    if (!t || t < 1) return setErro("Preencha a grade de tamanhos ou informe o total de peças.");
     setSalvando(true);
     const ped = await supabase.from("pedidos").insert({
       cliente_id: sol.cliente_id,
@@ -212,6 +219,7 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
       referencia: referencia.trim(),
       marca: marca.trim() || null,
       total: t,
+      grade: gradeFinal,
       prazo: prazo || null,
     });
     if (ped.error) { setSalvando(false); return setErro(ped.error.message); }
@@ -221,7 +229,7 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
   }
 
   return (
-    <Gaveta onFechar={onFechar} largura={420} zIndex={110}>
+    <Gaveta onFechar={onFechar} largura={680} zIndex={110}>
         <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Aprovar e gerar pedido</h3>
         <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Confirme os dados do pedido que vai entrar na produção.</p>
         <div style={{ display: "flex", gap: 10 }}>
@@ -229,12 +237,20 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
           <div style={{ flex: 1 }}><label style={lbl}>Marca</label><input value={marca} onChange={(e) => setMarca(e.target.value)} style={inp} /></div>
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-          <div style={{ flex: 1 }}><label style={lbl}>Total de peças</label><input type="number" min="1" value={total} onChange={(e) => setTotal(e.target.value)} style={inp} /></div>
           <div style={{ flex: 1 }}><label style={lbl}>Prazo</label><input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} style={inp} /></div>
         </div>
+
+        <label style={{ ...lbl, marginTop: 14 }}>Grade de tamanhos</label>
+        <GradeEditor valor={gradeVar} onChange={setGradeVar} />
+        {!usaGrade && (
+          <div style={{ marginTop: 10 }}>
+            <label style={lbl}>Ou informe só o total de peças</label>
+            <input type="number" min="1" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="Total de peças" style={inp} />
+          </div>
+        )}
         <label style={{ ...lbl, marginTop: 14 }}>Oficina (opcional)</label>
         <select value={oficinaId} onChange={(e) => setOficinaId(e.target.value)} style={inp}>
-          <option value="">— nenhuma —</option>
+          <option value="">Selecionar…</option>
           {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
         </select>
         {erro && <p style={erroTxt}>{erro}</p>}
@@ -246,6 +262,7 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
     </Gaveta>
   );
 }
+
 
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };

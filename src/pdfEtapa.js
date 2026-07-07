@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { rotuloLocal } from "./etapas.js";
+import { gradePorTamanho } from "./components/GradeTabela.jsx";
 
 const TINTA = [38, 37, 30];        // quase-preto da marca
 const VERDE = [29, 158, 117];      // verde do ponto da logo
@@ -91,8 +92,9 @@ export function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalPartes,
   y += 3;
 
   // ── Grade (tabela) ──
-  if (pedido.grade && Object.keys(pedido.grade).length > 0) {
-    const entradas = Object.entries(pedido.grade);
+  const gradeTam = gradePorTamanho(pedido.grade);
+  if (Object.keys(gradeTam).length > 0) {
+    const entradas = Object.entries(gradeTam);
     quebraSePreciso(14 + entradas.length * 7);
     doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
     doc.text("GRADE DE TAMANHOS (PEDIDO COMPLETO)", mx, y);
