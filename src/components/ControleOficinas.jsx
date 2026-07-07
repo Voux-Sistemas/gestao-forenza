@@ -4,7 +4,7 @@ import { supabase } from "../supabaseClient.js";
 import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import { calcularSaldos, rotuloLocal } from "../etapas.js";
-import { gerarPdfEtapa } from "../pdfEtapa.js";
+import { gerarPdfOficinas } from "../pdfOficinas.js";
 import Overlay from "./Gaveta.jsx";
 
 const LOCAIS_PRE_OFICINA = ["Entrada", "Corte"];      // de onde podem sair peças pra oficina
@@ -89,6 +89,25 @@ export default function ControleOficinas({ session, perfil }) {
   const totalPecasFora = abertas.reduce((s, r) => s + (r.qtd_enviada - r.qtd_retornada), 0);
   const remessasAtrasadas = abertas.filter((r) => diasEntre(r.data_saida, null) > 7).length;
 
+  // Monta uma remessa no formato do PDF.
+  const mapRemessa = (r) => ({
+    ref: pedidos.find((p) => p.id === r.pedido_id)?.referencia || "#" + r.pedido_id,
+    saida: r.data_saida, fechamento: r.data_fechamento,
+    enviada: r.qtd_enviada, retornada: r.qtd_retornada,
+  });
+
+  // Gera o relatório: uma oficina (ofId informado) ou todas (ofId nulo).
+  function gerarRelatorio(ofId = null) {
+    const ids = ofId != null ? [ofId] : [...new Set(remessas.map((r) => r.oficina_id))];
+    const grupos = ids.map((id) => ({
+      nome: nomeOficina(id),
+      abertas: remessas.filter((r) => r.oficina_id === id && !r.data_fechamento).map(mapRemessa),
+      fechadas: remessas.filter((r) => r.oficina_id === id && r.data_fechamento).map(mapRemessa),
+    })).filter((g) => g.abertas.length + g.fechadas.length > 0);
+    if (grupos.length === 0) return window.alert("Não há remessas para gerar o relatório.");
+    gerarPdfOficinas({ grupos, titulo: ofId != null ? nomeOficina(ofId) : "Todas as oficinas" });
+  }
+
   if (carregando) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>;
 
   return (
@@ -98,7 +117,12 @@ export default function ControleOficinas({ session, perfil }) {
           <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Controle de oficinas</h2>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Registre saídas e retornos de peças das oficinas terceirizadas.</div>
         </div>
-        <button onClick={() => setNovaSaida(true)} style={btnPrimary}><Plus size={16} /> Registrar saída</button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => gerarRelatorio(null)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+            <FileDown size={16} style={{ color: "var(--accent)" }} /> PDF geral
+          </button>
+          <button onClick={() => setNovaSaida(true)} style={btnPrimary}><Plus size={16} /> Registrar saída</button>
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
@@ -107,9 +131,9 @@ export default function ControleOficinas({ session, perfil }) {
         <StatCard Icon={AlertTriangle} label="Em atraso (+7 dias)" valor={remessasAtrasadas} cor="var(--danger)" valorCor={remessasAtrasadas > 0 ? "var(--danger)" : undefined} />
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 12px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 14px" }}>
         <span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--warning)" }} />
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Em aberto</span>
+        <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Em aberto</span>
         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{abertas.length}</span>
       </div>
       {abertas.length === 0 ? (
@@ -191,11 +215,27 @@ export default function ControleOficinas({ session, perfil }) {
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 12px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "36px 0 14px", paddingTop: 24, borderTop: "1px solid var(--border)" }}>
         <span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)" }} />
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Fechadas recentemente</span>
+        <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Fechadas recentemente</span>
         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{fechadasRecentes.length}</span>
       </div>
+
+      {(() => {
+        const idsComRemessa = [...new Set(remessas.map((r) => r.oficina_id))];
+        if (idsComRemessa.length === 0) return null;
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            <span style={{ fontSize: 12, color: "var(--text-3)" }}>Relatório por oficina:</span>
+            {idsComRemessa.map((id) => (
+              <button key={id} onClick={() => gerarRelatorio(id)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                <FileDown size={13} style={{ color: "var(--accent)" }} /> {nomeOficina(id)}
+              </button>
+            ))}
+          </div>
+        );
+      })()}
       {fechadasRecentes.length === 0 ? (
         <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>Nenhuma remessa fechada ainda.</div>
       ) : (
@@ -207,20 +247,10 @@ export default function ControleOficinas({ session, perfil }) {
             <span style={{ flex: 1 }}>Retorno</span>
             <span style={{ flex: 0.7, textAlign: "center" }}>Dias</span>
             <span style={{ flex: 0.7, textAlign: "right" }}>Peças</span>
-            <span style={{ width: 40, textAlign: "right" }}>PDF</span>
           </div>
           {fechadasRecentes.map((r) => {
             const ped = pedidos.find((p) => p.id === r.pedido_id);
             const d = diasEntre(r.data_saida, r.data_fechamento);
-            const baixarPdf = () => {
-              if (!ped) return;
-              gerarPdfEtapa({
-                pedido: ped, cliente: nomeCliente(ped.cliente_id), local: "Oficina", qtd: r.qtd_enviada,
-                parte: 1, totalPartes: 1,
-                oficina: nomeOficina(r.oficina_id),
-                processos: null,
-              });
-            };
             return (
               <div key={r.id} style={{ display: "flex", alignItems: "center", padding: "13px 16px", borderTop: "1px solid var(--border)", fontSize: 13 }}>
                 <span style={{ flex: 2, fontWeight: 600 }}>{ped?.referencia || "#" + r.pedido_id}</span>
@@ -229,12 +259,6 @@ export default function ControleOficinas({ session, perfil }) {
                 <span style={{ flex: 1, color: "var(--text-2)" }}>{fmtData(r.data_fechamento)}</span>
                 <span style={{ flex: 0.7, color: "var(--text-2)", textAlign: "center" }}>{d}</span>
                 <span style={{ flex: 0.7, color: "var(--text-2)", textAlign: "right", fontWeight: 600 }}>{r.qtd_enviada}</span>
-                <span style={{ width: 40, display: "flex", justifyContent: "flex-end" }}>
-                  <button onClick={baixarPdf} title="Baixar PDF da remessa" aria-label="Baixar PDF da remessa"
-                    style={{ display: "inline-flex", padding: 6, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>
-                    <FileDown size={14} />
-                  </button>
-                </span>
               </div>
             );
           })}
