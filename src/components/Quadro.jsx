@@ -248,6 +248,7 @@ export default function Quadro({ session, perfil }) {
 function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar, ehMaster, onFechar, onOk }) {
   const { pedido, local, saldo, destinoInicial, cliente, parte, totalPartes } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
+  const [editarGrade, setEditarGrade] = useState(false);
 
   function baixarPdf() {
     const listaProc = local === "Corte" ? PROCESSOS_CORTE : local === "Acabamento" ? PROCESSOS_ACABAMENTO : null;
@@ -359,18 +360,25 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
         style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "9px 15px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
         <FileDown size={16} style={{ color: "var(--accent)" }} /> Baixar PDF desta etapa
       </button>
-      {(pedido.grade || pedido.cor || pedido.peso || pedido.volume || pedido.observacoes) && (
-        <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Detalhes do pedido</div>
-          <GradeTabela grade={pedido.grade} margem="0 0 10px" />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 18px", fontSize: 12.5 }}>
-            {pedido.cor && <span><span style={{ color: "var(--text-3)" }}>Cor:</span> {pedido.cor}</span>}
-            {pedido.peso && <span><span style={{ color: "var(--text-3)" }}>Peso:</span> {pedido.peso}</span>}
+      <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px" }}>Detalhes do pedido</span>
+          {podeEditar && (
+            <button type="button" onClick={() => setEditarGrade(true)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", fontSize: 11.5, fontWeight: 600, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--accent)", cursor: "pointer" }}>
+              <Tags size={12} /> {pedido.grade && Object.keys(pedido.grade).length ? "Editar tamanhos" : "Adicionar tamanhos"}
+            </button>
+          )}
+        </div>
+        {pedido.grade && Object.keys(pedido.grade).length > 0
+          ? <GradeTabela grade={pedido.grade} margem="0 0 10px" />
+          : <div style={{ fontSize: 12.5, color: "var(--text-3)", marginBottom: 10 }}>Sem grade de tamanhos cadastrada.</div>}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 18px", fontSize: 12.5 }}>
+          {pedido.cor && <span><span style={{ color: "var(--text-3)" }}>Cor:</span> {pedido.cor}</span>}
+          {pedido.peso && <span><span style={{ color: "var(--text-3)" }}>Peso:</span> {pedido.peso}</span>}
             {pedido.volume && <span><span style={{ color: "var(--text-3)" }}>Volume:</span> {pedido.volume}</span>}
           </div>
           {pedido.observacoes && <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "8px 0 0", whiteSpace: "pre-wrap" }}>{pedido.observacoes}</p>}
         </div>
-      )}
       <div style={{ marginBottom: 16 }}>
         <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 }}>Oficina responsável</label>
         <select value={oficinaId} onChange={(e) => mudarOficina(e.target.value)} disabled={!podeEditar} style={inpMini}>
@@ -419,6 +427,77 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
         </button>
       )}
       {verResumo && <ResumoPilotagem solicitacaoId={pedido.solicitacao_id} onFechar={() => setVerResumo(false)} />}
+      {editarGrade && <ModalEditarGrade pedido={pedido} onFechar={() => setEditarGrade(false)} onOk={() => { setEditarGrade(false); onOk(); }} />}
+    </Overlay>
+  );
+}
+
+// Editar/adicionar a grade de tamanhos de um pedido já existente.
+function ModalEditarGrade({ pedido, onFechar, onOk }) {
+  const inicial = pedido.grade && Object.keys(pedido.grade).length ? pedido.grade : {};
+  const extrasIniciais = Object.keys(inicial).filter((t) => !TAMANHOS_PADRAO.includes(t));
+  const [grade, setGrade] = useState(() => Object.fromEntries(Object.entries(inicial).map(([t, q]) => [t, String(q)])));
+  const [extras, setExtras] = useState(extrasIniciais);
+  const [tamanhoExtra, setTamanhoExtra] = useState("");
+  const [erro, setErro] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const linhas = [...TAMANHOS_PADRAO, ...extras];
+  const soma = linhas.reduce((a, t) => a + (parseInt(grade[t], 10) || 0), 0);
+
+  function addExtra() {
+    const t = tamanhoExtra.trim().toUpperCase();
+    if (t && !linhas.includes(t)) setExtras((e) => [...e, t]);
+    setTamanhoExtra("");
+  }
+  function removerExtra(t) {
+    setExtras((e) => e.filter((x) => x !== t));
+    setGrade((g) => { const n = { ...g }; delete n[t]; return n; });
+  }
+
+  async function salvar() {
+    setErro(null);
+    if (soma < 1) return setErro("Informe ao menos uma quantidade.");
+    const gradeFinal = Object.fromEntries(linhas.map((t) => [t, parseInt(grade[t], 10)]).filter(([, q]) => q >= 1));
+    setSalvando(true);
+    // Atualiza a grade e o total do pedido (o total passa a refletir a soma dos tamanhos).
+    const { error } = await supabase.from("pedidos").update({ grade: gradeFinal, total: soma }).eq("id", pedido.id);
+    setSalvando(false);
+    if (error) return setErro(error.message);
+    onOk();
+  }
+
+  return (
+    <Overlay onFechar={onFechar} largura={420} zIndex={115}>
+      <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Tamanhos — {pedido.referencia}</h3>
+      <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "0 0 14px" }}>O total do pedido passa a ser a soma dos tamanhos.</p>
+      <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 110px", background: "var(--surface-2)", padding: "7px 12px", fontSize: 10.5, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".4px" }}>
+          <span>Tamanho</span><span>Quantidade</span>
+        </div>
+        {linhas.map((t) => (
+          <div key={t} style={{ display: "grid", gridTemplateColumns: "1fr 110px", alignItems: "center", padding: "5px 12px", borderTop: "1px solid var(--border)" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 8 }}>
+              {t}
+              {extras.includes(t) && <button type="button" onClick={() => removerExtra(t)} aria-label={`Remover ${t}`} style={{ display: "inline-flex", border: "none", background: "none", color: "var(--text-3)", cursor: "pointer", padding: 2 }}><Trash2 size={12} /></button>}
+            </span>
+            <input type="number" min="0" placeholder="—" value={grade[t] ?? ""} onChange={(e) => setGrade((g) => ({ ...g, [t]: e.target.value }))} style={{ ...inpMini, padding: "7px 10px" }} />
+          </div>
+        ))}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 110px", padding: "7px 12px", borderTop: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 12.5 }}>
+          <span style={{ fontWeight: 700, color: "var(--text-2)" }}>Total</span>
+          <span style={{ fontWeight: 700 }}>{soma}</span>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+        <input value={tamanhoExtra} onChange={(e) => setTamanhoExtra(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addExtra(); } }} placeholder="Outro tamanho…" style={{ ...inpMini, flex: 1 }} />
+        <button type="button" onClick={addExtra} style={{ ...btnGhost, padding: "0 14px" }}><Plus size={15} /></button>
+      </div>
+      {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "10px 0 0" }}>{erro}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar tamanhos"}</button>
+      </div>
     </Overlay>
   );
 }
