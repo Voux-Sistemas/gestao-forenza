@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2 } from "lucide-react";
+import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2, FileText, Plus, X } from "lucide-react";
 import StatCard from "./StatCard.jsx";
 import { calcularSaldos as saldos } from "../etapas.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
@@ -15,6 +15,7 @@ export default function Estoque({ session, perfil }) {
   const [carregando, setCarregando] = useState(true);
   const [inspecionar, setInspecionar] = useState(null);
   const [darBaixa, setDarBaixa] = useState(null);
+  const [faturamento, setFaturamento] = useState(null);
   const podeBaixar = ["master", "chefe_geral"].includes(perfil?.papel);
 
   const carregar = useCallback(async () => {
@@ -134,10 +135,13 @@ export default function Estoque({ session, perfil }) {
                   </div>
                   <GradeTabela grade={pe.grade} />
                   {podeBaixar && (
-                    <button onClick={() => setDarBaixa({ pe, disp1: d1, disp2: d2 })} style={{ ...btnDanger, width: "100%" }}>
+                    <button onClick={() => setDarBaixa({ pe, disp1: d1, disp2: d2 })} style={{ ...btnDanger, width: "100%", marginBottom: 8 }}>
                       <Trash2 size={14} /> Dar baixa
                     </button>
                   )}
+                  <button onClick={() => setFaturamento(pe)} style={{ ...btnGhost, width: "100%" }}>
+                    <FileText size={14} /> Grade de faturamento
+                  </button>
                 </div>
               );
             })}
@@ -145,6 +149,7 @@ export default function Estoque({ session, perfil }) {
         )
       )}
 
+      {faturamento && <ModalFaturamento pedido={faturamento} onFechar={() => setFaturamento(null)} onOk={() => { setFaturamento(null); carregar(); }} />}
       {inspecionar && <ModalInspecao dados={inspecionar} session={session} onFechar={() => setInspecionar(null)} onOk={() => { setInspecionar(null); carregar(); }} />}
       {darBaixa && <ModalBaixa dados={darBaixa} session={session} onFechar={() => setDarBaixa(null)} onOk={() => { setDarBaixa(null); carregar(); }} />}
     </div>
@@ -158,6 +163,118 @@ function Legenda({ cor, rotulo, valor }) {
       <span style={{ fontSize: 13, color: "var(--text-2)" }}>{rotulo}</span>
       <strong style={{ fontSize: 13, color: "var(--text)" }}>{valor}</strong>
     </span>
+  );
+}
+
+// Tamanhos numerados da grade de faturamento (como na ficha física).
+const TAMANHOS_FAT = ["PP/36", "P/38", "M/40", "G/42", "GG/44", "EG/46", "EGG/48", "EXG/50"];
+const somaLinha = (linha) => TAMANHOS_FAT.reduce((a, t) => a + (parseInt(linha.qtds[t], 10) || 0), 0);
+
+// Grade de faturamento: editável, com variantes (linhas) × tamanhos. Espelha a ficha de papel.
+function ModalFaturamento({ pedido, onFechar, onOk }) {
+  const salva = Array.isArray(pedido.grade_faturamento) && pedido.grade_faturamento.length
+    ? pedido.grade_faturamento
+    : [{ variante: "", qtds: {} }];
+  const [linhas, setLinhas] = useState(salva.map((l) => ({ variante: l.variante || "", qtds: { ...(l.qtds || {}) } })));
+  const [peso, setPeso] = useState(pedido.fat_peso || "");
+  const [volume, setVolume] = useState(pedido.fat_volume || "");
+  const [obs, setObs] = useState(pedido.fat_obs || "");
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  const mudarQtd = (i, t, v) => setLinhas((ls) => ls.map((l, j) => j === i ? { ...l, qtds: { ...l.qtds, [t]: v } } : l));
+  const mudarVar = (i, v) => setLinhas((ls) => ls.map((l, j) => j === i ? { ...l, variante: v } : l));
+  const addLinha = () => setLinhas((ls) => [...ls, { variante: "", qtds: {} }]);
+  const removerLinha = (i) => setLinhas((ls) => ls.length > 1 ? ls.filter((_, j) => j !== i) : ls);
+
+  const totalPorTam = (t) => linhas.reduce((a, l) => a + (parseInt(l.qtds[t], 10) || 0), 0);
+  const totalGeral = linhas.reduce((a, l) => a + somaLinha(l), 0);
+
+  async function salvar() {
+    setErro(null);
+    setSalvando(true);
+    // Guarda só as linhas com algum dado.
+    const limpa = linhas
+      .map((l) => ({ variante: l.variante.trim(), qtds: Object.fromEntries(TAMANHOS_FAT.map((t) => [t, parseInt(l.qtds[t], 10) || 0]).filter(([, q]) => q > 0)) }))
+      .filter((l) => l.variante || Object.keys(l.qtds).length);
+    const { error } = await supabase.from("pedidos").update({
+      grade_faturamento: limpa.length ? limpa : null,
+      fat_peso: peso.trim() || null,
+      fat_volume: volume.trim() || null,
+      fat_obs: obs.trim() || null,
+    }).eq("id", pedido.id);
+    setSalvando(false);
+    if (error) return setErro(error.message);
+    onOk();
+  }
+
+  const cel = { border: "1px solid var(--border)", padding: 0, textAlign: "center" };
+  const inpCel = { width: "100%", border: "none", background: "transparent", textAlign: "center", fontSize: 12.5, padding: "6px 2px", color: "var(--text)", fontFamily: "inherit", outline: "none" };
+
+  return (
+    <Overlay onFechar={onFechar} largura={720} zIndex={106}>
+      <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Grade de faturamento — {pedido.referencia}</h3>
+      <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "0 0 14px" }}>O que realmente faturou. Pode diferir da grade do pedido.</p>
+
+      {pedido.grade && Object.keys(pedido.grade).length > 0 && (
+        <details style={{ marginBottom: 14 }}>
+          <summary style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", cursor: "pointer" }}>Ver grade do pedido (referência)</summary>
+          <div style={{ marginTop: 8 }}><GradeTabela grade={pedido.grade} margem="0" /></div>
+        </details>
+      )}
+
+      <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 10 }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 640 }}>
+          <thead>
+            <tr style={{ background: "var(--surface-2)" }}>
+              <th style={{ ...cel, textAlign: "left", padding: "7px 10px", fontSize: 10.5, color: "var(--text-3)", letterSpacing: ".3px", minWidth: 120 }}>VARIANTE</th>
+              {TAMANHOS_FAT.map((t) => <th key={t} style={{ ...cel, padding: "7px 4px", fontSize: 10, color: "var(--text-3)", minWidth: 52 }}>{t}</th>)}
+              <th style={{ ...cel, padding: "7px 6px", fontSize: 10.5, color: "var(--text-2)", background: "var(--surface-3)" }}>TOTAL</th>
+              <th style={{ ...cel, width: 34, background: "var(--surface-2)" }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {linhas.map((l, i) => (
+              <tr key={i}>
+                <td style={{ ...cel, textAlign: "left" }}>
+                  <input value={l.variante} onChange={(e) => mudarVar(i, e.target.value)} placeholder="cor / variante" style={{ ...inpCel, textAlign: "left", padding: "6px 10px", fontWeight: 600 }} />
+                </td>
+                {TAMANHOS_FAT.map((t) => (
+                  <td key={t} style={cel}>
+                    <input type="number" min="0" value={l.qtds[t] ?? ""} onChange={(e) => mudarQtd(i, t, e.target.value)} placeholder="—" style={inpCel} />
+                  </td>
+                ))}
+                <td style={{ ...cel, background: "var(--surface-2)", fontWeight: 700, fontSize: 13 }}>{somaLinha(l)}</td>
+                <td style={cel}>
+                  <button onClick={() => removerLinha(i)} disabled={linhas.length === 1} aria-label="Remover linha" style={{ display: "inline-flex", border: "none", background: "none", color: "var(--text-3)", cursor: linhas.length === 1 ? "not-allowed" : "pointer", padding: 5, opacity: linhas.length === 1 ? 0.4 : 1 }}><X size={13} /></button>
+                </td>
+              </tr>
+            ))}
+            <tr style={{ background: "var(--surface-2)", fontWeight: 700 }}>
+              <td style={{ ...cel, textAlign: "left", padding: "7px 10px", fontSize: 12 }}>TOTAL</td>
+              {TAMANHOS_FAT.map((t) => <td key={t} style={{ ...cel, fontSize: 12.5, color: totalPorTam(t) > 0 ? "var(--accent)" : "var(--text-3)" }}>{totalPorTam(t) || ""}</td>)}
+              <td style={{ ...cel, background: "var(--accent-bg)", color: "var(--accent)", fontSize: 14 }}>{totalGeral}</td>
+              <td style={cel}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <button onClick={addLinha} style={{ ...btnGhost, marginTop: 10 }}><Plus size={14} /> Adicionar variante</button>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+        <div style={{ flex: 1 }}><label style={lbl}>Peso</label><input value={peso} onChange={(e) => setPeso(e.target.value)} style={inp} /></div>
+        <div style={{ flex: 1 }}><label style={lbl}>Volume</label><input value={volume} onChange={(e) => setVolume(e.target.value)} placeholder="ex: 8 volumes" style={inp} /></div>
+      </div>
+      <label style={{ ...lbl, marginTop: 14 }}>Observações</label>
+      <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} placeholder="ex: 1 pç p/ showroom, falta 2 pçs da oficina…" style={{ ...inp, resize: "vertical" }} />
+
+      {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "10px 0 0" }}>{erro}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar grade"}</button>
+      </div>
+    </Overlay>
   );
 }
 
@@ -321,4 +438,4 @@ const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBott
 const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer", transition: "background .15s" };
 
 const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 14px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "none", background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "#fff", boxShadow: "var(--shadow-sm)", cursor: "pointer" };
-const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
+const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
