@@ -125,7 +125,7 @@ export function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalPartes,
     doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
     doc.text(`PROCESSOS — ${rotuloLocal(local).toUpperCase()}`, mx, y);
     y += 6;
-    processos.forEach(({ nome, qtd: feitas, obs }) => {
+    processos.forEach(({ nome, qtd: feitas, grade, obs }) => {
       const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, larg - mx * 2 - 12) : [];
       quebraSePreciso(7 + obsLinhas.length * 4);
       const completo = feitas >= pedido.total;
