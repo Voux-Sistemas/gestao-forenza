@@ -59,9 +59,31 @@ export default function Login({ modoClienteInicial }) {
     const email = ehCliente
       ? usuario.trim()
       : (usuario.includes("@") ? usuario.trim() : `${usuario.trim()}@admin.com`);
-    const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    if (error) {
+      setCarregando(false);
+      setErro(ehCliente ? "E-mail ou senha incorretos." : "Usuário ou senha incorretos.");
+      return;
+    }
+    // Confere se o papel do usuário corresponde à aba escolhida.
+    const uid = data.user?.id;
+    if (uid) {
+      const { data: perfil } = await supabase.from("perfis").select("papel").eq("id", uid).single();
+      const papel = perfil?.papel;
+      if (ehCliente && papel !== "cliente") {
+        await supabase.auth.signOut();
+        setCarregando(false);
+        setErro("Este login é de funcionário. Use a aba \"Funcionário\".");
+        return;
+      }
+      if (!ehCliente && papel === "cliente") {
+        await supabase.auth.signOut();
+        setCarregando(false);
+        setErro("Este login é de cliente. Use a aba \"Cliente\".");
+        return;
+      }
+    }
     setCarregando(false);
-    if (error) setErro(ehCliente ? "E-mail ou senha incorretos." : "Usuário ou senha incorretos.");
   }
 
   function trocarAba(id) {

@@ -46,10 +46,19 @@ function Clientes() {
 
   async function excluir(e, c) {
     e.stopPropagation();
-    if (!window.confirm(`Excluir o cliente "${c.nome}"? Esta ação não pode ser desfeita.`)) return;
+    if (!window.confirm(`Excluir o cliente "${c.nome}"? O acesso dele ao portal será removido. Esta ação não pode ser desfeita.`)) return;
+    // Se o cliente tem um login vinculado, remove-o de verdade (perfil + autenticação).
+    const { data: perfilCliente } = await supabase.from("perfis").select("id").eq("cliente_id", c.id).eq("papel", "cliente").maybeSingle();
+    if (perfilCliente?.id) {
+      const { data, error } = await supabase.functions.invoke("excluir-usuario", { body: { id: perfilCliente.id } });
+      if (error || data?.error) {
+        window.alert("Não foi possível excluir o login do cliente: " + (data?.error || error.message));
+        return;
+      }
+    }
     const { error } = await supabase.from("clientes").delete().eq("id", c.id);
     if (error) {
-      window.alert("Não foi possível excluir: este cliente tem pedidos ou solicitações no sistema. Use \"Desativar\" para ocultá-lo sem perder o histórico.");
+      window.alert("O login foi removido, mas o cadastro tem pedidos/solicitações no histórico. Use \"Desativar\" para ocultá-lo sem perder o histórico.");
       return;
     }
     carregar();
@@ -612,10 +621,10 @@ function Funcionarios() {
       window.alert("Não é possível excluir um usuário Master.");
       return;
     }
-    if (!window.confirm(`Excluir o funcionário "${f.nome}"? O login dele deixará de funcionar. Esta ação não pode ser desfeita.`)) return;
-    const { error } = await supabase.from("perfis").delete().eq("id", f.id);
-    if (error) {
-      window.alert("Não foi possível excluir: " + error.message);
+    if (!window.confirm(`Excluir o funcionário "${f.nome}"? O login dele deixará de funcionar por completo. Esta ação não pode ser desfeita.`)) return;
+    const { data, error } = await supabase.functions.invoke("excluir-usuario", { body: { id: f.id } });
+    if (error || data?.error) {
+      window.alert("Não foi possível excluir: " + (data?.error || error.message));
       return;
     }
     carregar();
@@ -673,8 +682,8 @@ function NovoFuncionario({ onFechar, onSalvo }) {
   const [nome, setNome] = useState("");
   const [usuario, setUsuario] = useState("");
   const [senha, setSenha] = useState("");
-  const [papel, setPapel] = useState("funcionario");
-  const [setor, setSetor] = useState(SETORES[0]);
+  const [papel, setPapel] = useState("");
+  const [setor, setSetor] = useState("");
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -683,6 +692,8 @@ function NovoFuncionario({ onFechar, onSalvo }) {
   async function salvar() {
     setErro(null);
     if (!nome.trim()) return setErro("Informe o nome.");
+    if (!papel) return setErro("Selecione o nível de acesso.");
+    if (temSetor && !setor) return setErro("Selecione o setor.");
     const u = usuario.trim().toLowerCase();
     if (!u) return setErro("Informe o usuário.");
     if (/[^a-z0-9._-]/.test(u)) return setErro("Usuário só pode ter letras, números, ponto, hífen ou underline (sem espaços).");
@@ -717,12 +728,14 @@ function NovoFuncionario({ onFechar, onSalvo }) {
       </div>
       <label style={{ ...lbl, marginTop: 14 }}>Nível de acesso</label>
       <select value={papel} onChange={(e) => setPapel(e.target.value)} style={inp}>
+        <option value="">Selecionar…</option>
         {PAPEIS_STAFF.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
       </select>
       {temSetor && (
         <>
           <label style={{ ...lbl, marginTop: 14 }}>Setor</label>
           <select value={setor} onChange={(e) => setSetor(e.target.value)} style={inp}>
+            <option value="">Selecionar…</option>
             {SETORES.map((x) => <option key={x} value={x}>{rotuloLocal(x)}</option>)}
           </select>
         </>
@@ -740,7 +753,7 @@ function EditarFuncionario({ registro, somenteVer, onFechar, onSalvo }) {
   const [editando, setEditando] = useState(!somenteVer);
   const [nome, setNome] = useState(registro.nome || "");
   const [papel, setPapel] = useState(registro.papel);
-  const [setor, setSetor] = useState(registro.setor || SETORES[0]);
+  const [setor, setSetor] = useState(registro.setor || "");
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -750,6 +763,7 @@ function EditarFuncionario({ registro, somenteVer, onFechar, onSalvo }) {
   async function salvar() {
     setErro(null);
     if (!nome.trim()) return setErro("Informe o nome.");
+    if (temSetor && !setor) return setErro("Selecione o setor.");
     setSalvando(true);
     const { error } = await supabase.from("perfis").update({ nome: nome.trim(), papel, setor: temSetor ? setor : null }).eq("id", registro.id);
     setSalvando(false);
@@ -778,6 +792,7 @@ function EditarFuncionario({ registro, somenteVer, onFechar, onSalvo }) {
             <>
               <label style={{ ...lbl, marginTop: 14 }}>Setor</label>
               <select value={setor} onChange={(e) => setSetor(e.target.value)} style={inp}>
+                <option value="">Selecionar…</option>
                 {SETORES.map((x) => <option key={x} value={x}>{rotuloLocal(x)}</option>)}
               </select>
             </>
