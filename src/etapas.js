@@ -21,7 +21,7 @@ export const COLUNAS = PRODUCAO;
 export const LOCAIS = [...PRODUCAO, "Estoque", "Perda"];
 
 // Nome de exibição quando difere do valor gravado no banco.
-const LABELS = { Entrada: "Pedidos" };
+const LABELS = { Entrada: "Pedidos", "Aviação": "Aviamento" };
 export const rotuloLocal = (local) => LABELS[local] || local;
 
 export const CORES_ETAPA = {
