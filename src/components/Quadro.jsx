@@ -83,7 +83,45 @@ export default function Quadro({ session, perfil }) {
   return (
     <div className="fade-in" style={{ height: "100%", display: "flex", flexDirection: "column", padding: "20px 26px 0" }}>
 
-      <div style={{ flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+      {!podeVerTudo && perfil?.setor && (() => {
+        // Resumo do setor do funcionário.
+        const meus = pedidos
+          .map((pe) => ({ pe, saldo: calcularSaldos(pe.id, pe.total, movimentos) }))
+          .filter(({ saldo }) => saldo[perfil.setor] > 0);
+        const totalPecas = meus.reduce((a, { saldo }) => a + saldo[perfil.setor], 0);
+        const atrasados = meus.filter(({ pe }) => { const u = urgenciaDoCard(pe, perfil.setor); return u && (u.nivel === "atrasado" || u.nivel === "hoje"); }).length;
+        const primeiroNome = (perfil.nome || "").split(" ")[0];
+        const hora = new Date().getHours();
+        const saud = hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite";
+        const IconeSetor = ICONES_COLUNA[perfil.setor] || Scissors;
+        const cards = [
+          { rot: "No setor", val: meus.length, sub: "pedido(s)", cor: "var(--text)" },
+          { rot: "Peças", val: totalPecas.toLocaleString("pt-BR"), sub: `para ${rotuloLocal(perfil.setor).toLowerCase()}`, cor: "var(--accent)" },
+          { rot: "Atrasados", val: atrasados, sub: atrasados === 1 ? "precisa atenção" : "precisam atenção", cor: atrasados > 0 ? "var(--danger)" : "var(--text-3)" },
+        ];
+        return (
+          <div style={{ flexShrink: 0, marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <IconeSetor size={22} style={{ color: CORES[perfil.setor] }} />
+              <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Meu setor · {rotuloLocal(perfil.setor)}</h2>
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4, marginBottom: 16 }}>
+              {saud}{primeiroNome ? `, ${primeiroNome}` : ""}. {meus.length === 0 ? "Nenhum pedido no seu setor agora." : `Você tem ${meus.length} pedido${meus.length === 1 ? "" : "s"} no ${rotuloLocal(perfil.setor).toLowerCase()} hoje.`}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 220px))", gap: 10 }}>
+              {cards.map((c) => (
+                <div key={c.rot} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase", color: "var(--text-3)" }}>{c.rot}</div>
+                  <div style={{ fontSize: 23, fontWeight: 700, marginTop: 2, color: c.cor }}>{c.val}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-3)" }}>{c.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      <div style={{ flexShrink: 0, display: podeVerTudo ? "flex" : "none", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Quadro de produção</h2>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Clique num card ou arraste-o para outra coluna para mover as peças.</div>
@@ -127,7 +165,6 @@ export default function Quadro({ session, perfil }) {
               }}
               style={{
                 ...coluna,
-                ...(colunas.length === 1 ? { flex: "1 1 auto", width: "100%" } : {}),
                 borderTop: `3px solid ${CORES[local]}`,
                 outline: destacada ? "2px dashed var(--accent)" : "none",
                 outlineOffset: -2,
@@ -140,9 +177,7 @@ export default function Quadro({ session, perfil }) {
                 <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.15 }}>{rotuloLocal(local)}</span>
                 <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", fontWeight: 600, background: "var(--surface-2)", borderRadius: 99, padding: "1px 8px" }}>{cards.length}</span>
               </div>
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 2, ...(colunas.length === 1
-                ? { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12, alignContent: "start" }
-                : { display: "flex", flexDirection: "column", gap: 8 }) }}>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
                 {cards.map(({ pe, saldo }) => {
                   const urg = urgenciaDoCard(pe, local);
                   const partes = COLUNAS.filter((l) => saldo[l] > 0); // divisões do pedido pelo fluxo
