@@ -6,6 +6,7 @@ import { comprimirImagem } from "../comprimirImagem.js";
 import { gerarPdfEtapa } from "../pdfEtapa.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
 import GradeTabela, { normalizarGrade, totalGrade, gradePorTamanho } from "./GradeTabela.jsx";
+import StatCard from "./StatCard.jsx";
 import GradeEditor, { limparGrade } from "./GradeEditor.jsx";
 
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
@@ -95,9 +96,9 @@ export default function Quadro({ session, perfil }) {
         const saud = hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite";
         const IconeSetor = ICONES_COLUNA[perfil.setor] || Scissors;
         const cards = [
-          { rot: "No setor", val: meus.length, sub: "pedido(s)", cor: "var(--text)" },
-          { rot: "Peças", val: totalPecas.toLocaleString("pt-BR"), sub: `para ${rotuloLocal(perfil.setor).toLowerCase()}`, cor: "var(--accent)" },
-          { rot: "Atrasados", val: atrasados, sub: atrasados === 1 ? "precisa atenção" : "precisam atenção", cor: atrasados > 0 ? "var(--danger)" : "var(--text-3)" },
+          { label: "No setor", valor: meus.length, sub: `pedido${meus.length === 1 ? "" : "s"}`, cor: "var(--text-3)", Icon: ClipboardList },
+          { label: "Peças", valor: totalPecas.toLocaleString("pt-BR"), sub: `para ${rotuloLocal(perfil.setor).toLowerCase()}`, cor: CORES[perfil.setor], Icon: Package, valorCor: CORES[perfil.setor] },
+          { label: "Atrasados", valor: atrasados, sub: atrasados === 1 ? "precisa atenção" : "precisam atenção", cor: atrasados > 0 ? "var(--danger)" : "var(--text-3)", Icon: AlertTriangle, valorCor: atrasados > 0 ? "var(--danger)" : undefined },
         ];
         return (
           <div style={{ flexShrink: 0, marginBottom: 18 }}>
@@ -108,13 +109,9 @@ export default function Quadro({ session, perfil }) {
             <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4, marginBottom: 16 }}>
               {saud}{primeiroNome ? `, ${primeiroNome}` : ""}. {meus.length === 0 ? "Nenhum pedido no seu setor agora." : `Você tem ${meus.length} pedido${meus.length === 1 ? "" : "s"} no ${rotuloLocal(perfil.setor).toLowerCase()} hoje.`}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 220px))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 240px))", gap: 12 }}>
               {cards.map((c) => (
-                <div key={c.rot} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase", color: "var(--text-3)" }}>{c.rot}</div>
-                  <div style={{ fontSize: 23, fontWeight: 700, marginTop: 2, color: c.cor }}>{c.val}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-3)" }}>{c.sub}</div>
-                </div>
+                <StatCard key={c.label} label={c.label} valor={c.valor} sub={c.sub} cor={c.cor} Icon={c.Icon} valorCor={c.valorCor} />
               ))}
             </div>
           </div>
@@ -139,7 +136,7 @@ export default function Quadro({ session, perfil }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 10, overflowX: "auto", alignItems: "stretch", paddingBottom: 2, justifyContent: colunas.length === 1 ? "flex-start" : "stretch" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2, alignItems: colunas.length === 1 ? "flex-start" : "stretch", justifyContent: colunas.length === 1 ? "flex-start" : "stretch" }}>
         {colunas.map((local) => {
           const cards = pedidos
             .map((pe) => ({ pe, saldo: calcularSaldos(pe.id, pe.total, movimentos) }))
@@ -165,7 +162,7 @@ export default function Quadro({ session, perfil }) {
               }}
               style={{
                 ...coluna,
-                ...(colunas.length === 1 ? { flex: "0 0 340px", maxWidth: 340 } : {}),
+                ...(colunas.length === 1 ? { flex: "0 0 340px", maxWidth: 340, maxHeight: "100%" } : {}),
                 borderTop: `3px solid ${CORES[local]}`,
                 outline: destacada ? "2px dashed var(--accent)" : "none",
                 outlineOffset: -2,
@@ -178,7 +175,7 @@ export default function Quadro({ session, perfil }) {
                 <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.15 }}>{rotuloLocal(local)}</span>
                 <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", fontWeight: 600, background: "var(--surface-2)", borderRadius: 99, padding: "1px 8px" }}>{cards.length}</span>
               </div>
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
+              <div style={{ ...(colunas.length === 1 ? { minHeight: 0, overflowY: "auto" } : { flex: 1, minHeight: 0, overflowY: "auto" }), display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
                 {cards.map(({ pe, saldo }) => {
                   const urg = urgenciaDoCard(pe, local);
                   const partes = COLUNAS.filter((l) => saldo[l] > 0); // divisões do pedido pelo fluxo
