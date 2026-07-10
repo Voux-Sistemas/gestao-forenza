@@ -165,6 +165,7 @@ export default function Quadro({ session, perfil }) {
               }}
               style={{
                 ...coluna,
+                ...(colunas.length === 1 ? { flex: "0 0 340px", maxWidth: 340 } : {}),
                 borderTop: `3px solid ${CORES[local]}`,
                 outline: destacada ? "2px dashed var(--accent)" : "none",
                 outlineOffset: -2,
