@@ -101,7 +101,7 @@ export default function Quadro({ session, perfil }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 10, overflowX: "auto", alignItems: "stretch", paddingBottom: 2 }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 10, overflowX: "auto", alignItems: "stretch", paddingBottom: 2, justifyContent: colunas.length === 1 ? "flex-start" : "stretch" }}>
         {colunas.map((local) => {
           const cards = pedidos
             .map((pe) => ({ pe, saldo: calcularSaldos(pe.id, pe.total, movimentos) }))
@@ -127,6 +127,7 @@ export default function Quadro({ session, perfil }) {
               }}
               style={{
                 ...coluna,
+                ...(colunas.length === 1 ? { flex: "1 1 auto", width: "100%" } : {}),
                 borderTop: `3px solid ${CORES[local]}`,
                 outline: destacada ? "2px dashed var(--accent)" : "none",
                 outlineOffset: -2,
@@ -139,7 +140,9 @@ export default function Quadro({ session, perfil }) {
                 <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.15 }}>{rotuloLocal(local)}</span>
                 <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", fontWeight: 600, background: "var(--surface-2)", borderRadius: 99, padding: "1px 8px" }}>{cards.length}</span>
               </div>
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 2, ...(colunas.length === 1
+                ? { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12, alignContent: "start" }
+                : { display: "flex", flexDirection: "column", gap: 8 }) }}>
                 {cards.map(({ pe, saldo }) => {
                   const urg = urgenciaDoCard(pe, local);
                   const partes = COLUNAS.filter((l) => saldo[l] > 0); // divisões do pedido pelo fluxo
