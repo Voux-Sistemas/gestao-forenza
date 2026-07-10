@@ -275,14 +275,14 @@ export default function Quadro({ session, perfil }) {
         ))}
       </div>
 
-      {mover && <ModalMover dados={mover} oficinas={oficinas} remessas={remessas} movimentos={movimentos} session={session} podeEditar={podeEditar} ehMaster={ehMaster} onFechar={() => setMover(null)} onOk={(info) => { setMover(null); carregar(); setAviso(avisoDeMovimento(info)); }} />}
+      {mover && <ModalMover dados={mover} oficinas={oficinas} remessas={remessas} movimentos={movimentos} session={session} podeEditar={podeEditar} ehMaster={ehMaster} podeAdministrar={podeVerTudo} onFechar={() => setMover(null)} onOk={(info) => { setMover(null); carregar(); setAviso(avisoDeMovimento(info)); }} />}
       <Toast aviso={aviso} onFechar={() => setAviso(null)} />
       {novoAberto && <ModalNovo clientes={clientes} oficinas={oficinas} onFechar={() => setNovoAberto(false)} onOk={() => { setNovoAberto(false); carregar(); }} />}
     </div>
   );
 }
 
-function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar, ehMaster, onFechar, onOk }) {
+function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar, ehMaster, podeAdministrar, onFechar, onOk }) {
   const { pedido, local, saldo, destinoInicial, cliente, parte, totalPartes } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
   const [editarGrade, setEditarGrade] = useState(false);
@@ -437,7 +437,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px" }}>Detalhes do pedido</span>
-          {podeEditar && (
+          {podeAdministrar && (
             <button type="button" onClick={() => setEditarGrade(true)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", fontSize: 11.5, fontWeight: 600, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--accent)", cursor: "pointer" }}>
               <Tags size={12} /> {normalizarGrade(pedido.grade).length ? "Editar tamanhos" : "Adicionar tamanhos"}
             </button>
