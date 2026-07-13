@@ -39,7 +39,7 @@ async function carregarImagem(url) {
 }
 
 // Gera o romaneio em PDF das peças de um pedido em uma etapa.
-export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, imagens }) {
+export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, aviamentos, imagens }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const larg = doc.internal.pageSize.getWidth();
   const mx = 16;
@@ -230,6 +230,41 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
         doc.text(txt, alinhar === "right" ? x + cols[i] - 2 : x, y, { align: alinhar });
         x += cols[i];
       });
+      y += 5;
+      doc.setDrawColor(235).setLineWidth(0.2).line(mx, y - 1.5, larg - mx, y - 1.5);
+    });
+    y += 5;
+  }
+
+  // ── Aviamentos (para a etapa Aviamento) ──
+  if (aviamentos && aviamentos.length > 0) {
+    quebraSePreciso(14 + aviamentos.length * 6);
+    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
+    doc.text("AVIAMENTOS", mx, y);
+    y += 6;
+    aviamentos.forEach((a) => {
+      quebraSePreciso(7);
+      // Monta a descrição conforme o tipo do item.
+      const partes = [];
+      if (a.largura) partes.push(`largura ${a.largura}`);
+      if (a.tipoCampo === "ziper") {
+        if (a.tipo) partes.push(a.tipo);
+        if (a.tamanho) partes.push(a.tamanho);
+      } else if (a.tamanho) {
+        partes.push(`tam. ${a.tamanho}`);
+      }
+      if (a.consumo) partes.push(`consumo ${a.consumo}`);
+      const detalhe = partes.join(" · ");
+      doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...TINTA);
+      doc.text(a.nome, mx + 2, y);
+      if (detalhe) {
+        doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...CINZA);
+        doc.text(detalhe, mx + 45, y);
+      }
+      if (a.qtd) {
+        doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...TINTA);
+        doc.text(`Qtd: ${a.qtd}`, larg - mx - 2, y, { align: "right" });
+      }
       y += 5;
       doc.setDrawColor(235).setLineWidth(0.2).line(mx, y - 1.5, larg - mx, y - 1.5);
     });

@@ -323,12 +323,21 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
         if (sol && sol.imagem_url) imagens.push({ url: sol.imagem_url, rotulo: "Referência" });
       }
 
+      // Aviamentos preenchidos (para a etapa Aviamento).
+      let aviamentos = null;
+      if (local === "Aviação" && ped.ficha_aviamentos) {
+        aviamentos = ITENS_AVIAMENTO
+          .filter((it) => itemPreenchido(ped.ficha_aviamentos[it.id]))
+          .map((it) => ({ nome: it.nome, tipoCampo: it.tipo, ...ped.ficha_aviamentos[it.id] }));
+      }
+
       await gerarPdfEtapa({
         pedido: ped, cliente: cliente || ped.referencia, local, qtd: saldo,
         parte: parte || 1, totalPartes: totalPartes || 1,
         oficina: (oficinas || []).find((o) => o.id === ped.oficina_id)?.nome_empresa || null,
         processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], ped.total), grade: (mapaProc[n] && mapaProc[n].grade) || null, obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
         remessasOficina,
+        aviamentos,
         imagens,
       });
     } finally {
