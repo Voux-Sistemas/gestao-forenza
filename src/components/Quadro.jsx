@@ -75,6 +75,38 @@ export default function Quadro({ session, perfil }) {
     return () => { supabase.removeChannel(canal); };
   }, [carregar]);
 
+  // Notificação em tempo real: avisa o funcionário quando uma peça CHEGA no setor dele.
+  useEffect(() => {
+    const setor = perfil?.setor;
+    if (!setor || ["master", "chefe_geral"].includes(perfil?.papel)) return;
+    const canal = supabase.channel("chegada-" + setor)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "movimentos", filter: `para_local=eq.${setor}` }, async (payload) => {
+        const mov = payload.new;
+        const { data: pe } = await supabase.from("pedidos").select("referencia").eq("id", mov.pedido_id).single();
+        setAviso({ tipo: "chegada", titulo: "Chegou peça no seu setor", detalhe: `${pe?.referencia || "Pedido"} — ${mov.qtd} peça${mov.qtd === 1 ? "" : "s"} no ${rotuloLocal(setor).toLowerCase()}.` });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(canal); };
+  }, [perfil]);
+
+  // Ao entrar: conta quantas peças chegaram desde a última visita.
+  useEffect(() => {
+    const setor = perfil?.setor;
+    if (!setor || ["master", "chefe_geral"].includes(perfil?.papel) || movimentos.length === 0) return;
+    const chave = `forenza-ultima-visita-${setor}`;
+    const ultima = localStorage.getItem(chave);
+    if (ultima) {
+      const novas = movimentos.filter((m) => m.para_local === setor && m.criado_em && m.criado_em > ultima);
+      const totalPecas = novas.reduce((a, m) => a + (m.qtd || 0), 0);
+      if (novas.length > 0) {
+        setAviso({ tipo: "chegada", titulo: "Novidades desde sua última visita", detalhe: `${novas.length} chegada(s) no seu setor — ${totalPecas} peça(s) no total.` });
+      }
+    }
+    localStorage.setItem(chave, new Date().toISOString());
+    // roda só uma vez ao montar com os movimentos carregados
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movimentos.length > 0]);
+
   const nomeCliente = (id) => clientes.find((c) => c.id === id)?.nome || "—";
   const podeVerTudo = ["master", "chefe_geral"].includes(perfil?.papel);
   const colunas = podeVerTudo ? COLUNAS : (perfil?.setor ? [perfil.setor] : []);
@@ -115,6 +147,7 @@ export default function Quadro({ session, perfil }) {
                 <StatCard key={c.label} label={c.label} valor={c.valor} sub={c.sub} cor={c.cor} Icon={c.Icon} valorCor={c.valorCor} />
               ))}
             </div>
+            <HistoricoDoDia setor={perfil.setor} movimentos={movimentos} pedidos={pedidos} />
           </div>
         );
       })()}
@@ -823,6 +856,63 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
     </div>
   );
 }
+// Histórico do dia: o que chegou e saiu do setor hoje. Simples, nível de setor.
+function HistoricoDoDia({ setor, movimentos, pedidos }) {
+  const [aberto, setAberto] = useState(false);
+  const hoje = new Date().toISOString().slice(0, 10);
+  const refDe = (id) => pedidos.find((p) => p.id === id)?.referencia || "#" + id;
+
+  // Movimentos de hoje que envolvem o setor: chegada (para_local) ou saída (de_local).
+  const eventos = movimentos
+    .filter((m) => (m.criado_em || "").slice(0, 10) === hoje && (m.para_local === setor || m.de_local === setor))
+    .map((m) => ({
+      id: m.id,
+      tipo: m.para_local === setor ? "entrada" : "saida",
+      ref: refDe(m.pedido_id),
+      qtd: m.qtd,
+      destino: m.para_local === setor ? m.de_local : m.para_local,
+      hora: m.criado_em ? new Date(m.criado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "",
+    }))
+    .sort((a, b) => b.id - a.id);
+
+  const entradas = eventos.filter((e) => e.tipo === "entrada").reduce((a, e) => a + (e.qtd || 0), 0);
+  const saidas = eventos.filter((e) => e.tipo === "saida").reduce((a, e) => a + (e.qtd || 0), 0);
+
+  return (
+    <div style={{ marginTop: 14, border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", overflow: "hidden" }}>
+      <button type="button" onClick={() => setAberto((a) => !a)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", border: "none", background: "none", cursor: "pointer" }}>
+        <Clock size={15} style={{ color: "var(--text-3)" }} />
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".3px" }}>Movimentação de hoje</span>
+        <span style={{ display: "inline-flex", gap: 6, marginLeft: 4 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", background: "var(--success-bg)", padding: "1px 8px", borderRadius: 99 }}>↓ {entradas}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", background: "var(--accent-bg)", padding: "1px 8px", borderRadius: 99 }}>↑ {saidas}</span>
+        </span>
+        <ChevronDown size={16} style={{ marginLeft: "auto", color: "var(--text-3)", transform: aberto ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
+      </button>
+      {aberto && (
+        <div style={{ borderTop: "1px solid var(--border)", maxHeight: 260, overflowY: "auto" }}>
+          {eventos.length === 0 ? (
+            <div style={{ padding: "18px 15px", fontSize: 12.5, color: "var(--text-3)", textAlign: "center" }}>Nenhuma movimentação hoje ainda.</div>
+          ) : eventos.map((e) => (
+            <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 15px", borderTop: "1px solid var(--border)" }}>
+              <span style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", background: e.tipo === "entrada" ? "var(--success-bg)" : "var(--accent-bg)", color: e.tipo === "entrada" ? "var(--success)" : "var(--accent)" }}>
+                {e.tipo === "entrada" ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{e.ref} <span style={{ fontWeight: 400, color: "var(--text-3)" }}>· {e.qtd} peça{e.qtd === 1 ? "" : "s"}</span></div>
+                <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>
+                  {e.tipo === "entrada" ? `chegou de ${rotuloLocal(e.destino)}` : `enviado para ${rotuloLocal(e.destino)}`}
+                </div>
+              </div>
+              <span style={{ fontSize: 11.5, color: "var(--text-3)", flexShrink: 0 }}>{e.hora}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PainelAviamento({ pedido, podeEditar }) {
   const [ficha, setFicha] = useState(() => pedido.ficha_aviamentos || {});
   const [salvando, setSalvando] = useState(false);

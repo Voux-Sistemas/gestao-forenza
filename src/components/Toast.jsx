@@ -14,9 +14,11 @@ export default function Toast({ aviso, onFechar }) {
 
   if (!aviso) return null;
   const ehPerda = aviso.tipo === "perda";
-  const cor = ehPerda ? "var(--danger)" : "var(--success)";
-  const bg = ehPerda ? "var(--danger-bg)" : "var(--success-bg)";
+  const ehChegada = aviso.tipo === "chegada";
+  const cor = ehPerda ? "var(--danger)" : ehChegada ? "var(--accent)" : "var(--success)";
+  const bg = ehPerda ? "var(--danger-bg)" : ehChegada ? "var(--accent-bg)" : "var(--success-bg)";
   const Icone = ehPerda ? PackageX : PackageCheck;
+  const selo = ehPerda ? "Perda" : ehChegada ? "Chegou" : "Estoque";
 
   return (
     <div role="status" aria-live="polite" style={{ position: "fixed", right: 22, bottom: 22, zIndex: 120, width: "min(calc(100vw - 44px), 400px)", animation: "toastIn .35s cubic-bezier(.2,.7,.3,1) both" }}>
@@ -29,7 +31,7 @@ export default function Toast({ aviso, onFechar }) {
           <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-.01em", color: "var(--text)" }}>{aviso.titulo}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: cor, background: bg, padding: "2px 8px", borderRadius: 99, flexShrink: 0 }}>{ehPerda ? "Perda" : "Estoque"}</span>
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: cor, background: bg, padding: "2px 8px", borderRadius: 99, flexShrink: 0 }}>{selo}</span>
             </div>
             <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 4, lineHeight: 1.5 }}>{aviso.detalhe}</div>
           </div>
