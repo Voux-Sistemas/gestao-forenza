@@ -7,6 +7,7 @@ import { gerarPdfEtapa } from "../pdfEtapa.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
 import GradeTabela, { normalizarGrade, totalGrade, gradePorTamanho } from "./GradeTabela.jsx";
 import StatCard from "./StatCard.jsx";
+import { ITENS_AVIAMENTO, LARGURAS_ELASTICO, TIPOS_ZIPER, TAMANHOS_ZIPER, TAMANHOS_ETIQUETA, itemPreenchido, contarAviamentos } from "../aviamentos.js";
 import GradeEditor, { limparGrade } from "./GradeEditor.jsx";
 
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
@@ -463,6 +464,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       {local === "Amostra" && <PainelAmostra pedido={pedido} podeEditar={podeEditar} />}
       {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
+      {local === "Aviação" && <PainelAviamento pedido={pedido} podeEditar={podeEditar} />}
       {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
       {podeEditar ? (
         <>
@@ -812,6 +814,122 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
     </div>
   );
 }
+function PainelAviamento({ pedido, podeEditar }) {
+  const [ficha, setFicha] = useState(() => pedido.ficha_aviamentos || {});
+  const [salvando, setSalvando] = useState(false);
+  const [salvo, setSalvo] = useState(false);
+
+  const setCampo = (itemId, campo, valor) => {
+    setSalvo(false);
+    setFicha((f) => ({ ...f, [itemId]: { ...(f[itemId] || {}), [campo]: valor } }));
+  };
+
+  async function salvar() {
+    setSalvando(true);
+    // Remove itens totalmente vazios antes de guardar.
+    const limpa = {};
+    ITENS_AVIAMENTO.forEach((it) => { if (itemPreenchido(ficha[it.id])) limpa[it.id] = ficha[it.id]; });
+    const { error } = await supabase.from("pedidos").update({ ficha_aviamentos: Object.keys(limpa).length ? limpa : null }).eq("id", pedido.id);
+    setSalvando(false);
+    if (error) return window.alert("Não foi possível salvar: " + error.message);
+    setSalvo(true);
+  }
+
+  const preenchidos = contarAviamentos(ficha);
+
+  const selBox = (valor, onChange, opcoes, placeholder) => (
+    <select value={valor || ""} onChange={(e) => onChange(e.target.value)} disabled={!podeEditar} style={{ ...inpMini, cursor: podeEditar ? "pointer" : "default" }}>
+      <option value="">{placeholder}</option>
+      {opcoes.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+  const numBox = (valor, onChange, ph) => (
+    <input type="text" inputMode="numeric" value={valor ?? ""} onChange={(e) => onChange(e.target.value)} disabled={!podeEditar} placeholder={ph} style={inpMini} />
+  );
+
+  function linhaItem(it) {
+    const d = ficha[it.id] || {};
+    const cabecalho = <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: itemPreenchido(d) ? "var(--text)" : "var(--text-2)" }}>{it.nome}</div>;
+
+    if (it.tipo === "qtd") {
+      return (
+        <div key={it.id} style={caixaAvi}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: itemPreenchido(d) ? "var(--text)" : "var(--text-2)" }}>{it.nome}</span>
+            <div style={{ width: 90 }}>{numBox(d.qtd, (v) => setCampo(it.id, "qtd", v), "Qtd")}</div>
+          </div>
+        </div>
+      );
+    }
+    if (it.tipo === "largura+consumo") {
+      return (
+        <div key={it.id} style={caixaAvi}>
+          {cabecalho}
+          <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: 8 }}>
+            <div><div style={rotAvi}>Largura</div>{selBox(d.largura, (v) => setCampo(it.id, "largura", v), LARGURAS_ELASTICO, "Selecionar…")}</div>
+            <div><div style={rotAvi}>Consumo</div>{numBox(d.consumo, (v) => setCampo(it.id, "consumo", v), "m")}</div>
+            <div><div style={rotAvi}>Qtd enviada</div>{numBox(d.qtd, (v) => setCampo(it.id, "qtd", v), "Qtd")}</div>
+          </div>
+        </div>
+      );
+    }
+    if (it.tipo === "ziper") {
+      return (
+        <div key={it.id} style={caixaAvi}>
+          {cabecalho}
+          <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: 8 }}>
+            <div><div style={rotAvi}>Tipo</div>{selBox(d.tipo, (v) => setCampo(it.id, "tipo", v), TIPOS_ZIPER, "Selecionar…")}</div>
+            <div><div style={rotAvi}>Tamanho</div>{selBox(d.tamanho, (v) => setCampo(it.id, "tamanho", v), TAMANHOS_ZIPER, "Selecionar…")}</div>
+            <div><div style={rotAvi}>Qtd enviada</div>{numBox(d.qtd, (v) => setCampo(it.id, "qtd", v), "Qtd")}</div>
+          </div>
+        </div>
+      );
+    }
+    if (it.tipo === "tamanho+qtd") {
+      return (
+        <div key={it.id} style={caixaAvi}>
+          {cabecalho}
+          <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: 8 }}>
+            <div><div style={rotAvi}>Tamanho</div>{selBox(d.tamanho, (v) => setCampo(it.id, "tamanho", v), TAMANHOS_ETIQUETA, "Selecionar…")}</div>
+            <div></div>
+            <div><div style={rotAvi}>Qtd enviada</div>{numBox(d.qtd, (v) => setCampo(it.id, "qtd", v), "Qtd")}</div>
+          </div>
+        </div>
+      );
+    }
+    // consumo
+    return (
+      <div key={it.id} style={caixaAvi}>
+        {cabecalho}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div><div style={rotAvi}>Consumo</div>{numBox(d.consumo, (v) => setCampo(it.id, "consumo", v), "m")}</div>
+          <div><div style={rotAvi}>Qtd enviada</div>{numBox(d.qtd, (v) => setCampo(it.id, "qtd", v), "Qtd")}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px" }}>Ficha de aviamentos</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: preenchidos ? "var(--accent)" : "var(--text-3)" }}>{preenchidos} item(ns)</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {ITENS_AVIAMENTO.map(linhaItem)}
+      </div>
+      {podeEditar && (
+        <button type="button" onClick={salvar} disabled={salvando} style={{ ...btnPrimary, width: "100%", marginTop: 14 }}>
+          {salvando ? "Salvando…" : salvo ? "✓ Ficha salva" : "Salvar ficha de aviamentos"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+const caixaAvi = { background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px" };
+const rotAvi = { fontSize: 10.5, color: "var(--text-3)", marginBottom: 3 };
+
 function PainelAmostra({ pedido, podeEditar }) {
   const [obs, setObs] = useState(pedido.obs_amostra || "");
   const [anexo, setAnexo] = useState(pedido.anexo_amostra || null);
