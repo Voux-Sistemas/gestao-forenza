@@ -457,7 +457,6 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     const { error } = await supabase.from("movimentos").insert({
       pedido_id: pedido.id, de_local: local, para_local: destino, qtd: q,
       usuario_id: session.user.id, remessa_id: novaRemessaId,
-      criado_em: new Date().toISOString(),
     });
     setSalvando(false);
     if (error) return setErro(error.message);
