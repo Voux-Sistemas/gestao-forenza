@@ -42,6 +42,7 @@ export default function Quadro({ session, perfil }) {
   const [mover, setMover] = useState(null);
   const [novoAberto, setNovoAberto] = useState(false);
   const [aviso, setAviso] = useState(null);
+  const [novasNotif, setNovasNotif] = useState(0);
   const [arrastando, setArrastando] = useState(null); // { pedido, local, saldo } do card sendo arrastado
   const [colunaHover, setColunaHover] = useState(null); // coluna destacada durante o arraste
 
@@ -84,6 +85,7 @@ export default function Quadro({ session, perfil }) {
         const mov = payload.new;
         const { data: pe } = await supabase.from("pedidos").select("referencia").eq("id", mov.pedido_id).single();
         setAviso({ tipo: "chegada", titulo: "Chegou peça no seu setor", detalhe: `${pe?.referencia || "Pedido"} — ${mov.qtd} peça${mov.qtd === 1 ? "" : "s"} no ${rotuloLocal(setor).toLowerCase()}.` });
+        setNovasNotif((n) => n + 1);
       })
       .subscribe();
     return () => { supabase.removeChannel(canal); };
@@ -100,6 +102,7 @@ export default function Quadro({ session, perfil }) {
       const totalPecas = novas.reduce((a, m) => a + (m.qtd || 0), 0);
       if (novas.length > 0) {
         setAviso({ tipo: "chegada", titulo: "Novidades desde sua última visita", detalhe: `${novas.length} chegada(s) no seu setor — ${totalPecas} peça(s) no total.` });
+        setNovasNotif(novas.length);
       }
     }
     localStorage.setItem(chave, new Date().toISOString());
@@ -138,6 +141,13 @@ export default function Quadro({ session, perfil }) {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <IconeSetor size={22} style={{ color: CORES[perfil.setor] }} />
               <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Meu setor · {rotuloLocal(perfil.setor)}</h2>
+              {novasNotif > 0 && (
+                <button type="button" onClick={() => setNovasNotif(0)} title="Marcar como visto"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 99, border: "none", background: "var(--danger)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", animation: "pulseBadge 2s ease-in-out infinite" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 99, background: "#fff" }} />
+                  {novasNotif} nova{novasNotif === 1 ? "" : "s"}
+                </button>
+              )}
             </div>
             <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4, marginBottom: 16 }}>
               {saud}{primeiroNome ? `, ${primeiroNome}` : ""}. {meus.length === 0 ? "Nenhum pedido no seu setor agora." : `Você tem ${meus.length} pedido${meus.length === 1 ? "" : "s"} no ${rotuloLocal(perfil.setor).toLowerCase()} hoje.`}
@@ -447,6 +457,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     const { error } = await supabase.from("movimentos").insert({
       pedido_id: pedido.id, de_local: local, para_local: destino, qtd: q,
       usuario_id: session.user.id, remessa_id: novaRemessaId,
+      criado_em: new Date().toISOString(),
     });
     setSalvando(false);
     if (error) return setErro(error.message);
@@ -862,16 +873,17 @@ function HistoricoDoDia({ setor, movimentos, pedidos }) {
   const hoje = new Date().toISOString().slice(0, 10);
   const refDe = (id) => pedidos.find((p) => p.id === id)?.referencia || "#" + id;
 
+  const dataMov = (m) => (m.criado_em || m.data || "").slice(0, 10);
   // Movimentos de hoje que envolvem o setor: chegada (para_local) ou saída (de_local).
   const eventos = movimentos
-    .filter((m) => (m.criado_em || "").slice(0, 10) === hoje && (m.para_local === setor || m.de_local === setor))
+    .filter((m) => dataMov(m) === hoje && (m.para_local === setor || m.de_local === setor))
     .map((m) => ({
       id: m.id,
       tipo: m.para_local === setor ? "entrada" : "saida",
       ref: refDe(m.pedido_id),
       qtd: m.qtd,
       destino: m.para_local === setor ? m.de_local : m.para_local,
-      hora: m.criado_em ? new Date(m.criado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "",
+      hora: (m.criado_em || m.data) ? new Date(m.criado_em || m.data).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "",
     }))
     .sort((a, b) => b.id - a.id);
 
