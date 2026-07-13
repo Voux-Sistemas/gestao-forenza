@@ -890,32 +890,31 @@ function HistoricoDoDia({ setor, movimentos, pedidos }) {
   const saidas = eventos.filter((e) => e.tipo === "saida").reduce((a, e) => a + (e.qtd || 0), 0);
 
   return (
-    <div style={{ marginTop: 14, border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", overflow: "hidden" }}>
-      <button type="button" onClick={() => setAberto((a) => !a)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 15px", border: "none", background: "none", cursor: "pointer" }}>
-        <Clock size={15} style={{ color: "var(--text-3)" }} />
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".3px" }}>Movimentação de hoje</span>
-        <span style={{ display: "inline-flex", gap: 6, marginLeft: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--success)", background: "var(--success-bg)", padding: "1px 8px", borderRadius: 99 }}>↓ {entradas}</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", background: "var(--accent-bg)", padding: "1px 8px", borderRadius: 99 }}>↑ {saidas}</span>
+    <div style={{ marginTop: 16, border: "1px solid var(--border)", borderRadius: 11, background: "var(--surface)", overflow: "hidden" }}>
+      <button type="button" onClick={() => setAberto((a) => !a)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", border: "none", background: "var(--surface-2)", cursor: "pointer" }}>
+        <Clock size={15} style={{ color: "var(--text-2)" }} />
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>Movimentação de hoje</span>
+        <span style={{ display: "inline-flex", gap: 6, marginLeft: "auto", alignItems: "center" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, fontWeight: 600, color: "var(--success)", background: "var(--success-bg)", padding: "2px 9px", borderRadius: 99 }}><ArrowDownLeft size={12} /> {entradas}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg)", padding: "2px 9px", borderRadius: 99 }}><ArrowUpRight size={12} /> {saidas}</span>
+          <ChevronDown size={15} style={{ color: "var(--text-3)", marginLeft: 2, transform: aberto ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
         </span>
-        <ChevronDown size={16} style={{ marginLeft: "auto", color: "var(--text-3)", transform: aberto ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
       </button>
       {aberto && (
-        <div style={{ borderTop: "1px solid var(--border)", maxHeight: 260, overflowY: "auto" }}>
+        <div style={{ padding: "4px 6px", maxHeight: 280, overflowY: "auto" }}>
           {eventos.length === 0 ? (
-            <div style={{ padding: "18px 15px", fontSize: 12.5, color: "var(--text-3)", textAlign: "center" }}>Nenhuma movimentação hoje ainda.</div>
-          ) : eventos.map((e) => (
-            <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 15px", borderTop: "1px solid var(--border)" }}>
-              <span style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", background: e.tipo === "entrada" ? "var(--success-bg)" : "var(--accent-bg)", color: e.tipo === "entrada" ? "var(--success)" : "var(--accent)" }}>
+            <div style={{ padding: "16px 12px", fontSize: 12.5, color: "var(--text-3)", textAlign: "center" }}>Nenhuma movimentação hoje ainda.</div>
+          ) : eventos.map((e, i) => (
+            <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "8px 10px", borderRadius: 8, background: i % 2 === 1 ? "var(--surface-2)" : "transparent" }}>
+              <span style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", background: e.tipo === "entrada" ? "var(--success-bg)" : "var(--accent-bg)", color: e.tipo === "entrada" ? "var(--success)" : "var(--accent)" }}>
                 {e.tipo === "entrada" ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
               </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{e.ref} <span style={{ fontWeight: 400, color: "var(--text-3)" }}>· {e.qtd} peça{e.qtd === 1 ? "" : "s"}</span></div>
-                <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>
-                  {e.tipo === "entrada" ? `chegou de ${rotuloLocal(e.destino)}` : `enviado para ${rotuloLocal(e.destino)}`}
-                </div>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <span style={{ fontWeight: 600 }}>{e.ref}</span>{" "}
+                <span style={{ color: "var(--text-3)" }}>{e.tipo === "entrada" ? `chegou de ${rotuloLocal(e.destino)}` : `enviado p/ ${rotuloLocal(e.destino)}`}</span>
               </div>
-              <span style={{ fontSize: 11.5, color: "var(--text-3)", flexShrink: 0 }}>{e.hora}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{e.qtd} pç</span>
+              <span style={{ fontSize: 11, color: "var(--text-3)", flexShrink: 0, width: 36, textAlign: "right" }}>{e.hora}</span>
             </div>
           ))}
         </div>
