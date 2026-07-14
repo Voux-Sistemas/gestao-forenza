@@ -68,19 +68,23 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     if (y + altura > 280) { rodape(); doc.addPage(); y = 18; }
   };
 
-  // Título de seção com fundo sutil (retângulo verde-claro). Avança y.
+  // Título de seção: caixa verde-clara com texto centralizado verticalmente. Avança y.
   const tituloSecao = (texto, sufixo) => {
     const t = texto.toUpperCase();
+    const boxH = 7;
+    const boxTop = y;
     doc.setFont("helvetica", "bold").setFontSize(9);
     const wtxt = doc.getTextWidth(t);
-    doc.setFillColor(238, 246, 241).roundedRect(mx, y - 3.6, wtxt + 8, 6, 1.5, 1.5, "F");
+    // Caixa
+    doc.setFillColor(225, 240, 233).roundedRect(mx, boxTop, wtxt + 10, boxH, 1.5, 1.5, "F");
+    // Texto centralizado na vertical da caixa (baseline ≈ topo + altura*0.68)
     doc.setTextColor(...VERDE_ESCURO);
-    doc.text(t, mx + 4, y);
+    doc.text(t, mx + 5, boxTop + boxH * 0.68);
     if (sufixo) {
       doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
-      doc.text(sufixo, larg - mx, y, { align: "right" });
+      doc.text(sufixo, larg - mx, boxTop + boxH * 0.68, { align: "right" });
     }
-    y += 7;
+    y = boxTop + boxH + 6;
   };
 
   // ── Faixa de cor no topo (degradê simulado com blocos) ──
@@ -236,6 +240,7 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     quebraSePreciso(14);
     const concluidos = processos.filter((p) => p.qtd >= pedido.total).length;
     tituloSecao("Processos", `${concluidos} de ${processos.length} concluídos`);
+    y += 3; // respiro entre o título e o primeiro processo
 
     const cx = mx + 3; // centro das bolinhas (eixo da trilha)
     let topoAnterior = 0;
@@ -321,7 +326,6 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     const linhas = doc.splitTextToSize(pedido.observacoes, larg - mx * 2 - 10);
     quebraSePreciso(14 + linhas.length * 4.6);
     tituloSecao("Observações do pedido");
-    y -= 2;
     doc.setFillColor(248, 248, 246).roundedRect(mx, y, larg - mx * 2, linhas.length * 4.6 + 6, 2, 2, "F");
     doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(60);
     doc.text(linhas, mx + 5, y + 6);
@@ -333,7 +337,6 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     const hLinha = 7;
     quebraSePreciso(18 + remessasOficina.length * hLinha);
     tituloSecao("Remessas de oficina");
-    y -= 1;
 
     const larguraTabela = larg - mx * 2;
     // oficina | saída | retorno | enviadas | retorn.
@@ -382,7 +385,6 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     const hLinha = 7;
     quebraSePreciso(16 + aviamentos.length * hLinha);
     tituloSecao("Aviamentos");
-    y -= 1;
 
     const larguraTabela = larg - mx * 2;
     const colItem = larguraTabela * 0.32;
