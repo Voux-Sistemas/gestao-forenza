@@ -8,6 +8,19 @@ const VERDE_ESCURO = [8, 80, 65];  // verde profundo
 const AMBAR = [186, 117, 23];
 const CINZA = [130, 128, 120];
 
+// Cores por setor para o selo do topo (RGB, equivalentes às do sistema).
+const COR_SETOR = {
+  "Entrada": [130, 128, 120],
+  "Ficha Técnica de Corte": [55, 138, 221],
+  "Corte": [55, 138, 221],
+  "Amostra": [239, 159, 39],
+  "Oficina": [239, 159, 39],
+  "Aviação": [127, 119, 221],
+  "Acabamento": [216, 118, 40],
+  "Estoque": [29, 158, 117],
+};
+const corDoSetor = (local) => COR_SETOR[local] || VERDE;
+
 const fmtData = (d) => {
   if (!d) return null;
   const data = /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + "T12:00") : new Date(d);
@@ -55,16 +68,19 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     if (y + altura > 280) { rodape(); doc.addPage(); y = 18; }
   };
 
-  // Título de seção com barrinha verde lateral. Retorna após avançar y.
+  // Título de seção com fundo sutil (retângulo verde-claro). Avança y.
   const tituloSecao = (texto, sufixo) => {
-    doc.setFillColor(...VERDE).roundedRect(mx, y - 3.2, 1.4, 4.2, 0.7, 0.7, "F");
-    doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...VERDE_ESCURO);
-    doc.text(texto.toUpperCase(), mx + 4, y);
+    const t = texto.toUpperCase();
+    doc.setFont("helvetica", "bold").setFontSize(9);
+    const wtxt = doc.getTextWidth(t);
+    doc.setFillColor(238, 246, 241).roundedRect(mx, y - 3.6, wtxt + 8, 6, 1.5, 1.5, "F");
+    doc.setTextColor(...VERDE_ESCURO);
+    doc.text(t, mx + 4, y);
     if (sufixo) {
       doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
       doc.text(sufixo, larg - mx, y, { align: "right" });
     }
-    y += 6;
+    y += 7;
   };
 
   // ── Faixa de cor no topo (degradê simulado com blocos) ──
@@ -88,11 +104,12 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
   doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
   doc.text("GESTÃO DE PRODUÇÃO", mx + 15.5, y + 4.5);
 
-  // Selo do setor (canto direito) + emissão
+  // Selo do setor (canto direito) + emissão — cor por setor
+  const corSetor = corDoSetor(local);
   const selo = rotuloLocal(local).toUpperCase();
   doc.setFont("helvetica", "bold").setFontSize(9);
   const wSelo = doc.getTextWidth(selo) + 12;
-  doc.setFillColor(...VERDE).roundedRect(larg - mx - wSelo, y - 4.5, wSelo, 7.5, 2, 2, "F");
+  doc.setFillColor(...corSetor).roundedRect(larg - mx - wSelo, y - 4.5, wSelo, 7.5, 2, 2, "F");
   doc.setTextColor(255).text(selo, larg - mx - wSelo / 2, y + 0.4, { align: "center" });
   doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
   doc.text(`Emitido em ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, y + 7, { align: "right" });
@@ -264,10 +281,29 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
       y += 6;
 
       if (temGrade) {
-        const partes = Object.entries(grade).filter(([, q]) => (parseInt(q, 10) || 0) > 0).map(([t, q]) => `${t}: ${q}`);
-        doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
-        doc.text("Por tamanho — " + partes.join("   "), cx + 6, y);
-        y += 4.5;
+        // Ordena na ordem oficial de tamanhos; extras ao fim.
+        const ordenados = Object.entries(grade)
+          .filter(([, q]) => (parseInt(q, 10) || 0) > 0)
+          .sort(([a], [b]) => {
+            const ia = TAMANHOS_GRADE.indexOf(a), ib = TAMANHOS_GRADE.indexOf(b);
+            return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+          });
+        let chipX = cx + 6;
+        const chipY = y - 1;
+        const chipH = 5;
+        ordenados.forEach(([t, q]) => {
+          doc.setFont("helvetica", "bold").setFontSize(7.5);
+          const label = `${t}  ${q}`;
+          const wChip = doc.getTextWidth(label) + 7;
+          // quebra de linha se passar da margem
+          if (chipX + wChip > larg - mx) { chipX = cx + 6; y += chipH + 2; }
+          doc.setFillColor(242, 241, 236).setDrawColor(226, 224, 216).setLineWidth(0.2).roundedRect(chipX, y - chipH + 1, wChip, chipH, 1, 1, "FD");
+          doc.setTextColor(...TINTA).text(String(t), chipX + 3, y - 0.7);
+          const wT = doc.getTextWidth(String(t));
+          doc.setFont("helvetica", "normal").setTextColor(...CINZA).text(String(q), chipX + 3 + wT + 2, y - 0.7);
+          chipX += wChip + 3;
+        });
+        y += 4;
       }
       if (obsLinhas.length) {
         doc.setFont("helvetica", "italic").setFontSize(8.5).setTextColor(...CINZA);
