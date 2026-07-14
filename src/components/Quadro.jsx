@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown, Bell } from "lucide-react";
+import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { gerarPdfEtapa } from "../pdfEtapa.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
@@ -43,7 +43,6 @@ export default function Quadro({ session, perfil }) {
   const [novoAberto, setNovoAberto] = useState(false);
   const [aviso, setAviso] = useState(null);
   const [novasNotif, setNovasNotif] = useState(0);
-  const [feedAberto, setFeedAberto] = useState(false); // gaveta de movimentação do setor
   const [arrastando, setArrastando] = useState(null); // { pedido, local, saldo } do card sendo arrastado
   const [colunaHover, setColunaHover] = useState(null); // coluna destacada durante o arraste
 
@@ -142,16 +141,13 @@ export default function Quadro({ session, perfil }) {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <IconeSetor size={22} style={{ color: CORES[perfil.setor] }} />
               <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Meu setor · {rotuloLocal(perfil.setor)}</h2>
-              <button type="button" onClick={() => { setFeedAberto(true); setNovasNotif(0); }} title="Ver a movimentação de hoje" className="tap"
-                style={{ position: "relative", marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", boxShadow: "var(--shadow-sm)" }}>
-                <Bell size={15} />
-                Movimentação
-                {novasNotif > 0 && (
-                  <span style={{ position: "absolute", top: -7, right: -7, minWidth: 20, height: 20, padding: "0 5px", borderRadius: 99, background: "var(--danger)", color: "#fff", fontSize: 11, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--bg)", animation: "pulseBadge 2s ease-in-out infinite" }}>
-                    {novasNotif}
-                  </span>
-                )}
-              </button>
+              {novasNotif > 0 && (
+                <button type="button" onClick={() => setNovasNotif(0)} title="Marcar como visto"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 99, border: "none", background: "var(--danger)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", animation: "pulseBadge 2s ease-in-out infinite" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 99, background: "#fff" }} />
+                  {novasNotif} nova{novasNotif === 1 ? "" : "s"}
+                </button>
+              )}
             </div>
             <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4, marginBottom: 16 }}>
               {saud}{primeiroNome ? `, ${primeiroNome}` : ""}. {meus.length === 0 ? "Nenhum pedido no seu setor agora." : `Você tem ${meus.length} pedido${meus.length === 1 ? "" : "s"} no ${rotuloLocal(perfil.setor).toLowerCase()} hoje.`}
@@ -161,6 +157,7 @@ export default function Quadro({ session, perfil }) {
                 <StatCard key={c.label} label={c.label} valor={c.valor} sub={c.sub} cor={c.cor} Icon={c.Icon} valorCor={c.valorCor} />
               ))}
             </div>
+            <HistoricoDoDia setor={perfil.setor} movimentos={movimentos} pedidos={pedidos} />
           </div>
         );
       })()}
@@ -183,7 +180,7 @@ export default function Quadro({ session, perfil }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2, alignItems: "stretch" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2, alignItems: colunas.length === 1 ? "flex-start" : "stretch", justifyContent: colunas.length === 1 ? "flex-start" : "stretch" }}>
         {colunas.map((local) => {
           const cards = pedidos
             .map((pe) => ({ pe, saldo: calcularSaldos(pe.id, pe.total, movimentos) }))
@@ -209,7 +206,7 @@ export default function Quadro({ session, perfil }) {
               }}
               style={{
                 ...coluna,
-                ...(colunas.length === 1 ? { flex: "1 1 0", maxWidth: "none", maxHeight: "100%" } : {}),
+                ...(colunas.length === 1 ? { flex: "0 0 340px", maxWidth: 340, maxHeight: "100%" } : {}),
                 borderTop: `3px solid ${CORES[local]}`,
                 outline: destacada ? "2px dashed var(--accent)" : "none",
                 outlineOffset: -2,
@@ -219,12 +216,10 @@ export default function Quadro({ session, perfil }) {
             >
               <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <IconeCol size={15} style={{ color: CORES[local] }} />
-                <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.15 }}>{colunas.length === 1 ? "Pedidos no setor" : rotuloLocal(local)}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.15 }}>{rotuloLocal(local)}</span>
                 <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", fontWeight: 600, background: "var(--surface-2)", borderRadius: 99, padding: "1px 8px" }}>{cards.length}</span>
               </div>
-              <div style={colunas.length === 1
-                ? { flex: 1, minHeight: 0, overflowY: "auto", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 290px), 1fr))", gap: 10, alignContent: "start", paddingRight: 2 }
-                : { flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
+              <div style={{ ...(colunas.length === 1 ? { minHeight: 0, overflowY: "auto" } : { flex: 1, minHeight: 0, overflowY: "auto" }), display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
                 {cards.map(({ pe, saldo }) => {
                   const urg = urgenciaDoCard(pe, local);
                   const partes = COLUNAS.filter((l) => saldo[l] > 0); // divisões do pedido pelo fluxo
@@ -308,17 +303,7 @@ export default function Quadro({ session, perfil }) {
                   </button>
                   );
                 })}
-                {cards.length === 0 && (colunas.length === 1 ? (
-                  <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "56px 0", color: "var(--text-3)" }}>
-                    <div style={{ width: 54, height: 54, borderRadius: 16, background: "var(--success-bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Check size={26} style={{ color: "var(--success)" }} />
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--text)" }}>Tudo em dia!</div>
-                      <div style={{ fontSize: 13, marginTop: 3 }}>Nenhum pedido no seu setor agora.</div>
-                    </div>
-                  </div>
-                ) : <div style={{ fontSize: 12, color: "var(--text-3)", padding: "8px 2px" }}>vazio</div>)}
+                {cards.length === 0 && <div style={{ fontSize: 12, color: "var(--text-3)", padding: "8px 2px" }}>vazio</div>}
               </div>
             </div>
           );
@@ -336,11 +321,6 @@ export default function Quadro({ session, perfil }) {
 
       {mover && <ModalMover dados={mover} oficinas={oficinas} remessas={remessas} movimentos={movimentos} session={session} podeEditar={podeEditar} ehMaster={ehMaster} podeAdministrar={podeVerTudo} onFechar={() => setMover(null)} onOk={(info) => { setMover(null); carregar(); setAviso(avisoDeMovimento(info)); }} />}
       <Toast aviso={aviso} onFechar={() => setAviso(null)} />
-      {feedAberto && !podeVerTudo && perfil?.setor && (
-        <Overlay onFechar={() => setFeedAberto(false)} largura={430}>
-          <HistoricoDoDia setor={perfil.setor} movimentos={movimentos} pedidos={pedidos} />
-        </Overlay>
-      )}
       {novoAberto && <ModalNovo clientes={clientes} oficinas={oficinas} onFechar={() => setNovoAberto(false)} onOk={() => { setNovoAberto(false); carregar(); }} />}
     </div>
   );
@@ -888,6 +868,7 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
 }
 // Histórico do dia: o que chegou e saiu do setor hoje. Simples, nível de setor.
 function HistoricoDoDia({ setor, movimentos, pedidos }) {
+  const [aberto, setAberto] = useState(false);
   const hoje = new Date().toISOString().slice(0, 10);
   const refDe = (id) => pedidos.find((p) => p.id === id)?.referencia || "#" + id;
 
@@ -909,42 +890,31 @@ function HistoricoDoDia({ setor, movimentos, pedidos }) {
   const saidas = eventos.filter((e) => e.tipo === "saida").reduce((a, e) => a + (e.qtd || 0), 0);
 
   return (
-    <div>
-      <div style={{ paddingRight: 42, marginBottom: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <Bell size={17} style={{ color: "var(--accent)" }} />
-          <h3 style={{ fontSize: 16.5, fontWeight: 800, letterSpacing: "-.01em", margin: 0 }}>Movimentação de hoje</h3>
-        </div>
-        <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 4 }}>Tudo o que chegou e saiu do seu setor hoje, do mais recente pro mais antigo.</div>
-        <div style={{ display: "flex", gap: 7, marginTop: 14, marginBottom: 14 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: "var(--success)", background: "var(--success-bg)", padding: "5px 12px", borderRadius: 99 }}><ArrowDownLeft size={13} /> {entradas} chegaram</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: "var(--accent)", background: "var(--accent-bg)", padding: "5px 12px", borderRadius: 99 }}><ArrowUpRight size={13} /> {saidas} saíram</span>
-        </div>
-      </div>
-      {eventos.length === 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "48px 12px", color: "var(--text-3)", textAlign: "center" }}>
-          <div style={{ width: 50, height: 50, borderRadius: 14, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Clock size={22} style={{ color: "var(--text-3)" }} />
-          </div>
-          <span style={{ fontSize: 13 }}>Nenhuma movimentação hoje ainda.<br />As chegadas e saídas do setor aparecem aqui.</span>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {eventos.map((e, i) => (
-            <div key={e.id} className="rise" style={{ display: "flex", gap: 12, padding: "11px 2px", alignItems: "flex-start", borderBottom: i < eventos.length - 1 ? "1px solid var(--border)" : "none", animationDelay: `${Math.min(i * 30, 240)}ms` }}>
-              <span style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", background: e.tipo === "entrada" ? "var(--success-bg)" : "var(--accent-bg)", color: e.tipo === "entrada" ? "var(--success)" : "var(--accent)" }}>
-                {e.tipo === "entrada" ? <ArrowDownLeft size={15} /> : <ArrowUpRight size={15} />}
+    <div style={{ marginTop: 16, border: "1px solid var(--border)", borderRadius: 11, background: "var(--surface)", overflow: "hidden" }}>
+      <button type="button" onClick={() => setAberto((a) => !a)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", border: "none", background: "var(--surface-2)", cursor: "pointer" }}>
+        <Clock size={15} style={{ color: "var(--text-2)" }} />
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>Movimentação de hoje</span>
+        <span style={{ display: "inline-flex", gap: 6, marginLeft: "auto", alignItems: "center" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, fontWeight: 600, color: "var(--success)", background: "var(--success-bg)", padding: "2px 9px", borderRadius: 99 }}><ArrowDownLeft size={12} /> {entradas}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg)", padding: "2px 9px", borderRadius: 99 }}><ArrowUpRight size={12} /> {saidas}</span>
+          <ChevronDown size={15} style={{ color: "var(--text-3)", marginLeft: 2, transform: aberto ? "rotate(180deg)" : "none", transition: "transform .16s" }} />
+        </span>
+      </button>
+      {aberto && (
+        <div style={{ padding: "4px 6px", maxHeight: 280, overflowY: "auto" }}>
+          {eventos.length === 0 ? (
+            <div style={{ padding: "16px 12px", fontSize: 12.5, color: "var(--text-3)", textAlign: "center" }}>Nenhuma movimentação hoje ainda.</div>
+          ) : eventos.map((e, i) => (
+            <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "8px 10px", borderRadius: 8, background: i % 2 === 1 ? "var(--surface-2)" : "transparent" }}>
+              <span style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", background: e.tipo === "entrada" ? "var(--success-bg)" : "var(--accent-bg)", color: e.tipo === "entrada" ? "var(--success)" : "var(--accent)" }}>
+                {e.tipo === "entrada" ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
               </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.ref}</span>
-                  <span style={{ fontSize: 12.5, fontWeight: 800, flexShrink: 0, color: e.tipo === "entrada" ? "var(--success)" : "var(--accent)" }}>{e.tipo === "entrada" ? "+" : "−"}{e.qtd} pç</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 2 }}>
-                  <span style={{ fontSize: 12, color: "var(--text-3)", flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.tipo === "entrada" ? `chegou de ${rotuloLocal(e.destino)}` : `enviado p/ ${rotuloLocal(e.destino)}`}</span>
-                  <span style={{ fontSize: 11, color: "var(--text-3)", flexShrink: 0 }}>{e.hora}</span>
-                </div>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <span style={{ fontWeight: 600 }}>{e.ref}</span>{" "}
+                <span style={{ color: "var(--text-3)" }}>{e.tipo === "entrada" ? `chegou de ${rotuloLocal(e.destino)}` : `enviado p/ ${rotuloLocal(e.destino)}`}</span>
               </div>
+              <span style={{ fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{e.qtd} pç</span>
+              <span style={{ fontSize: 11, color: "var(--text-3)", flexShrink: 0, width: 36, textAlign: "right" }}>{e.hora}</span>
             </div>
           ))}
         </div>
@@ -983,7 +953,19 @@ function PainelAviamento({ pedido, podeEditar }) {
     </select>
   );
   const numBox = (valor, onChange, ph) => (
-    <input type="text" inputMode="numeric" value={valor ?? ""} onChange={(e) => onChange(e.target.value)} disabled={!podeEditar} placeholder={ph} style={inpMini} />
+    <input
+      type="text"
+      inputMode="decimal"
+      value={valor ?? ""}
+      onChange={(e) => {
+        // Aceita apenas dígitos e um separador decimal (vírgula ou ponto).
+        const limpo = e.target.value.replace(/[^\d.,]/g, "");
+        onChange(limpo);
+      }}
+      disabled={!podeEditar}
+      placeholder={ph}
+      style={inpMini}
+    />
   );
 
   function linhaItem(it) {

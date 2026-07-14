@@ -248,15 +248,17 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
       const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, larg - mx * 2 - 14) : [];
       const temGrade = grade && Object.entries(grade).some(([, q]) => (parseInt(q, 10) || 0) > 0);
       const alturaItem = 6 + 7 + (temGrade ? 8 : 0) + obsLinhas.length * 4 + 5;
+      const yAntesQuebra = y;
       quebraSePreciso(alturaItem);
+      if (y < yAntesQuebra) topoAnterior = 0; // quebrou de página: não liga a trilha entre páginas
 
       const completo = feitas >= pedido.total;
       const parcial = feitas > 0 && !completo;
       const cor = completo ? VERDE : parcial ? AMBAR : [190, 190, 185];
       const topo = y - 1.6;
 
-      // Linha da trilha ligando à bolinha anterior.
-      if (idx > 0) {
+      // Linha da trilha ligando à bolinha anterior (só na mesma página e se a distância for curta).
+      if (idx > 0 && topoAnterior > 0 && topo - topoAnterior < 40 && topo > topoAnterior) {
         doc.setDrawColor(215).setLineWidth(0.5).line(cx, topoAnterior + 2.2, cx, topo - 2.2);
       }
 
