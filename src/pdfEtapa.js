@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import { rotuloLocal } from "./etapas.js";
-import { gradePorTamanho } from "./components/GradeTabela.jsx";
+import { gradePorTamanho, TAMANHOS_GRADE } from "./components/GradeTabela.jsx";
 
 const TINTA = [38, 37, 30];        // quase-preto da marca
 const VERDE = [29, 158, 117];      // verde do ponto da logo
@@ -76,7 +76,7 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
 
   // ── Título + destaque da quantidade ──
   doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(...TINTA);
-  doc.text("Romaneio de produção", mx, y);
+  doc.text(`Romaneio de produção · ${rotuloLocal(local)}`, mx, y);
   y += 8;
   doc.setFillColor(237, 247, 242);
   doc.roundedRect(mx, y, larg - mx * 2, 19, 2.5, 2.5, "F");
@@ -115,71 +115,116 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
   });
   y += 3;
 
-  // ── Grade (tabela) ──
+  // ── Grade (tabela horizontal, na ordem correta) ──
   const gradeTam = gradePorTamanho(pedido.grade);
   if (Object.keys(gradeTam).length > 0) {
-    const entradas = Object.entries(gradeTam);
-    quebraSePreciso(14 + entradas.length * 7);
+    // Só os tamanhos usados, na ordem oficial (PP/36 → EXG/50); extras ao fim.
+    const usados = TAMANHOS_GRADE.filter((t) => (parseInt(gradeTam[t], 10) || 0) > 0);
+    const extras = Object.keys(gradeTam).filter((t) => !TAMANHOS_GRADE.includes(t) && (parseInt(gradeTam[t], 10) || 0) > 0);
+    const cols = [...usados, ...extras];
+    const total = cols.reduce((a, t) => a + (parseInt(gradeTam[t], 10) || 0), 0);
+
+    quebraSePreciso(24);
     doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
     doc.text("GRADE DE TAMANHOS (PEDIDO COMPLETO)", mx, y);
-    y += 4;
-    const tw = 100;
-    doc.setFillColor(244, 244, 241).setDrawColor(210).setLineWidth(0.25);
-    doc.rect(mx, y, tw, 6.5, "FD");
-    doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...CINZA);
-    doc.text("TAMANHO", mx + 3, y + 4.3);
-    doc.text("QUANTIDADE", mx + tw - 3, y + 4.3, { align: "right" });
-    y += 6.5;
-    entradas.forEach(([t, q]) => {
-      doc.setDrawColor(220).rect(mx, y, tw, 6.5, "S");
-      doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...TINTA);
-      doc.text(String(t), mx + 3, y + 4.4);
-      doc.setTextColor(...VERDE_ESCURO);
-      doc.text(String(q), mx + tw - 3, y + 4.4, { align: "right" });
-      y += 6.5;
+    y += 5;
+
+    const larguraTabela = larg - mx * 2;
+    const colTotal = 22;
+    const cw = Math.min(30, (larguraTabela - colTotal) / cols.length);
+    const wTabela = cw * cols.length + colTotal;
+    const hLinha = 8;
+
+    // Cabeçalho (tamanhos)
+    let x = mx;
+    doc.setFillColor(244, 244, 241).setDrawColor(205).setLineWidth(0.25);
+    cols.forEach((t) => {
+      doc.rect(x, y, cw, hLinha, "FD");
+      doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...CINZA);
+      doc.text(String(t), x + cw / 2, y + 5.2, { align: "center" });
+      x += cw;
     });
-    doc.setFillColor(237, 247, 242).setDrawColor(210).rect(mx, y, tw, 6.5, "FD");
-    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
-    doc.text("TOTAL", mx + 3, y + 4.4);
-    doc.text(String(entradas.reduce((a, [, q]) => a + (parseInt(q, 10) || 0), 0)), mx + tw - 3, y + 4.4, { align: "right" });
-    y += 13;
+    doc.setFillColor(237, 247, 242).rect(x, y, colTotal, hLinha, "FD");
+    doc.setTextColor(...VERDE_ESCURO).text("TOTAL", x + colTotal / 2, y + 5.2, { align: "center" });
+    y += hLinha;
+
+    // Linha de quantidades
+    x = mx;
+    cols.forEach((t) => {
+      doc.setDrawColor(220).rect(x, y, cw, hLinha, "S");
+      doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(...TINTA);
+      doc.text(String(gradeTam[t]), x + cw / 2, y + 5.4, { align: "center" });
+      x += cw;
+    });
+    doc.setFillColor(237, 247, 242).setDrawColor(205).rect(x, y, colTotal, hLinha, "FD");
+    doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(...VERDE_ESCURO);
+    doc.text(String(total), x + colTotal / 2, y + 5.4, { align: "center" });
+    y += hLinha + 13;
   }
 
-  // ── Rastreio dos processos da etapa ──
+  // ── Rastreio dos processos da etapa (trilha visual) ──
   if (processos && processos.length > 0) {
-    quebraSePreciso(12);
+    quebraSePreciso(14);
     doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
     doc.text(`PROCESSOS — ${rotuloLocal(local).toUpperCase()}`, mx, y);
-    y += 6;
-    processos.forEach(({ nome, qtd: feitas, grade, obs }) => {
-      const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, larg - mx * 2 - 12) : [];
-      quebraSePreciso(7 + obsLinhas.length * 4);
+    y += 7;
+
+    const cx = mx + 3; // centro das bolinhas (eixo da trilha)
+    let topoAnterior = 0;
+    processos.forEach(({ nome, qtd: feitas, grade, obs }, idx) => {
+      const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, larg - mx * 2 - 14) : [];
+      const temGrade = grade && Object.entries(grade).some(([, q]) => (parseInt(q, 10) || 0) > 0);
+      const alturaItem = 6 + (temGrade ? 4.5 : 0) + obsLinhas.length * 4 + 5;
+      quebraSePreciso(alturaItem);
+
       const completo = feitas >= pedido.total;
       const parcial = feitas > 0 && !completo;
-      if (completo) doc.setFillColor(...VERDE).circle(mx + 2, y - 1, 1.8, "F");
-      else if (parcial) doc.setFillColor(...AMBAR).circle(mx + 2, y - 1, 1.8, "F");
-      else doc.setDrawColor(170).setLineWidth(0.4).circle(mx + 2, y - 1, 1.8, "S");
-      doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(...TINTA);
-      doc.text(nome, mx + 7, y);
-      doc.setTextColor(...(completo ? VERDE_ESCURO : parcial ? AMBAR : CINZA));
+      const cor = completo ? VERDE : parcial ? AMBAR : [190, 190, 185];
+      const topo = y - 1.6;
+
+      // Linha da trilha ligando à bolinha anterior.
+      if (idx > 0) {
+        doc.setDrawColor(215).setLineWidth(0.5).line(cx, topoAnterior + 2.2, cx, topo - 2.2);
+      }
+
+      // Bolinha do processo.
+      if (completo) {
+        doc.setFillColor(...VERDE).circle(cx, topo, 2.2, "F");
+        doc.setDrawColor(255).setLineWidth(0.5);
+        doc.line(cx - 1, topo, cx - 0.2, topo + 0.9); doc.line(cx - 0.2, topo + 0.9, cx + 1.1, topo - 0.8); // check
+      } else if (parcial) {
+        doc.setFillColor(...AMBAR).circle(cx, topo, 2.2, "F");
+        doc.setFillColor(255).circle(cx, topo, 0.8, "F");
+      } else {
+        doc.setFillColor(255).setDrawColor(...cor).setLineWidth(0.5).circle(cx, topo, 2.2, "FD");
+      }
+
+      // Nome + contagem.
+      doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(...(completo || parcial ? TINTA : CINZA));
+      doc.text(nome, cx + 6, y);
+      doc.setFont("helvetica", "bold").setTextColor(...(completo ? VERDE_ESCURO : parcial ? AMBAR : CINZA));
       doc.text(`${feitas}/${pedido.total}`, larg - mx, y, { align: "right" });
-      y += 4.5;
-      if (grade && Object.keys(grade).length > 0) {
+
+      // Mini barra de progresso.
+      const pct = Math.max(0, Math.min(1, feitas / (pedido.total || 1)));
+      const barX = cx + 6, barW = larg - mx - barX - 20, barY = y + 1.8;
+      doc.setFillColor(235, 235, 231).roundedRect(barX, barY, barW, 1.4, 0.7, 0.7, "F");
+      if (pct > 0) { doc.setFillColor(...cor).roundedRect(barX, barY, barW * pct, 1.4, 0.7, 0.7, "F"); }
+      y += 6;
+
+      if (temGrade) {
         const partes = Object.entries(grade).filter(([, q]) => (parseInt(q, 10) || 0) > 0).map(([t, q]) => `${t}: ${q}`);
-        if (partes.length) {
-          doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
-          const gl = doc.splitTextToSize("Por tamanho — " + partes.join("   "), larg - mx * 2 - 7);
-          doc.text(gl, mx + 7, y);
-          y += gl.length * 4;
-        }
+        doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
+        doc.text("Por tamanho — " + partes.join("   "), cx + 6, y);
+        y += 4.5;
       }
       if (obsLinhas.length) {
         doc.setFont("helvetica", "italic").setFontSize(8.5).setTextColor(...CINZA);
-        doc.text(obsLinhas, mx + 7, y);
+        doc.text(obsLinhas, cx + 6, y);
         y += obsLinhas.length * 4;
       }
-      doc.setDrawColor(232).setLineWidth(0.2).line(mx, y, larg - mx, y);
-      y += 4.5;
+      topoAnterior = topo;
+      y += 5;
     });
     y += 2;
   }
@@ -279,18 +324,24 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     if (carregada) imgs.push({ ...carregada, rotulo: it.rotulo });
   }
   if (imgs.length > 0) {
-    quebraSePreciso(12);
+    const larguraCol = (larg - mx * 2 - 8) / 2; // duas por linha
+    // Altura da primeira imagem (para garantir que o título não fique órfão).
+    const primeira = imgs[0];
+    const escala0 = Math.min(larguraCol / primeira.w, 55 / primeira.h);
+    const h0 = primeira.h * escala0;
+    // Título + primeira imagem precisam caber JUNTOS na mesma página.
+    quebraSePreciso(6 + 6 + h0 + 6);
     doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
     doc.text("IMAGENS", mx, y);
     y += 6;
-    const larguraCol = (larg - mx * 2 - 8) / 2; // duas por linha
     let x = mx;
     let alturaLinha = 0;
     imgs.forEach((im, i) => {
       const escala = Math.min(larguraCol / im.w, 55 / im.h); // cabe na coluna, máx ~55mm de altura
       const w = im.w * escala;
       const h = im.h * escala;
-      if (i % 2 === 0) { quebraSePreciso(h + 10); x = mx; }
+      // Só quebra a partir da 2ª imagem (a 1ª já foi garantida junto com o título).
+      if (i % 2 === 0) { if (i > 0) quebraSePreciso(h + 10); x = mx; }
       doc.setDrawColor(210).setLineWidth(0.3).rect(x, y, w, h, "S");
       try { doc.addImage(im.dataUrl, im.fmt, x, y, w, h); } catch { /* ignora imagem inválida */ }
       if (im.rotulo) {
