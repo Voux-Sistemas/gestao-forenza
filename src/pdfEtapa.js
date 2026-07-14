@@ -247,7 +247,7 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     processos.forEach(({ nome, qtd: feitas, grade, obs }, idx) => {
       const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, larg - mx * 2 - 14) : [];
       const temGrade = grade && Object.entries(grade).some(([, q]) => (parseInt(q, 10) || 0) > 0);
-      const alturaItem = 6 + (temGrade ? 4.5 : 0) + obsLinhas.length * 4 + 5;
+      const alturaItem = 6 + 7 + (temGrade ? 8 : 0) + obsLinhas.length * 4 + 5;
       quebraSePreciso(alturaItem);
 
       const completo = feitas >= pedido.total;
@@ -283,7 +283,7 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
       const barX = cx + 6, barW = larg - mx - barX - 20, barY = y + 1.8;
       doc.setFillColor(235, 235, 231).roundedRect(barX, barY, barW, 1.4, 0.7, 0.7, "F");
       if (pct > 0) { doc.setFillColor(...cor).roundedRect(barX, barY, barW * pct, 1.4, 0.7, 0.7, "F"); }
-      y += 6;
+      y += 7;
 
       if (temGrade) {
         // Ordena na ordem oficial de tamanhos; extras ao fim.
@@ -293,22 +293,21 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
             const ia = TAMANHOS_GRADE.indexOf(a), ib = TAMANHOS_GRADE.indexOf(b);
             return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
           });
-        let chipX = cx + 6;
-        const chipY = y - 1;
         const chipH = 5;
+        let chipX = cx + 6;
         ordenados.forEach(([t, q]) => {
           doc.setFont("helvetica", "bold").setFontSize(7.5);
           const label = `${t}  ${q}`;
-          const wChip = doc.getTextWidth(label) + 7;
+          const wChip = doc.getTextWidth(label) + 8;
           // quebra de linha se passar da margem
           if (chipX + wChip > larg - mx) { chipX = cx + 6; y += chipH + 2; }
-          doc.setFillColor(242, 241, 236).setDrawColor(226, 224, 216).setLineWidth(0.2).roundedRect(chipX, y - chipH + 1, wChip, chipH, 1, 1, "FD");
-          doc.setTextColor(...TINTA).text(String(t), chipX + 3, y - 0.7);
+          doc.setFillColor(242, 241, 236).setDrawColor(226, 224, 216).setLineWidth(0.2).roundedRect(chipX, y, wChip, chipH, 1, 1, "FD");
+          doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...TINTA).text(String(t), chipX + 3, y + 3.4);
           const wT = doc.getTextWidth(String(t));
-          doc.setFont("helvetica", "normal").setTextColor(...CINZA).text(String(q), chipX + 3 + wT + 2, y - 0.7);
+          doc.setFont("helvetica", "normal").setTextColor(...CINZA).text(String(q), chipX + 3 + wT + 2, y + 3.4);
           chipX += wChip + 3;
         });
-        y += 4;
+        y += chipH + 3;
       }
       if (obsLinhas.length) {
         doc.setFont("helvetica", "italic").setFontSize(8.5).setTextColor(...CINZA);
