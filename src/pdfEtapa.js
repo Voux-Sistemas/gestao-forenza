@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import { rotuloLocal } from "./etapas.js";
-import { gradePorTamanho, TAMANHOS_GRADE } from "./components/GradeTabela.jsx";
+import { normalizarGrade, TAMANHOS_GRADE } from "./components/GradeTabela.jsx";
 
 const TINTA = [38, 37, 30];        // quase-preto da marca
 const VERDE = [29, 158, 117];      // verde do ponto da logo
@@ -115,51 +115,72 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
   });
   y += 3;
 
-  // ── Grade (tabela horizontal, na ordem correta) ──
-  const gradeTam = gradePorTamanho(pedido.grade);
-  if (Object.keys(gradeTam).length > 0) {
-    // Só os tamanhos usados, na ordem oficial (PP/36 → EXG/50); extras ao fim.
-    const usados = TAMANHOS_GRADE.filter((t) => (parseInt(gradeTam[t], 10) || 0) > 0);
-    const extras = Object.keys(gradeTam).filter((t) => !TAMANHOS_GRADE.includes(t) && (parseInt(gradeTam[t], 10) || 0) > 0);
+  // ── Grade de tamanhos (variante × tamanho, igual ao sistema) ──
+  const linhasGrade = normalizarGrade(pedido.grade);
+  if (linhasGrade.length > 0) {
+    // Tamanhos usados por qualquer variante, na ordem oficial.
+    const usados = TAMANHOS_GRADE.filter((t) => linhasGrade.some((l) => (parseInt(l.qtds[t], 10) || 0) > 0));
+    const extras = [];
+    linhasGrade.forEach((l) => Object.keys(l.qtds).forEach((t) => {
+      if (!TAMANHOS_GRADE.includes(t) && !extras.includes(t) && (parseInt(l.qtds[t], 10) || 0) > 0) extras.push(t);
+    }));
     const cols = [...usados, ...extras];
-    const total = cols.reduce((a, t) => a + (parseInt(gradeTam[t], 10) || 0), 0);
+    const temVariante = linhasGrade.some((l) => (l.variante || "").trim());
 
-    quebraSePreciso(24);
-    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
-    doc.text("GRADE DE TAMANHOS (PEDIDO COMPLETO)", mx, y);
-    y += 5;
+    if (cols.length > 0) {
+      const hLinha = 8;
+      quebraSePreciso(16 + linhasGrade.length * hLinha);
+      doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
+      doc.text("GRADE DE TAMANHOS", mx, y);
+      y += 5;
 
-    const larguraTabela = larg - mx * 2;
-    const colTotal = 22;
-    const cw = Math.min(30, (larguraTabela - colTotal) / cols.length);
-    const wTabela = cw * cols.length + colTotal;
-    const hLinha = 8;
+      const larguraTabela = larg - mx * 2;
+      const colVar = temVariante ? 34 : 0;
+      const colTotal = 20;
+      const cw = (larguraTabela - colVar - colTotal) / cols.length;
 
-    // Cabeçalho (tamanhos)
-    let x = mx;
-    doc.setFillColor(244, 244, 241).setDrawColor(205).setLineWidth(0.25);
-    cols.forEach((t) => {
-      doc.rect(x, y, cw, hLinha, "FD");
-      doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...CINZA);
-      doc.text(String(t), x + cw / 2, y + 5.2, { align: "center" });
-      x += cw;
-    });
-    doc.setFillColor(237, 247, 242).rect(x, y, colTotal, hLinha, "FD");
-    doc.setTextColor(...VERDE_ESCURO).text("TOTAL", x + colTotal / 2, y + 5.2, { align: "center" });
-    y += hLinha;
+      const totalTam = (t) => linhasGrade.reduce((a, l) => a + (parseInt(l.qtds[t], 10) || 0), 0);
+      const totalLinha = (l) => cols.reduce((a, t) => a + (parseInt(l.qtds[t], 10) || 0), 0);
+      const geral = linhasGrade.reduce((a, l) => a + totalLinha(l), 0);
 
-    // Linha de quantidades
-    x = mx;
-    cols.forEach((t) => {
-      doc.setDrawColor(220).rect(x, y, cw, hLinha, "S");
-      doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(...TINTA);
-      doc.text(String(gradeTam[t]), x + cw / 2, y + 5.4, { align: "center" });
-      x += cw;
-    });
-    doc.setFillColor(237, 247, 242).setDrawColor(205).rect(x, y, colTotal, hLinha, "FD");
-    doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(...VERDE_ESCURO);
-    doc.text(String(total), x + colTotal / 2, y + 5.4, { align: "center" });
-    y += hLinha + 13;
+      // Helper de célula: reseta cor a cada chamada (evita blocos cinza fantasmas).
+      const celula = (cx, cy, cwid, texto, { header, fill, corTexto, bold, alinhar } = {}) => {
+        if (fill) { doc.setFillColor(...fill); doc.rect(cx, cy, cwid, hLinha, "F"); }
+        doc.setDrawColor(214).setLineWidth(0.25).rect(cx, cy, cwid, hLinha, "S");
+        doc.setFont("helvetica", bold === false ? "normal" : "bold").setFontSize(header ? 7.5 : 9.5).setTextColor(...(corTexto || TINTA));
+        doc.text(String(texto), alinhar === "left" ? cx + 3 : cx + cwid / 2, cy + 5.3, { align: alinhar === "left" ? "left" : "center" });
+      };
+
+      // Cabeçalho
+      let x = mx;
+      if (temVariante) { celula(x, y, colVar, "VARIANTE", { header: true, fill: [244, 244, 241], corTexto: CINZA, alinhar: "left" }); x += colVar; }
+      cols.forEach((t) => { celula(x, y, cw, t, { header: true, fill: [244, 244, 241], corTexto: CINZA }); x += cw; });
+      celula(x, y, colTotal, "TOTAL", { header: true, fill: [237, 247, 242], corTexto: VERDE_ESCURO });
+      y += hLinha;
+
+      // Linhas de variantes
+      linhasGrade.forEach((l) => {
+        x = mx;
+        if (temVariante) { celula(x, y, colVar, l.variante || "—", { corTexto: TINTA, alinhar: "left" }); x += colVar; }
+        cols.forEach((t) => {
+          const q = parseInt(l.qtds[t], 10) || 0;
+          celula(x, y, cw, q || "·", { corTexto: q ? TINTA : [190, 190, 185], bold: !!q });
+          x += cw;
+        });
+        celula(x, y, colTotal, totalLinha(l), { fill: [250, 250, 248], corTexto: VERDE_ESCURO });
+        y += hLinha;
+      });
+
+      // Linha de total (só se houver variantes ou mais de uma linha)
+      if (temVariante || linhasGrade.length > 1) {
+        x = mx;
+        if (temVariante) { celula(x, y, colVar, "TOTAL", { fill: [244, 244, 241], corTexto: CINZA, alinhar: "left" }); x += colVar; }
+        cols.forEach((t) => { celula(x, y, cw, totalTam(t), { fill: [244, 244, 241], corTexto: VERDE_ESCURO }); x += cw; });
+        celula(x, y, colTotal, geral, { fill: [237, 247, 242], corTexto: VERDE_ESCURO });
+        y += hLinha;
+      }
+      y += 13;
+    }
   }
 
   // ── Rastreio dos processos da etapa (trilha visual) ──
@@ -244,52 +265,78 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
 
   // ── Remessas de oficina (para a etapa Oficina) ──
   if (remessasOficina && remessasOficina.length > 0) {
-    quebraSePreciso(14 + remessasOficina.length * 7);
+    const hLinha = 7;
+    quebraSePreciso(18 + remessasOficina.length * hLinha);
     doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
     doc.text("REMESSAS DE OFICINA", mx, y);
     y += 5;
-    const cols = [50, 30, 30, 24, 24]; // oficina, saída, retorno, enviadas, retorn.
+
+    const larguraTabela = larg - mx * 2;
+    // oficina | saída | retorno | enviadas | retorn.
+    const cols = [larguraTabela * 0.30, larguraTabela * 0.20, larguraTabela * 0.20, larguraTabela * 0.15, larguraTabela * 0.15];
     const fmtD = (d) => {
       if (!d) return "—";
       const dt = /^\d{4}-\d{2}-\d{2}/.test(d) ? new Date(d.slice(0, 10) + "T12:00") : new Date(d);
       return isNaN(dt) ? "—" : dt.toLocaleDateString("pt-BR");
     };
-    // cabeçalho
+    const headers = ["OFICINA", "SAÍDA", "RETORNO", "ENVIADAS", "RETORN."];
+
+    // Cabeçalho em faixa
+    doc.setFillColor(244, 244, 241).rect(mx, y, larguraTabela, hLinha, "F");
     let x = mx;
-    doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...CINZA);
-    ["Oficina", "Saída", "Retorno", "Enviadas", "Retorn."].forEach((h, i) => {
+    doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...CINZA);
+    headers.forEach((h, i) => {
       const alinhar = i >= 3 ? "right" : "left";
-      doc.text(h, alinhar === "right" ? x + cols[i] - 2 : x, y, { align: alinhar });
+      doc.text(h, alinhar === "right" ? x + cols[i] - 3 : x + 3, y + 4.7, { align: alinhar });
       x += cols[i];
     });
-    y += 5;
-    remessasOficina.forEach((r) => {
-      quebraSePreciso(7);
-      x = mx;
-      const vals = [r.oficina, fmtD(r.saida), r.retorno ? fmtD(r.retorno) : "em aberto", String(r.enviada), String(r.retornada)];
+    y += hLinha;
+
+    remessasOficina.forEach((r, idx) => {
+      quebraSePreciso(hLinha);
       const emAberto = !r.retorno;
-      doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...(emAberto ? AMBAR : TINTA));
+      // Zebra
+      if (idx % 2 === 1) { doc.setFillColor(250, 250, 248).rect(mx, y, larguraTabela, hLinha, "F"); }
+      const vals = [r.oficina, fmtD(r.saida), emAberto ? "em aberto" : fmtD(r.retorno), String(r.enviada), String(r.retornada)];
+      x = mx;
       vals.forEach((v, i) => {
         const alinhar = i >= 3 ? "right" : "left";
-        const txt = i === 0 ? (doc.splitTextToSize(v, cols[i] - 2)[0] || v) : v;
-        doc.text(txt, alinhar === "right" ? x + cols[i] - 2 : x, y, { align: alinhar });
+        doc.setFont("helvetica", i === 0 ? "bold" : "normal").setFontSize(8.5).setTextColor(...(emAberto ? AMBAR : i === 0 ? TINTA : [90, 88, 82]));
+        const txt = i === 0 ? (doc.splitTextToSize(v, cols[i] - 4)[0] || v) : v;
+        doc.text(txt, alinhar === "right" ? x + cols[i] - 3 : x + 3, y + 4.8, { align: alinhar });
         x += cols[i];
       });
-      y += 5;
-      doc.setDrawColor(235).setLineWidth(0.2).line(mx, y - 1.5, larg - mx, y - 1.5);
+      y += hLinha;
     });
-    y += 5;
+    // Borda inferior da tabela
+    doc.setDrawColor(225).setLineWidth(0.25).line(mx, y, larg - mx, y);
+    y += 8;
   }
 
   // ── Aviamentos (para a etapa Aviamento) ──
   if (aviamentos && aviamentos.length > 0) {
-    quebraSePreciso(14 + aviamentos.length * 6);
+    const hLinha = 7;
+    quebraSePreciso(16 + aviamentos.length * hLinha);
     doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
     doc.text("AVIAMENTOS", mx, y);
-    y += 6;
-    aviamentos.forEach((a) => {
-      quebraSePreciso(7);
-      // Monta a descrição conforme o tipo do item.
+    y += 5;
+
+    const larguraTabela = larg - mx * 2;
+    const colItem = larguraTabela * 0.32;
+    const colDet = larguraTabela * 0.48;
+    const colQtd = larguraTabela * 0.20;
+
+    // Cabeçalho em faixa
+    doc.setFillColor(244, 244, 241).rect(mx, y, larguraTabela, hLinha, "F");
+    doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...CINZA);
+    doc.text("ITEM", mx + 3, y + 4.7);
+    doc.text("ESPECIFICAÇÃO", mx + colItem + 3, y + 4.7);
+    doc.text("QTD", larg - mx - 3, y + 4.7, { align: "right" });
+    y += hLinha;
+
+    aviamentos.forEach((a, idx) => {
+      quebraSePreciso(hLinha);
+      // Descrição conforme o tipo.
       const partes = [];
       if (a.largura) partes.push(`largura ${a.largura}`);
       if (a.tipoCampo === "ziper") {
@@ -299,21 +346,21 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
         partes.push(`tam. ${a.tamanho}`);
       }
       if (a.consumo) partes.push(`consumo ${a.consumo}`);
-      const detalhe = partes.join(" · ");
-      doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...TINTA);
-      doc.text(a.nome, mx + 2, y);
-      if (detalhe) {
-        doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...CINZA);
-        doc.text(detalhe, mx + 45, y);
-      }
+      const detalhe = partes.join(" · ") || "—";
+
+      if (idx % 2 === 1) { doc.setFillColor(250, 250, 248).rect(mx, y, larguraTabela, hLinha, "F"); }
+      doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...TINTA);
+      doc.text(a.nome, mx + 3, y + 4.8);
+      doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
+      doc.text(doc.splitTextToSize(detalhe, colDet - 4)[0] || detalhe, mx + colItem + 3, y + 4.8);
       if (a.qtd) {
-        doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...TINTA);
-        doc.text(`Qtd: ${a.qtd}`, larg - mx - 2, y, { align: "right" });
+        doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...TINTA);
+        doc.text(String(a.qtd), larg - mx - 3, y + 4.8, { align: "right" });
       }
-      y += 5;
-      doc.setDrawColor(235).setLineWidth(0.2).line(mx, y - 1.5, larg - mx, y - 1.5);
+      y += hLinha;
     });
-    y += 5;
+    doc.setDrawColor(225).setLineWidth(0.25).line(mx, y, larg - mx, y);
+    y += 8;
   }
 
   // ── Imagens anexadas (referência e amostra) ──
