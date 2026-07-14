@@ -55,40 +55,73 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     if (y + altura > 280) { rodape(); doc.addPage(); y = 18; }
   };
 
-  // ── Cabeçalho: marca vetorial (anel + ponto verde) + FORENZA ──
+  // Título de seção com barrinha verde lateral. Retorna após avançar y.
+  const tituloSecao = (texto, sufixo) => {
+    doc.setFillColor(...VERDE).roundedRect(mx, y - 3.2, 1.4, 4.2, 0.7, 0.7, "F");
+    doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...VERDE_ESCURO);
+    doc.text(texto.toUpperCase(), mx + 4, y);
+    if (sufixo) {
+      doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
+      doc.text(sufixo, larg - mx, y, { align: "right" });
+    }
+    y += 6;
+  };
+
+  // ── Faixa de cor no topo (degradê simulado com blocos) ──
+  const faixaH = 4;
+  const passos = 60;
+  for (let i = 0; i < passos; i++) {
+    const t = i / (passos - 1);
+    // interpola VERDE_ESCURO → VERDE
+    const r = Math.round(VERDE_ESCURO[0] + (VERDE[0] - VERDE_ESCURO[0]) * t);
+    const g = Math.round(VERDE_ESCURO[1] + (VERDE[1] - VERDE_ESCURO[1]) * t);
+    const b = Math.round(VERDE_ESCURO[2] + (VERDE[2] - VERDE_ESCURO[2]) * t);
+    doc.setFillColor(r, g, b).rect((larg * i) / passos, 0, larg / passos + 0.5, faixaH, "F");
+  }
+  y = 20;
+
+  // ── Cabeçalho: marca vetorial + selo do setor ──
   doc.setDrawColor(...TINTA).setLineWidth(1.5).circle(mx + 5.5, y, 5.5, "S");
   doc.setFillColor(...VERDE).circle(mx + 5.5, y, 2.4, "F");
   doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(...TINTA);
   doc.text("F O R E N Z A", mx + 15, y - 0.5);
-  doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
-  doc.text("Gestão de produção", mx + 15, y + 4.5);
-  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, y - 1.5, { align: "right" });
-  if (totalPartes > 1) {
-    const txt = `PARTE ${parte} DE ${totalPartes}`;
-    doc.setFont("helvetica", "bold").setFontSize(8);
-    const w = doc.getTextWidth(txt) + 8;
-    doc.setFillColor(...VERDE_ESCURO).roundedRect(larg - mx - w, y + 1.5, w, 6.5, 3.2, 3.2, "F");
-    doc.setTextColor(255).text(txt, larg - mx - w / 2, y + 6, { align: "center" });
-  }
-  y += 12;
-  doc.setDrawColor(...VERDE_ESCURO).setLineWidth(0.7).line(mx, y, larg - mx, y);
-  y += 11;
+  doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
+  doc.text("GESTÃO DE PRODUÇÃO", mx + 15.5, y + 4.5);
 
-  // ── Título + destaque da quantidade ──
-  doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(...TINTA);
-  doc.text(`Romaneio de produção · ${rotuloLocal(local)}`, mx, y);
-  y += 8;
-  doc.setFillColor(237, 247, 242);
-  doc.roundedRect(mx, y, larg - mx * 2, 19, 2.5, 2.5, "F");
-  doc.setFont("helvetica", "bold").setFontSize(21).setTextColor(...VERDE_ESCURO);
-  const qtdTxt = `${qtd} peças`;
-  const largQtd = doc.getTextWidth(qtdTxt); // medir com a fonte grande, antes de trocar
-  doc.text(qtdTxt, mx + 7, y + 12.5);
+  // Selo do setor (canto direito) + emissão
+  const selo = rotuloLocal(local).toUpperCase();
+  doc.setFont("helvetica", "bold").setFontSize(9);
+  const wSelo = doc.getTextWidth(selo) + 12;
+  doc.setFillColor(...VERDE).roundedRect(larg - mx - wSelo, y - 4.5, wSelo, 7.5, 2, 2, "F");
+  doc.setTextColor(255).text(selo, larg - mx - wSelo / 2, y + 0.4, { align: "center" });
+  doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
+  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, y + 7, { align: "right" });
+  if (totalPartes > 1) {
+    doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...AMBAR);
+    doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, y + 11.5, { align: "right" });
+  }
+  y += 15;
+
+  // ── Título com linha grossa ──
+  doc.setFont("helvetica", "bold").setFontSize(18).setTextColor(...TINTA);
+  doc.text("Romaneio de produção", mx, y);
+  y += 3;
+  doc.setDrawColor(...TINTA).setLineWidth(0.8).line(mx, y, larg - mx, y);
+  y += 10;
+
+  // ── Bloco de destaque da quantidade ──
+  doc.setFillColor(237, 247, 242).roundedRect(mx, y, larg - mx * 2, 20, 3, 3, "F");
+  doc.setFont("helvetica", "bold").setFontSize(24).setTextColor(...VERDE_ESCURO);
+  const qtdNum = String(qtd);
+  const largNum = doc.getTextWidth(qtdNum);
+  doc.text(qtdNum, mx + 8, y + 13.5);
   doc.setFont("helvetica", "normal").setFontSize(11).setTextColor(90);
-  doc.text(`em ${rotuloLocal(local)}`, mx + 10 + largQtd, y + 12.5);
-  doc.setFontSize(9.5).setTextColor(...CINZA);
-  doc.text(`pedido completo: ${pedido.total} peças`, larg - mx - 7, y + 12, { align: "right" });
-  y += 28;
+  doc.text(`peças em ${rotuloLocal(local).toLowerCase()}`, mx + 12 + largNum, y + 13.5);
+  doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
+  doc.text("PEDIDO COMPLETO", larg - mx - 8, y + 8, { align: "right" });
+  doc.setFont("helvetica", "bold").setFontSize(13).setTextColor(...TINTA);
+  doc.text(`${pedido.total} peças`, larg - mx - 8, y + 15, { align: "right" });
+  y += 30;
 
   // ── Informações em duas colunas ──
   const campos = [
@@ -130,9 +163,7 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     if (cols.length > 0) {
       const hLinha = 8;
       quebraSePreciso(16 + linhasGrade.length * hLinha);
-      doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
-      doc.text("GRADE DE TAMANHOS", mx, y);
-      y += 5;
+      tituloSecao("Grade de tamanhos");
 
       const larguraTabela = larg - mx * 2;
       const colVar = temVariante ? 34 : 0;
@@ -171,12 +202,12 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
         y += hLinha;
       });
 
-      // Linha de total (só se houver variantes ou mais de uma linha)
+      // Linha de total (só se houver variantes ou mais de uma linha) — destaque verde escuro
       if (temVariante || linhasGrade.length > 1) {
         x = mx;
-        if (temVariante) { celula(x, y, colVar, "TOTAL", { fill: [244, 244, 241], corTexto: CINZA, alinhar: "left" }); x += colVar; }
-        cols.forEach((t) => { celula(x, y, cw, totalTam(t), { fill: [244, 244, 241], corTexto: VERDE_ESCURO }); x += cw; });
-        celula(x, y, colTotal, geral, { fill: [237, 247, 242], corTexto: VERDE_ESCURO });
+        if (temVariante) { celula(x, y, colVar, "TOTAL", { fill: VERDE_ESCURO, corTexto: [255, 255, 255], alinhar: "left" }); x += colVar; }
+        cols.forEach((t) => { celula(x, y, cw, totalTam(t), { fill: VERDE_ESCURO, corTexto: [255, 255, 255] }); x += cw; });
+        celula(x, y, colTotal, geral, { fill: VERDE_ESCURO, corTexto: [255, 255, 255] });
         y += hLinha;
       }
       y += 13;
@@ -186,9 +217,8 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
   // ── Rastreio dos processos da etapa (trilha visual) ──
   if (processos && processos.length > 0) {
     quebraSePreciso(14);
-    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
-    doc.text(`PROCESSOS — ${rotuloLocal(local).toUpperCase()}`, mx, y);
-    y += 7;
+    const concluidos = processos.filter((p) => p.qtd >= pedido.total).length;
+    tituloSecao("Processos", `${concluidos} de ${processos.length} concluídos`);
 
     const cx = mx + 3; // centro das bolinhas (eixo da trilha)
     let topoAnterior = 0;
@@ -254,9 +284,8 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
   if (pedido.observacoes) {
     const linhas = doc.splitTextToSize(pedido.observacoes, larg - mx * 2 - 10);
     quebraSePreciso(14 + linhas.length * 4.6);
-    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
-    doc.text("OBSERVAÇÕES DO PEDIDO", mx, y);
-    y += 4;
+    tituloSecao("Observações do pedido");
+    y -= 2;
     doc.setFillColor(248, 248, 246).roundedRect(mx, y, larg - mx * 2, linhas.length * 4.6 + 6, 2, 2, "F");
     doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(60);
     doc.text(linhas, mx + 5, y + 6);
@@ -267,9 +296,8 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
   if (remessasOficina && remessasOficina.length > 0) {
     const hLinha = 7;
     quebraSePreciso(18 + remessasOficina.length * hLinha);
-    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
-    doc.text("REMESSAS DE OFICINA", mx, y);
-    y += 5;
+    tituloSecao("Remessas de oficina");
+    y -= 1;
 
     const larguraTabela = larg - mx * 2;
     // oficina | saída | retorno | enviadas | retorn.
@@ -317,9 +345,8 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
   if (aviamentos && aviamentos.length > 0) {
     const hLinha = 7;
     quebraSePreciso(16 + aviamentos.length * hLinha);
-    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
-    doc.text("AVIAMENTOS", mx, y);
-    y += 5;
+    tituloSecao("Aviamentos");
+    y -= 1;
 
     const larguraTabela = larg - mx * 2;
     const colItem = larguraTabela * 0.32;
@@ -378,9 +405,7 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     const h0 = primeira.h * escala0;
     // Título + primeira imagem precisam caber JUNTOS na mesma página.
     quebraSePreciso(6 + 6 + h0 + 6);
-    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...VERDE_ESCURO);
-    doc.text("IMAGENS", mx, y);
-    y += 6;
+    tituloSecao("Imagens");
     let x = mx;
     let alturaLinha = 0;
     imgs.forEach((im, i) => {
@@ -402,6 +427,14 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
   }
 
   rodape();
+  // Renumera todas as páginas com "Página X de Y".
+  const totalPag = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPag; p++) {
+    doc.setPage(p);
+    doc.setFillColor(255, 255, 255).rect(larg - mx - 40, 288.5, 40, 5, "F"); // limpa a numeração antiga
+    doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
+    doc.text(`Página ${p} de ${totalPag}`, larg - mx, 291.5, { align: "right" });
+  }
   const limpar = (t) => String(t || "").replace(/[^a-zA-Z0-9-_]/g, "_");
   doc.save(`${limpar(pedido.referencia) || "pedido"}-${limpar(rotuloLocal(local))}${totalPartes > 1 ? `-parte${parte}de${totalPartes}` : ""}.pdf`);
 }
