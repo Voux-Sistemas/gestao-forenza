@@ -11,13 +11,13 @@ const CINZA = [130, 128, 120];
 // Cores por setor para o selo do topo (RGB, equivalentes às do sistema).
 const COR_SETOR = {
   "Entrada": [130, 128, 120],
-  "Ficha Técnica de Corte": [55, 138, 221],
-  "Corte": [55, 138, 221],
-  "Amostra": [239, 159, 39],
-  "Oficina": [239, 159, 39],
-  "Aviação": [127, 119, 221],
-  "Acabamento": [216, 118, 40],
-  "Estoque": [29, 158, 117],
+  "Ficha Técnica de Corte": [14, 138, 138],
+  "Corte": [45, 108, 179],
+  "Amostra": [196, 60, 122],
+  "Oficina": [186, 117, 23],
+  "Aviação": [107, 95, 196],
+  "Acabamento": [217, 101, 12],
+  "Estoque": [23, 138, 90],
 };
 const corDoSetor = (local) => COR_SETOR[local] || VERDE;
 
