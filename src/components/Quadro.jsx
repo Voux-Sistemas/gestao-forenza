@@ -242,6 +242,7 @@ export default function Quadro({ session, perfil }) {
                     onClick={() => setMover({ pedido: pe, local, saldo: saldo[local], cliente: nomeCliente(pe.cliente_id), parte, totalPartes: partes.length })}
                     style={{
                       ...estiloCard,
+                      borderLeft: `3px solid ${CORES[local]}`,
                       cursor: podeEditar ? "grab" : "pointer",
                       opacity: arrastando?.pedido?.id === pe.id && arrastando?.local === local ? 0.4 : 1,
                     }}

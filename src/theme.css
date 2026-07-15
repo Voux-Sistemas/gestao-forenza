@@ -7,6 +7,7 @@
   --warning:#B07407;--warning-bg:#FAF0DC;
   --danger:#CB3A3A;--danger-bg:#FBE8E8;
   --orange:#D9650C;--orange-bg:#FBEBDD;
+  --azul:#2D6CB3;--azul-bg:#E6F1FB;--roxo:#6B5FC4;--roxo-bg:#EEEDFE;
   --shadow-sm:0 1px 2px rgba(20,20,15,.04);
   --shadow-card:0 1px 2px rgba(20,20,15,.05);
   --shadow-md:0 4px 14px rgba(20,20,15,.07);
@@ -22,6 +23,7 @@ html[data-theme="dark"]{
   --warning:#D49A40;--warning-bg:#2B2310;
   --danger:#E26565;--danger-bg:#2E1818;
   --orange:#E8843D;--orange-bg:#2E1E12;
+  --azul:#5B9BE0;--azul-bg:#12233A;--roxo:#9087DB;--roxo-bg:#1E1B33;
   --shadow-sm:0 1px 2px rgba(0,0,0,.35);
   --shadow-card:0 2px 8px rgba(0,0,0,.4);
   --shadow-md:0 6px 18px rgba(0,0,0,.5);

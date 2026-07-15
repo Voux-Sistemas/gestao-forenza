@@ -26,11 +26,11 @@ export const rotuloLocal = (local) => LABELS[local] || local;
 
 export const CORES_ETAPA = {
   Entrada: "var(--text-3)",
-  "Ficha Técnica de Corte": "var(--accent)",
-  Corte: "var(--accent)",
+  "Ficha Técnica de Corte": "var(--azul)",
+  Corte: "var(--azul)",
   Amostra: "var(--warning)",
   Oficina: "var(--warning)",
-  Aviação: "var(--accent)",
+  "Aviação": "var(--roxo)",
   Acabamento: "var(--orange)",
   Estoque: "var(--success)",
   Perda: "var(--danger)",
