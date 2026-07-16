@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown, Bell } from "lucide-react";
+import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown, Bell, Filter, X } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { gerarPdfEtapa } from "../pdfEtapa.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
@@ -68,6 +68,9 @@ export default function Quadro({ session, perfil }) {
   const podeEditar = perfil?.papel !== "cliente"; // funcionários também marcam processos e movem peças
   const ehMaster = perfil?.papel === "master";
   const [busca, setBusca] = useState("");
+  const [filtroCliente, setFiltroCliente] = useState("");
+  const [filtroMarca, setFiltroMarca] = useState("");
+  const [filtroReferencia, setFiltroReferencia] = useState("");
 
   useEffect(() => {
     const canal = supabase.channel("quadro")
@@ -114,6 +117,32 @@ export default function Quadro({ session, perfil }) {
   const nomeCliente = (id) => clientes.find((c) => c.id === id)?.nome || "—";
   const podeVerTudo = ["master", "chefe_geral"].includes(perfil?.papel);
   const colunas = podeVerTudo ? COLUNAS : (perfil?.setor ? [perfil.setor] : []);
+
+  // Opções dos filtros: só os valores que realmente têm peças em alguma coluna do quadro.
+  const opcoesFiltro = useMemo(() => {
+    const clientesIds = new Set();
+    const marcas = new Set();
+    const referencias = new Set();
+    pedidos.forEach((pe) => {
+      const saldo = calcularSaldos(pe.id, pe.total, movimentos);
+      const noQuadro = COLUNAS.some((l) => saldo[l] > 0);
+      if (!noQuadro) return;
+      if (pe.cliente_id) clientesIds.add(pe.cliente_id);
+      if (pe.marca) marcas.add(pe.marca);
+      if (pe.referencia) referencias.add(pe.referencia);
+    });
+    return {
+      clientes: [...clientesIds]
+        .map((id) => ({ id, nome: nomeCliente(id) }))
+        .sort((a, b) => a.nome.localeCompare(b.nome)),
+      marcas: [...marcas].sort((a, b) => a.localeCompare(b)),
+      referencias: [...referencias].sort((a, b) => a.localeCompare(b)),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidos, movimentos, clientes]);
+
+  const temFiltro = filtroCliente || filtroMarca || filtroReferencia;
+  const limparFiltros = () => { setFiltroCliente(""); setFiltroMarca(""); setFiltroReferencia(""); };
 
   if (carregando) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando quadro…</div>;
   if (!podeVerTudo && !perfil?.setor) return <div style={{ padding: 28, color: "var(--text-2)" }}>Seu usuário ainda não tem um setor definido.</div>;
@@ -183,11 +212,40 @@ export default function Quadro({ session, perfil }) {
         </div>
       </div>
 
+      {podeVerTudo && (
+        <div style={{ flexShrink: 0, display: "flex", gap: 8, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "var(--text-3)", marginRight: 4, display: "inline-flex", alignItems: "center", gap: 4 }}><Filter size={12} /> Filtrar:</span>
+          <select value={filtroCliente} onChange={(e) => setFiltroCliente(e.target.value)} style={selectPill}>
+            <option value="">Todos os clientes</option>
+            {opcoesFiltro.clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+          <select value={filtroMarca} onChange={(e) => setFiltroMarca(e.target.value)} style={selectPill}>
+            <option value="">Todas as marcas</option>
+            {opcoesFiltro.marcas.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <select value={filtroReferencia} onChange={(e) => setFiltroReferencia(e.target.value)} style={selectPill}>
+            <option value="">Todas as referências</option>
+            {opcoesFiltro.referencias.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          {temFiltro && (
+            <button onClick={limparFiltros} style={{ ...selectPill, border: "none", color: "var(--text-3)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <X size={12} /> Limpar
+            </button>
+          )}
+        </div>
+      )}
+
       <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2, alignItems: "stretch" }}>
         {colunas.map((local) => {
           const cards = pedidos
             .map((pe) => ({ pe, saldo: calcularSaldos(pe.id, pe.total, movimentos) }))
             .filter(({ saldo }) => saldo[local] > 0)
+            .filter(({ pe }) => {
+              if (filtroCliente && pe.cliente_id !== Number(filtroCliente)) return false;
+              if (filtroMarca && pe.marca !== filtroMarca) return false;
+              if (filtroReferencia && pe.referencia !== filtroReferencia) return false;
+              return true;
+            })
             .filter(({ pe }) => {
               const q = busca.trim().toLowerCase();
               if (!q) return true;
@@ -1542,4 +1600,5 @@ const card = { textAlign: "left", width: "100%", background: "var(--surface)", b
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
 const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 15px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "none", background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "#fff", boxShadow: "var(--shadow-sm)", cursor: "pointer" };
+const selectPill = { padding: "5px 10px", fontSize: 12, borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
