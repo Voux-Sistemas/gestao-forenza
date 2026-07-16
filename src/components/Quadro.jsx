@@ -609,6 +609,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Aviação" && <PainelAviamento pedido={pedido} podeEditar={podeEditar} />}
       {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
+      <LinhaTempoEtapas pedido={pedido} movimentos={movimentos} />
       {podeEditar ? (
         <>
           {local === "Oficina" && remessasAbertas.length > 0 && (
@@ -957,6 +958,67 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
     </div>
   );
 }
+
+// Linha do tempo das etapas: quando o pedido passou por cada fase do fluxo.
+// Tudo derivado dos movimentos (primeira chegada em cada etapa) — sem dados novos.
+function LinhaTempoEtapas({ pedido, movimentos }) {
+  const fmtDT = (d) => {
+    if (!d) return null;
+    try {
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return String(d).slice(0, 10);
+      return dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+    } catch { return String(d); }
+  };
+
+  const movs = (movimentos || [])
+    .filter((m) => m.pedido_id === pedido.id)
+    .sort((a, b) => String(a.data || a.criado_em || "").localeCompare(String(b.data || b.criado_em || "")));
+
+  const nodes = [];
+  const origem = movs[0]?.de_local;
+  if (origem && LOCAIS.includes(origem)) {
+    nodes.push({ etapa: origem, data: pedido.criado_em || pedido.created_at || null, inicio: true });
+  }
+  const vistos = new Set(origem ? [origem] : []);
+  movs.forEach((m) => {
+    if (!m.para_local || vistos.has(m.para_local) || !LOCAIS.includes(m.para_local)) return;
+    vistos.add(m.para_local);
+    nodes.push({ etapa: m.para_local, data: m.data || m.criado_em, qtd: m.qtd });
+  });
+
+  if (nodes.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 16, padding: "14px 16px", background: "var(--surface-2)", borderRadius: 11, border: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 12 }}>Linha do tempo das etapas</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {nodes.map((n, idx) => {
+          const cor = CORES[n.etapa] || "var(--accent)";
+          const dataFmt = fmtDT(n.data);
+          return (
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
+              {idx < nodes.length - 1 && <span style={{ position: "absolute", left: 11, top: 22, bottom: -12, width: 2, background: "var(--border)" }} />}
+              <div style={{ width: 22, height: 22, borderRadius: 99, background: cor, flexShrink: 0, zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ width: 7, height: 7, borderRadius: 99, background: "#fff" }} />
+              </div>
+              <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>{n.inicio ? "Começou em " : "Entrou em "}{rotuloLocal(n.etapa)}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-3)", display: "inline-flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                    <Calendar size={10} /> {dataFmt || "data não registrada"}
+                  </div>
+                </div>
+                {n.qtd != null && <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 99, background: "var(--surface)", color: "var(--text-2)", border: "1px solid var(--border)" }}>{n.qtd} pç{n.qtd === 1 ? "" : "s"}</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Histórico do dia: o que chegou e saiu do setor hoje. Simples, nível de setor.
 function HistoricoDoDia({ setor, movimentos, pedidos }) {
   const hoje = new Date().toISOString().slice(0, 10);
