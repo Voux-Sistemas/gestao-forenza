@@ -4,7 +4,7 @@ import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2, FileText, Plus
 import StatCard from "./StatCard.jsx";
 import { calcularSaldos as saldos } from "../etapas.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
-import GradeTabela, { normalizarGrade } from "./GradeTabela.jsx";
+import GradeTabela, { normalizarGrade, gradePorTamanho, totalGrade, TAMANHOS_GRADE } from "./GradeTabela.jsx";
 import { gerarPdfEtapa } from "../pdfEtapa.js";
 import Overlay from "./Gaveta.jsx";
 
@@ -40,8 +40,23 @@ export default function Estoque({ session, perfil }) {
 
   const nomeCliente = (id) => clientes.find((c) => c.id === id)?.nome || "—";
 
+  // Consolida, por pedido, os tamanhos que foram classificados como 1ª/2ª qualidade
+  // (a partir da grade gravada em cada movimento de inspeção).
+  const classificacaoDe = (pedidoId) => {
+    const acc = { primeira: {}, segunda: {} };
+    movimentos.forEach((m) => {
+      if (m.pedido_id !== pedidoId || !m.grade) return;
+      const alvo = m.para_local === "Primeira" ? "primeira" : m.para_local === "Segunda" ? "segunda" : null;
+      if (!alvo) return;
+      Object.entries(gradePorTamanho(m.grade)).forEach(([t, q]) => { acc[alvo][t] = (acc[alvo][t] || 0) + q; });
+    });
+    const vazio = (o) => Object.keys(o).length === 0;
+    if (vazio(acc.primeira) && vazio(acc.segunda)) return null;
+    return acc;
+  };
+
   const [pdfId, setPdfId] = useState(null); // id do pedido gerando PDF
-  async function baixarPdf(pe, qtd) {
+  async function baixarPdf(pe, qtd, classificacao = null) {
     if (pdfId) return;
     setPdfId(pe.id);
     try {
@@ -56,7 +71,7 @@ export default function Estoque({ session, perfil }) {
       }
       await gerarPdfEtapa({
         pedido: pe, cliente: nomeCliente(pe.cliente_id), local: "Estoque", qtd,
-        parte: 1, totalPartes: 1, oficina: null, processos: null, imagens,
+        parte: 1, totalPartes: 1, oficina: null, processos: null, imagens, classificacao,
       });
     } finally {
       setPdfId(null);
@@ -138,6 +153,7 @@ export default function Estoque({ session, perfil }) {
             {prontos.map(({ pe, s }) => {
               const d1 = s.Primeira || 0;
               const d2 = s.Segunda || 0;
+              const cls = classificacaoDe(pe.id);
               return (
                 <div key={pe.id} className="lift" style={cartao}>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
@@ -160,6 +176,7 @@ export default function Estoque({ session, perfil }) {
                       <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2, color: d2 > 0 ? "var(--orange)" : "var(--text-3)" }}>{d2}</div>
                     </div>
                   </div>
+                  {cls && <TabelaClassificacao cls={cls} />}
                   <GradeTabela grade={pe.grade} />
                   {podeBaixar && (
                     <button onClick={() => setDarBaixa({ pe, disp1: d1, disp2: d2 })} style={{ ...btnDanger, width: "100%", marginBottom: 8 }}>
@@ -169,7 +186,7 @@ export default function Estoque({ session, perfil }) {
                   <button onClick={() => setFaturamento(pe)} style={{ ...btnGhost, width: "100%", marginBottom: 8 }}>
                     <FileText size={14} /> Grade de faturamento
                   </button>
-                  <button onClick={() => baixarPdf(pe, d1 + d2)} disabled={pdfId === pe.id} style={{ ...btnGhost, width: "100%" }}>
+                  <button onClick={() => baixarPdf(pe, d1 + d2, cls)} disabled={pdfId === pe.id} style={{ ...btnGhost, width: "100%" }}>
                     <FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "PDF do pedido"}
                   </button>
                 </div>
@@ -386,16 +403,35 @@ function ModalBaixa({ dados, session, onFechar, onOk }) {
 
 function ModalInspecao({ dados, session, onFechar, onOk }) {
   const { pe, disponivel } = dados;
+
+  // Tamanhos do pedido (pela grade). Se o pedido não tem grade, cai no modo de dois totais.
+  const porTam = gradePorTamanho(pe.grade);
+  const tamanhos = TAMANHOS_GRADE.filter((t) => (porTam[t] || 0) > 0);
+  Object.keys(porTam).forEach((t) => { if (!tamanhos.includes(t) && (porTam[t] || 0) > 0) tamanhos.push(t); });
+  const temGrade = tamanhos.length > 0;
+
+  // Padrão: tudo em 1ª qualidade (puxa a grade do pedido); 2ª começa zerada.
+  const [g1, setG1] = useState(() => (temGrade ? Object.fromEntries(tamanhos.map((t) => [t, String(porTam[t] || 0)])) : {}));
+  const [g2, setG2] = useState(() => (temGrade ? Object.fromEntries(tamanhos.map((t) => [t, "0"])) : {}));
+  // Fallback (sem grade): dois totais simples, como antes.
   const [q1, setQ1] = useState(String(disponivel));
   const [q2, setQ2] = useState("0");
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
-  const n1 = parseInt(q1, 10) || 0;
-  const n2 = parseInt(q2, 10) || 0;
+  const somaObj = (o) => Object.values(o).reduce((a, v) => a + (parseInt(v, 10) || 0), 0);
+  const n1 = temGrade ? somaObj(g1) : (parseInt(q1, 10) || 0);
+  const n2 = temGrade ? somaObj(g2) : (parseInt(q2, 10) || 0);
   const soma = n1 + n2;
   const restante = disponivel - soma;
   const p1 = soma ? (n1 / soma) * 100 : 0;
+
+  const setSize = (setter) => (t, val) => setter((o) => ({ ...o, [t]: val }));
+  const limpaGrade = (o) => {
+    const out = {};
+    Object.entries(o).forEach(([t, v]) => { const n = parseInt(v, 10) || 0; if (n > 0) out[t] = n; });
+    return Object.keys(out).length ? out : null;
+  };
 
   async function confirmar() {
     setErro(null);
@@ -404,11 +440,11 @@ function ModalInspecao({ dados, session, onFechar, onOk }) {
     setSalvando(true);
     try {
       if (n1 > 0) {
-        const r = await supabase.from("movimentos").insert({ pedido_id: pe.id, de_local: "Estoque", para_local: "Primeira", qtd: n1, usuario_id: session.user.id });
+        const r = await supabase.from("movimentos").insert({ pedido_id: pe.id, de_local: "Estoque", para_local: "Primeira", qtd: n1, grade: temGrade ? limpaGrade(g1) : null, usuario_id: session.user.id });
         if (r.error) throw r.error;
       }
       if (n2 > 0) {
-        const r = await supabase.from("movimentos").insert({ pedido_id: pe.id, de_local: "Estoque", para_local: "Segunda", qtd: n2, usuario_id: session.user.id });
+        const r = await supabase.from("movimentos").insert({ pedido_id: pe.id, de_local: "Estoque", para_local: "Segunda", qtd: n2, grade: temGrade ? limpaGrade(g2) : null, usuario_id: session.user.id });
         if (r.error) throw r.error;
       }
       onOk();
@@ -418,25 +454,51 @@ function ModalInspecao({ dados, session, onFechar, onOk }) {
     }
   }
 
+  const colGrid = "minmax(58px, .7fr) 1fr 1fr";
+
   return (
     <Overlay onFechar={onFechar}>
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Inspecionar — {pe.referencia}</h3>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 14px" }}>{disponivel} peças aguardando classificação</p>
-      <GradeTabela grade={pe.grade} margem="0 0 16px" />
+      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 14px" }}>{disponivel} peças aguardando classificação — informe os tamanhos de cada qualidade.</p>
 
-      <div style={{ display: "flex", gap: 10 }}>
-        <div style={{ flex: 1 }}>
-          <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)", display: "inline-block", marginRight: 6 }} />1ª qualidade</label>
-          <input type="number" min="0" max={disponivel} value={q1} onChange={(e) => setQ1(e.target.value)} autoFocus style={inp} />
+      {temGrade ? (
+        <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: colGrid, background: "var(--surface-2)", fontSize: 10, fontWeight: 700, letterSpacing: ".3px" }}>
+            <div style={{ padding: "8px 10px", color: "var(--text-3)" }}>TAMANHO</div>
+            <div style={{ padding: "8px 10px", textAlign: "center", color: "var(--success)" }}>1ª QUALIDADE</div>
+            <div style={{ padding: "8px 10px", textAlign: "center", color: "var(--orange)" }}>2ª QUALIDADE</div>
+          </div>
+          {tamanhos.map((t) => (
+            <div key={t} style={{ display: "grid", gridTemplateColumns: colGrid, alignItems: "center", borderTop: "1px solid var(--border)" }}>
+              <div style={{ padding: "6px 10px", fontWeight: 600, fontSize: 13 }}>{t}</div>
+              <div style={{ padding: 6 }}><input type="number" min="0" value={g1[t] ?? "0"} onChange={(e) => setSize(setG1)(t, e.target.value)} style={inpMini} /></div>
+              <div style={{ padding: 6 }}><input type="number" min="0" value={g2[t] ?? "0"} onChange={(e) => setSize(setG2)(t, e.target.value)} style={inpMini} /></div>
+            </div>
+          ))}
+          <div style={{ display: "grid", gridTemplateColumns: colGrid, alignItems: "center", borderTop: "1px solid var(--border)", background: "var(--surface-2)" }}>
+            <div style={{ padding: "8px 10px", fontSize: 11, fontWeight: 700, color: "var(--text-2)" }}>TOTAL</div>
+            <div style={{ padding: "8px 10px", textAlign: "center", fontWeight: 800, color: "var(--success)" }}>{n1}</div>
+            <div style={{ padding: "8px 10px", textAlign: "center", fontWeight: 800, color: "var(--orange)" }}>{n2}</div>
+          </div>
         </div>
-        <div style={{ flex: 1 }}>
-          <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--orange)", display: "inline-block", marginRight: 6 }} />2ª qualidade</label>
-          <input type="number" min="0" max={disponivel} value={q2} onChange={(e) => setQ2(e.target.value)} style={inp} />
-        </div>
-      </div>
+      ) : (
+        <>
+          <GradeTabela grade={pe.grade} margem="0 0 16px" />
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)", display: "inline-block", marginRight: 6 }} />1ª qualidade</label>
+              <input type="number" min="0" max={disponivel} value={q1} onChange={(e) => setQ1(e.target.value)} autoFocus style={inp} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--orange)", display: "inline-block", marginRight: 6 }} />2ª qualidade</label>
+              <input type="number" min="0" max={disponivel} value={q2} onChange={(e) => setQ2(e.target.value)} style={inp} />
+            </div>
+          </div>
+        </>
+      )}
 
       {soma > 0 && (
-        <div style={{ display: "flex", height: 8, borderRadius: 99, overflow: "hidden", background: "var(--surface-3)", marginTop: 14 }}>
+        <div style={{ display: "flex", height: 8, borderRadius: 99, overflow: "hidden", background: "var(--surface-3)", marginTop: 4 }}>
           {n1 > 0 && <div style={{ width: `${p1}%`, background: "var(--success)" }} />}
           {n2 > 0 && <div style={{ width: `${100 - p1}%`, background: "var(--orange)" }} />}
         </div>
@@ -456,6 +518,45 @@ function ModalInspecao({ dados, session, onFechar, onOk }) {
   );
 }
 
+// Mini-tabela do card "Em estoque": tamanhos classificados em 1ª/2ª qualidade.
+function TabelaClassificacao({ cls }) {
+  const g1 = cls.primeira || {}, g2 = cls.segunda || {};
+  const tams = TAMANHOS_GRADE.filter((t) => (g1[t] || 0) > 0 || (g2[t] || 0) > 0);
+  [...Object.keys(g1), ...Object.keys(g2)].forEach((t) => { if (!tams.includes(t) && ((g1[t] || 0) > 0 || (g2[t] || 0) > 0)) tams.push(t); });
+  if (tams.length === 0) return null;
+  const t1 = tams.reduce((a, t) => a + (g1[t] || 0), 0);
+  const t2 = tams.reduce((a, t) => a + (g2[t] || 0), 0);
+  const cel = { padding: "3px 6px", fontSize: 11.5, textAlign: "center", borderTop: "1px solid var(--border)" };
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: 9, overflow: "hidden", marginBottom: 12 }}>
+      <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".4px", color: "var(--text-2)", padding: "6px 8px", background: "var(--surface-2)" }}>CLASSIFICAÇÃO POR TAMANHO</div>
+      <table style={{ borderCollapse: "collapse", width: "100%" }}>
+        <thead>
+          <tr style={{ background: "var(--surface-2)" }}>
+            <th style={{ ...cel, borderTop: "none", textAlign: "left", fontSize: 9, fontWeight: 700, color: "var(--text-3)" }}>TAM</th>
+            <th style={{ ...cel, borderTop: "none", fontSize: 9, fontWeight: 700, color: "var(--success)" }}>1ª</th>
+            <th style={{ ...cel, borderTop: "none", fontSize: 9, fontWeight: 700, color: "var(--orange)" }}>2ª</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tams.map((t) => (
+            <tr key={t}>
+              <td style={{ ...cel, textAlign: "left", fontWeight: 600 }}>{t}</td>
+              <td style={{ ...cel, color: (g1[t] || 0) ? "var(--success)" : "var(--text-3)", fontWeight: (g1[t] || 0) ? 700 : 400 }}>{g1[t] || "·"}</td>
+              <td style={{ ...cel, color: (g2[t] || 0) ? "var(--orange)" : "var(--text-3)", fontWeight: (g2[t] || 0) ? 700 : 400 }}>{g2[t] || "·"}</td>
+            </tr>
+          ))}
+          <tr style={{ background: "var(--surface-2)" }}>
+            <td style={{ ...cel, textAlign: "left", fontWeight: 800, color: "var(--text-2)" }}>TOTAL</td>
+            <td style={{ ...cel, fontWeight: 800, color: "var(--success)" }}>{t1}</td>
+            <td style={{ ...cel, fontWeight: 800, color: "var(--orange)" }}>{t2}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 const grade = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 290px), 1fr))", gap: 14 };
 const subTab = (ativo) => ({
   padding: "9px 14px", fontSize: 13, fontWeight: 500, border: "none", background: "none", cursor: "pointer",
@@ -465,6 +566,7 @@ const subTab = (ativo) => ({
 const cartao = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "16px", boxShadow: "var(--shadow-card)" };
 const tag = { fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", color: "var(--accent)", background: "var(--accent-bg)", whiteSpace: "nowrap" };
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
+const inpMini = { width: "100%", padding: "6px 8px", fontSize: 13, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", textAlign: "center", boxSizing: "border-box" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
 const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer", transition: "background .15s" };
 
