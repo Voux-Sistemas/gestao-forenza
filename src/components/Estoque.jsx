@@ -16,6 +16,7 @@ export default function Estoque({ session, perfil }) {
   const [carregando, setCarregando] = useState(true);
   const [inspecionar, setInspecionar] = useState(null);
   const [darBaixa, setDarBaixa] = useState(null);
+  const [detalhesId, setDetalhesId] = useState(null); // id do pedido aberto na gaveta de detalhes
   const [faturamento, setFaturamento] = useState(null);
   const podeBaixar = ["master", "chefe_geral"].includes(perfil?.papel);
 
@@ -135,11 +136,8 @@ export default function Estoque({ session, perfil }) {
                   <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>de {pe.total} aguardando inspeção</span>
                 </div>
                 <GradeTabela grade={pe.grade} />
-                <button onClick={() => setInspecionar({ pe, disponivel: s.Estoque })} style={{ ...btnPrimary, width: "100%", marginBottom: 8 }}>
+                <button onClick={() => setInspecionar({ pe, disponivel: s.Estoque })} style={{ ...btnPrimary, width: "100%" }}>
                   Inspecionar <ArrowRight size={15} />
-                </button>
-                <button onClick={() => baixarPdf(pe, s.Estoque)} disabled={pdfId === pe.id} style={{ ...btnGhost, width: "100%" }}>
-                  <FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "PDF"}
                 </button>
               </div>
             ))}
@@ -153,7 +151,6 @@ export default function Estoque({ session, perfil }) {
             {prontos.map(({ pe, s }) => {
               const d1 = s.Primeira || 0;
               const d2 = s.Segunda || 0;
-              const cls = classificacaoDe(pe.id);
               return (
                 <div key={pe.id} className="lift" style={cartao}>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
@@ -176,18 +173,8 @@ export default function Estoque({ session, perfil }) {
                       <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2, color: d2 > 0 ? "var(--orange)" : "var(--text-3)" }}>{d2}</div>
                     </div>
                   </div>
-                  {cls && <TabelaClassificacao cls={cls} />}
-                  <GradeTabela grade={pe.grade} />
-                  {podeBaixar && (
-                    <button onClick={() => setDarBaixa({ pe, disp1: d1, disp2: d2 })} style={{ ...btnDanger, width: "100%", marginBottom: 8 }}>
-                      <Trash2 size={14} /> Dar baixa
-                    </button>
-                  )}
-                  <button onClick={() => setFaturamento(pe)} style={{ ...btnGhost, width: "100%", marginBottom: 8 }}>
-                    <FileText size={14} /> Grade de faturamento
-                  </button>
-                  <button onClick={() => baixarPdf(pe, d1 + d2, cls)} disabled={pdfId === pe.id} style={{ ...btnGhost, width: "100%" }}>
-                    <FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "PDF do pedido"}
+                  <button onClick={() => setDetalhesId(pe.id)} style={{ ...btnPrimary, width: "100%" }}>
+                    Ver detalhes <ArrowRight size={15} />
                   </button>
                 </div>
               );
@@ -197,8 +184,22 @@ export default function Estoque({ session, perfil }) {
       )}
 
       {faturamento && <ModalFaturamento pedido={faturamento} onFechar={() => setFaturamento(null)} onOk={() => { setFaturamento(null); carregar(); }} />}
-      {inspecionar && <ModalInspecao dados={inspecionar} session={session} onFechar={() => setInspecionar(null)} onOk={() => { setInspecionar(null); carregar(); }} />}
+      {inspecionar && <ModalInspecao dados={inspecionar} session={session} pdfId={pdfId} onPdf={(pe, qtd) => baixarPdf(pe, qtd)} onFechar={() => setInspecionar(null)} onOk={() => { setInspecionar(null); carregar(); }} />}
       {darBaixa && <ModalBaixa dados={darBaixa} session={session} onFechar={() => setDarBaixa(null)} onOk={() => { setDarBaixa(null); carregar(); }} />}
+      {(() => {
+        const alvo = detalhesId ? prontos.find(({ pe }) => pe.id === detalhesId) : null;
+        if (!alvo) return null;
+        return (
+          <ModalDetalhes
+            pe={alvo.pe} s={alvo.s} cls={classificacaoDe(alvo.pe.id)}
+            nomeCliente={nomeCliente} podeBaixar={podeBaixar} pdfId={pdfId}
+            onPdf={() => baixarPdf(alvo.pe, (alvo.s.Primeira || 0) + (alvo.s.Segunda || 0), classificacaoDe(alvo.pe.id))}
+            onFaturamento={() => setFaturamento(alvo.pe)}
+            onBaixa={() => setDarBaixa({ pe: alvo.pe, disp1: alvo.s.Primeira || 0, disp2: alvo.s.Segunda || 0 })}
+            onFechar={() => setDetalhesId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -401,7 +402,7 @@ function ModalBaixa({ dados, session, onFechar, onOk }) {
   );
 }
 
-function ModalInspecao({ dados, session, onFechar, onOk }) {
+function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
   const { pe, disponivel } = dados;
 
   // Tamanhos do pedido (pela grade). Se o pedido não tem grade, cai no modo de dois totais.
@@ -459,7 +460,12 @@ function ModalInspecao({ dados, session, onFechar, onOk }) {
   return (
     <Overlay onFechar={onFechar}>
       <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Inspecionar — {pe.referencia}</h3>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 14px" }}>{disponivel} peças aguardando classificação — informe os tamanhos de cada qualidade.</p>
+      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 12px" }}>{disponivel} peças aguardando classificação — informe os tamanhos de cada qualidade.</p>
+      {onPdf && (
+        <button onClick={() => onPdf(pe, disponivel)} disabled={pdfId === pe.id} style={{ ...btnGhost, marginBottom: 14 }}>
+          <FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "Baixar PDF"}
+        </button>
+      )}
 
       {temGrade ? (
         <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
@@ -514,6 +520,42 @@ function ModalInspecao({ dados, session, onFechar, onOk }) {
         <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
         <button onClick={confirmar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Confirmar"}</button>
       </div>
+    </Overlay>
+  );
+}
+
+// Gaveta lateral "Ver detalhes" do card Em estoque: resumo, classificação e ações.
+function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, onPdf, onFaturamento, onBaixa, onFechar }) {
+  const d1 = s.Primeira || 0;
+  const d2 = s.Segunda || 0;
+  return (
+    <Overlay onFechar={onFechar} rodape={
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {podeBaixar && (
+          <button onClick={onBaixa} style={{ ...btnDanger, width: "100%" }}><Trash2 size={14} /> Dar baixa</button>
+        )}
+        <button onClick={onFaturamento} style={{ ...btnGhost, width: "100%" }}><FileText size={14} /> Grade de faturamento</button>
+        <button onClick={onPdf} disabled={pdfId === pe.id} style={{ ...btnGhost, width: "100%" }}><FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "PDF do pedido"}</button>
+      </div>
+    }>
+      <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 2px" }}>{pe.referencia}</h3>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <span style={{ fontSize: 13, color: "var(--text-2)" }}>{nomeCliente(pe.cliente_id)}</span>
+        {pe.marca && <span style={tag}>{pe.marca}</span>}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <div style={{ flex: 1, padding: "9px 12px", borderRadius: 9, background: "var(--success-bg)" }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".4px", color: "var(--success)" }}>1ª QUALIDADE</div>
+          <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2, color: d1 > 0 ? "var(--success)" : "var(--text-3)" }}>{d1}</div>
+        </div>
+        <div style={{ flex: 1, padding: "9px 12px", borderRadius: 9, background: "var(--orange-bg)" }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".4px", color: "var(--orange)" }}>2ª QUALIDADE</div>
+          <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2, color: d2 > 0 ? "var(--orange)" : "var(--text-3)" }}>{d2}</div>
+        </div>
+      </div>
+      {cls && <TabelaClassificacao cls={cls} />}
+      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".4px", margin: "6px 0 6px" }}>Grade do pedido</div>
+      <GradeTabela grade={pe.grade} margem="0" />
     </Overlay>
   );
 }
