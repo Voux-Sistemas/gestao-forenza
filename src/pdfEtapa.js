@@ -51,9 +51,10 @@ async function carregarImagem(url) {
   } catch { return null; }
 }
 
-// Gera o romaneio em PDF das peças de um pedido em uma etapa.
-export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, aviamentos, imagens }) {
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+// Desenha a folha de romaneio de UM pedido no `doc` recebido, começando numa
+// página já em branco. Não cria o documento, não renumera e não salva —
+// isso fica a cargo de quem chama (permite juntar vários pedidos num PDF só).
+async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, aviamentos, imagens }) {
   const larg = doc.internal.pageSize.getWidth();
   const mx = 16;
   let y = 18;
@@ -466,7 +467,14 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
   }
 
   rodape();
-  // Renumera todas as páginas com "Página X de Y".
+}
+
+const limparNome = (t) => String(t || "").replace(/[^a-zA-Z0-9-_]/g, "_");
+
+// Renumera todas as páginas com "Página X de Y".
+function renumerarPaginas(doc) {
+  const larg = doc.internal.pageSize.getWidth();
+  const mx = 16;
   const totalPag = doc.getNumberOfPages();
   for (let p = 1; p <= totalPag; p++) {
     doc.setPage(p);
@@ -474,6 +482,139 @@ export async function gerarPdfEtapa({ pedido, cliente, local, qtd, parte, totalP
     doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
     doc.text(`Página ${p} de ${totalPag}`, larg - mx, 291.5, { align: "right" });
   }
-  const limpar = (t) => String(t || "").replace(/[^a-zA-Z0-9-_]/g, "_");
-  doc.save(`${limpar(pedido.referencia) || "pedido"}-${limpar(rotuloLocal(local))}${totalPartes > 1 ? `-parte${parte}de${totalPartes}` : ""}.pdf`);
+}
+
+// Romaneio de UM pedido numa etapa (comportamento original).
+export async function gerarPdfEtapa(params) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  await desenharPedidoNoPdf(doc, params);
+  renumerarPaginas(doc);
+  const { pedido, local, totalPartes, parte } = params;
+  doc.save(`${limparNome(pedido.referencia) || "pedido"}-${limparNome(rotuloLocal(local))}${totalPartes > 1 ? `-parte${parte}de${totalPartes}` : ""}.pdf`);
+}
+
+// Romaneio GERAL de uma coluna: uma página-resumo do lote + a folha
+// detalhada de cada pedido (uma por página), tudo num PDF só.
+// `itens` = lista de params no mesmo formato de gerarPdfEtapa (sem `local`).
+export async function gerarRomaneioColuna({ local, itens }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  desenharResumoColuna(doc, local, itens);
+  for (const item of itens) {
+    doc.addPage();
+    await desenharPedidoNoPdf(doc, { ...item, local });
+  }
+  renumerarPaginas(doc);
+  const hoje = new Date().toISOString().slice(0, 10);
+  doc.save(`romaneio-${limparNome(rotuloLocal(local))}-${hoje}.pdf`);
+}
+
+// Página-resumo (primeira folha) do romaneio geral: cabeçalho + tabela do lote.
+function desenharResumoColuna(doc, local, itens) {
+  const larg = doc.internal.pageSize.getWidth();
+  const mx = 16;
+  let y = 18;
+
+  const rodape = () => {
+    doc.setDrawColor(225).setLineWidth(0.2).line(mx, 287, larg - mx, 287);
+    doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
+    doc.text("Gerado pelo sistema Forenza — Gestão de produção", mx, 291.5);
+  };
+
+  // ── Faixa de cor no topo (mesmo degradê do romaneio individual) ──
+  const faixaH = 4, passos = 60;
+  for (let i = 0; i < passos; i++) {
+    const t = i / (passos - 1);
+    const r = Math.round(VERDE_ESCURO[0] + (VERDE[0] - VERDE_ESCURO[0]) * t);
+    const g = Math.round(VERDE_ESCURO[1] + (VERDE[1] - VERDE_ESCURO[1]) * t);
+    const b = Math.round(VERDE_ESCURO[2] + (VERDE[2] - VERDE_ESCURO[2]) * t);
+    doc.setFillColor(r, g, b).rect((larg * i) / passos, 0, larg / passos + 0.5, faixaH, "F");
+  }
+  y = 20;
+
+  // ── Cabeçalho: marca + selo do setor ──
+  doc.setDrawColor(...TINTA).setLineWidth(1.5).circle(mx + 5.5, y, 5.5, "S");
+  doc.setFillColor(...VERDE).circle(mx + 5.5, y, 2.4, "F");
+  doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(...TINTA);
+  doc.text("F O R E N Z A", mx + 15, y - 0.5);
+  doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
+  doc.text("GESTÃO DE PRODUÇÃO", mx + 15.5, y + 4.5);
+
+  const corSetor = corDoSetor(local);
+  const selo = rotuloLocal(local).toUpperCase();
+  doc.setFont("helvetica", "bold").setFontSize(9);
+  const wSelo = doc.getTextWidth(selo) + 12;
+  doc.setFillColor(...corSetor).roundedRect(larg - mx - wSelo, y - 4.5, wSelo, 7.5, 2, 2, "F");
+  doc.setTextColor(255).text(selo, larg - mx - wSelo / 2, y + 0.4, { align: "center" });
+  doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
+  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, y + 7, { align: "right" });
+  y += 15;
+
+  // ── Título ──
+  doc.setFont("helvetica", "bold").setFontSize(18).setTextColor(...TINTA);
+  doc.text("Romaneio geral", mx, y);
+  y += 3;
+  doc.setDrawColor(...TINTA).setLineWidth(0.8).line(mx, y, larg - mx, y);
+  y += 9;
+
+  // ── Subtítulo com contagem do lote ──
+  const totalPecas = itens.reduce((a, it) => a + (Number(it.qtd) || 0), 0);
+  doc.setFont("helvetica", "normal").setFontSize(11).setTextColor(90);
+  doc.text(`${rotuloLocal(local)} · ${itens.length} pedido${itens.length === 1 ? "" : "s"} · ${totalPecas} peças na etapa`, mx, y);
+  y += 10;
+
+  // ── Tabela do lote ──
+  const cols = [
+    { rot: "#", w: 9, al: "left" },
+    { rot: "REFERÊNCIA", w: 34, al: "left" },
+    { rot: "CLIENTE", w: 45, al: "left" },
+    { rot: "MARCA", w: 30, al: "left" },
+    { rot: "QTD", w: 18, al: "right" },
+    { rot: "TOTAL", w: 20, al: "right" },
+    { rot: "PRAZO", w: 22, al: "right" },
+  ];
+  const hLinha = 8;
+
+  const cabecalhoTabela = () => {
+    doc.setFillColor(225, 240, 233).rect(mx, y, larg - mx * 2, hLinha, "F");
+    doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...VERDE_ESCURO);
+    let cx = mx;
+    cols.forEach((c) => {
+      const tx = c.al === "right" ? cx + c.w - 2 : cx + 2;
+      doc.text(c.rot, tx, y + hLinha * 0.66, { align: c.al });
+      cx += c.w;
+    });
+    y += hLinha;
+  };
+
+  cabecalhoTabela();
+  itens.forEach((it, i) => {
+    if (y + hLinha > 282) { rodape(); doc.addPage(); y = 18; cabecalhoTabela(); }
+    if (i % 2 === 1) { doc.setFillColor(247, 249, 247).rect(mx, y, larg - mx * 2, hLinha, "F"); }
+    const valores = [
+      String(i + 1),
+      it.pedido?.referencia || "—",
+      it.cliente || "—",
+      it.pedido?.marca || "—",
+      String(it.qtd ?? "—"),
+      String(it.pedido?.total ?? "—"),
+      fmtData(it.pedido?.prazo) || "—",
+    ];
+    let cx = mx;
+    cols.forEach((c, ci) => {
+      doc.setFont("helvetica", ci === 1 ? "bold" : "normal").setFontSize(9).setTextColor(...(ci === 1 ? TINTA : [70, 68, 62]));
+      const txt = doc.splitTextToSize(valores[ci], c.w - 3)[0] || "";
+      const tx = c.al === "right" ? cx + c.w - 2 : cx + 2;
+      doc.text(txt, tx, y + hLinha * 0.66, { align: c.al });
+      cx += c.w;
+    });
+    doc.setDrawColor(232).setLineWidth(0.2).line(mx, y + hLinha, larg - mx, y + hLinha);
+    y += hLinha;
+  });
+
+  // Linha de total
+  y += 2;
+  doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...VERDE_ESCURO);
+  doc.text(`Total do lote: ${totalPecas} peças na etapa`, larg - mx, y + 2, { align: "right" });
+
+  rodape();
 }
