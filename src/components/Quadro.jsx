@@ -69,8 +69,6 @@ export default function Quadro({ session, perfil }) {
   const ehMaster = perfil?.papel === "master";
   const [busca, setBusca] = useState("");
   const [filtroCliente, setFiltroCliente] = useState("");
-  const [filtroMarca, setFiltroMarca] = useState("");
-  const [filtroReferencia, setFiltroReferencia] = useState("");
   const [gerandoCol, setGerandoCol] = useState(null); // local cujo romaneio geral está sendo gerado
 
   useEffect(() => {
@@ -119,95 +117,37 @@ export default function Quadro({ session, perfil }) {
   const podeVerTudo = ["master", "chefe_geral"].includes(perfil?.papel);
   const colunas = podeVerTudo ? COLUNAS : (perfil?.setor ? [perfil.setor] : []);
 
-  // Opções dos filtros: só os valores que realmente têm peças em alguma coluna do quadro.
+  // Opções do filtro: só os clientes que realmente têm peças em alguma coluna do quadro.
   const opcoesFiltro = useMemo(() => {
     const clientesIds = new Set();
-    const marcas = new Set();
-    const referencias = new Set();
     pedidos.forEach((pe) => {
       const saldo = calcularSaldos(pe.id, pe.total, movimentos);
       const noQuadro = COLUNAS.some((l) => saldo[l] > 0);
       if (!noQuadro) return;
       if (pe.cliente_id) clientesIds.add(pe.cliente_id);
-      if (pe.marca) marcas.add(pe.marca);
-      if (pe.referencia) referencias.add(pe.referencia);
     });
     return {
       clientes: [...clientesIds]
         .map((id) => ({ id, nome: nomeCliente(id) }))
         .sort((a, b) => a.nome.localeCompare(b.nome)),
-      marcas: [...marcas].sort((a, b) => a.localeCompare(b)),
-      referencias: [...referencias].sort((a, b) => a.localeCompare(b)),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedidos, movimentos, clientes]);
 
-  const temFiltro = filtroCliente || filtroMarca || filtroReferencia;
-  const limparFiltros = () => { setFiltroCliente(""); setFiltroMarca(""); setFiltroReferencia(""); };
+  const temFiltro = !!filtroCliente;
+  const limparFiltros = () => { setFiltroCliente(""); };
 
-  // Romaneio geral de uma coluna: mesma folha do romaneio individual para
-  // cada pedido visível na coluna (respeita filtros/busca), num PDF só.
+  // Romaneio geral de uma coluna: só o resumo do que há no setor (respeita
+  // filtros/busca). Para o detalhe de um pedido, gera-se o PDF direto do pedido.
   async function baixarRomaneioColuna(local, cards) {
     if (gerandoCol || !cards || cards.length === 0) return;
     setGerandoCol(local);
     try {
-      // Imagens de referência (solicitações): busca todas de uma vez.
-      const solIds = [...new Set(cards.map(({ pe }) => pe.solicitacao_id).filter(Boolean))];
-      const solMap = {};
-      if (solIds.length) {
-        const { data: sols } = await supabase.from("solicitacoes").select("id, imagem_url").in("id", solIds);
-        (sols || []).forEach((s) => { if (s.imagem_url) solMap[s.id] = s.imagem_url; });
-      }
-
-      const listaProc = local === "Corte" ? PROCESSOS_CORTE : local === "Acabamento" ? PROCESSOS_ACABAMENTO : null;
-
-      const itens = cards.map(({ pe, saldo }) => {
-        const partes = COLUNAS.filter((l) => saldo[l] > 0);
-        const idx = partes.indexOf(local);
-
-        const mapaProc = (local === "Corte" ? pe.processos_corte : pe.processos_acabamento) || {};
-
-        let remessasOficina = null;
-        if (local === "Oficina") {
-          remessasOficina = (remessas || [])
-            .filter((r) => r.pedido_id === pe.id)
-            .map((r) => ({
-              oficina: (oficinas || []).find((o) => o.id === r.oficina_id)?.nome_empresa || "—",
-              saida: r.data_saida, retorno: r.data_fechamento,
-              enviada: r.qtd_enviada, retornada: r.qtd_retornada,
-            }));
-        }
-
-        let aviamentos = null;
-        if (local === "Aviação" && pe.ficha_aviamentos) {
-          aviamentos = ITENS_AVIAMENTO
-            .filter((it) => itemPreenchido(pe.ficha_aviamentos[it.id]))
-            .map((it) => ({ nome: it.nome, tipoCampo: it.tipo, ...pe.ficha_aviamentos[it.id] }));
-        }
-
-        const imagens = [];
-        if (pe.anexo_amostra) {
-          const u = supabase.storage.from("anexos").getPublicUrl(pe.anexo_amostra).data.publicUrl;
-          if (u) imagens.push({ url: u, rotulo: "Amostra" });
-        }
-        if (pe.solicitacao_id && solMap[pe.solicitacao_id]) {
-          imagens.push({ url: solMap[pe.solicitacao_id], rotulo: "Referência" });
-        }
-
-        return {
-          pedido: pe,
-          cliente: nomeCliente(pe.cliente_id),
-          qtd: saldo[local],
-          parte: idx + 1,
-          totalPartes: partes.length,
-          oficina: (oficinas || []).find((o) => o.id === pe.oficina_id)?.nome_empresa || null,
-          processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], pe.total), grade: (mapaProc[n] && mapaProc[n].grade) || null, obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
-          remessasOficina,
-          aviamentos,
-          imagens,
-        };
-      });
-
+      const itens = cards.map(({ pe, saldo }) => ({
+        pedido: pe,
+        cliente: nomeCliente(pe.cliente_id),
+        qtd: saldo[local],
+      }));
       await gerarRomaneioColuna({ local, itens });
     } catch (e) {
       setAviso({ tipo: "erro", titulo: "Não consegui gerar o romaneio", detalhe: e?.message || "Tente novamente." });
@@ -291,14 +231,6 @@ export default function Quadro({ session, perfil }) {
             <option value="">Todos os clientes</option>
             {opcoesFiltro.clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
-          <select value={filtroMarca} onChange={(e) => setFiltroMarca(e.target.value)} style={selectPill}>
-            <option value="">Todas as marcas</option>
-            {opcoesFiltro.marcas.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-          <select value={filtroReferencia} onChange={(e) => setFiltroReferencia(e.target.value)} style={selectPill}>
-            <option value="">Todas as referências</option>
-            {opcoesFiltro.referencias.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
           {temFiltro && (
             <button onClick={limparFiltros} style={{ ...selectPill, border: "none", color: "var(--text-3)", display: "inline-flex", alignItems: "center", gap: 4 }}>
               <X size={12} /> Limpar
@@ -314,8 +246,6 @@ export default function Quadro({ session, perfil }) {
             .filter(({ saldo }) => saldo[local] > 0)
             .filter(({ pe }) => {
               if (filtroCliente && pe.cliente_id !== Number(filtroCliente)) return false;
-              if (filtroMarca && pe.marca !== filtroMarca) return false;
-              if (filtroReferencia && pe.referencia !== filtroReferencia) return false;
               return true;
             })
             .filter(({ pe }) => {
