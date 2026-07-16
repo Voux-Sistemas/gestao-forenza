@@ -15,7 +15,6 @@ export default function Estoque({ session, perfil }) {
   const [clientes, setClientes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [inspecionar, setInspecionar] = useState(null);
-  const [darBaixa, setDarBaixa] = useState(null);
   const [detalhesId, setDetalhesId] = useState(null); // id do pedido aberto na gaveta de detalhes
   const podeBaixar = ["master", "chefe_geral"].includes(perfil?.papel);
 
@@ -183,16 +182,14 @@ export default function Estoque({ session, perfil }) {
       )}
 
       {inspecionar && <ModalInspecao dados={inspecionar} session={session} pdfId={pdfId} onPdf={(pe, qtd) => baixarPdf(pe, qtd)} onFechar={() => setInspecionar(null)} onOk={() => { setInspecionar(null); carregar(); }} />}
-      {darBaixa && <ModalBaixa dados={darBaixa} session={session} onFechar={() => setDarBaixa(null)} onOk={() => { setDarBaixa(null); carregar(); }} />}
       {(() => {
         const alvo = detalhesId ? prontos.find(({ pe }) => pe.id === detalhesId) : null;
         if (!alvo) return null;
         return (
           <ModalDetalhes
             pe={alvo.pe} s={alvo.s} cls={classificacaoDe(alvo.pe.id)}
-            nomeCliente={nomeCliente} podeBaixar={podeBaixar} pdfId={pdfId}
+            nomeCliente={nomeCliente} podeBaixar={podeBaixar} pdfId={pdfId} session={session}
             onPdf={() => baixarPdf(alvo.pe, (alvo.s.Primeira || 0) + (alvo.s.Segunda || 0), classificacaoDe(alvo.pe.id))}
-            onBaixa={() => setDarBaixa({ pe: alvo.pe, disp1: alvo.s.Primeira || 0, disp2: alvo.s.Segunda || 0 })}
             onOk={carregar}
             onFechar={() => setDetalhesId(null)}
           />
@@ -224,70 +221,6 @@ function Vazio({ texto }) {
       </div>
       <span style={{ fontSize: 14 }}>{texto}</span>
     </div>
-  );
-}
-
-function ModalBaixa({ dados, session, onFechar, onOk }) {
-  const { pe, disp1, disp2 } = dados;
-  const [q1, setQ1] = useState(String(disp1));
-  const [q2, setQ2] = useState(String(disp2));
-  const [motivo, setMotivo] = useState("");
-  const [erro, setErro] = useState(null);
-  const [salvando, setSalvando] = useState(false);
-
-  const n1 = Math.max(0, parseInt(q1, 10) || 0);
-  const n2 = Math.max(0, parseInt(q2, 10) || 0);
-  const totalBaixa = n1 + n2;
-
-  async function confirmar() {
-    setErro(null);
-    if (n1 > disp1) return setErro(`Só há ${disp1} peça(s) de 1ª qualidade.`);
-    if (n2 > disp2) return setErro(`Só há ${disp2} peça(s) de 2ª qualidade.`);
-    if (totalBaixa < 1) return setErro("Informe ao menos 1 peça para dar baixa.");
-    if (!window.confirm(`Confirmar baixa de ${totalBaixa} peça(s)? Esta ação não pode ser desfeita.`)) return;
-    setSalvando(true);
-    for (const [tipo, q] of [["Primeira", n1], ["Segunda", n2]]) {
-      if (q < 1) continue;
-      const { error } = await supabase.from("movimentos").insert({
-        pedido_id: pe.id, de_local: tipo, para_local: "Saida", qtd: q,
-        usuario_id: session.user.id, observacao: motivo.trim() || null,
-      });
-      if (error) { setSalvando(false); return setErro(error.message); }
-    }
-    setSalvando(false);
-    await arquivarSeConcluido(pe.id); // se foi a última peça sob gestão, o pedido é arquivado
-    onOk();
-  }
-
-  const linhaQualidade = (rotulo, cor, disponivel, valor, aoMudar) => (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10, opacity: disponivel > 0 ? 1 : 0.45 }}>
-      <div>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: cor }}>{rotulo}</div>
-        <div style={{ fontSize: 11, color: "var(--text-3)" }}>{disponivel} disponível(is)</div>
-      </div>
-      <input type="number" min="0" max={disponivel} value={valor} disabled={disponivel === 0} onChange={(e) => aoMudar(e.target.value)}
-        style={{ width: 100, padding: "9px 11px", fontSize: 14, textAlign: "right", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" }} />
-    </div>
-  );
-
-  return (
-    <Overlay onFechar={onFechar} largura={440} zIndex={105}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Dar baixa — {pe.referencia}</h3>
-        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 14px" }}>Informe quantas peças saem de cada qualidade.</p>
-        <GradeTabela grade={pe.grade} margem="0 0 16px" />
-        {linhaQualidade("1ª qualidade", "var(--success)", disp1, q1, setQ1)}
-        {linhaQualidade("2ª qualidade", "var(--orange)", disp2, q2, setQ2)}
-        <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", margin: "6px 0 5px", fontWeight: 500 }}>Motivo / destino (opcional)</label>
-        <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Venda, envio ao cliente, avaria…" style={{ width: "100%", padding: "10px 12px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" }} />
-        {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "10px 0 0" }}>{erro}</p>}
-        <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-          <button onClick={confirmar} disabled={salvando || totalBaixa < 1} style={{ ...btnDanger, flex: 1, opacity: totalBaixa < 1 ? 0.55 : 1 }}>
-            {salvando ? "Salvando…" : `Confirmar baixa de ${totalBaixa}`}
-          </button>
-        </div>
-        <p style={{ fontSize: 11, color: "var(--text-3)", textAlign: "center", margin: "12px 0 0" }}>Baixando todas as peças, o pedido é concluído e vai para o Histórico.</p>
-    </Overlay>
   );
 }
 
@@ -416,7 +349,7 @@ function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
 // Gaveta lateral "Ver detalhes" do card Em estoque: resumo, classificação e ações.
 // Gaveta "Ver detalhes" do card Em estoque: resumo da inspeção + grade de
 // faturamento editável (a própria tela), com PDF no topo e Dar baixa no rodapé.
-function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, onPdf, onBaixa, onFechar, onOk }) {
+function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, session, onPdf, onFechar, onOk }) {
   const d1 = s.Primeira || 0;
   const d2 = s.Segunda || 0;
 
@@ -430,6 +363,39 @@ function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, onPdf, onBa
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
   const [erro, setErro] = useState(null);
+
+  // Baixa inline (sem abrir outra gaveta).
+  const [baixaAberta, setBaixaAberta] = useState(false);
+  const [bq1, setBq1] = useState(String(d1));
+  const [bq2, setBq2] = useState(String(d2));
+  const [bmotivo, setBmotivo] = useState("");
+  const [baixando, setBaixando] = useState(false);
+  const [berro, setBerro] = useState(null);
+  const bn1 = Math.max(0, parseInt(bq1, 10) || 0);
+  const bn2 = Math.max(0, parseInt(bq2, 10) || 0);
+  const totalBaixa = bn1 + bn2;
+
+  const abrirBaixa = () => { setBq1(String(d1)); setBq2(String(d2)); setBmotivo(""); setBerro(null); setBaixaAberta(true); };
+
+  async function confirmarBaixa() {
+    setBerro(null);
+    if (bn1 > d1) return setBerro(`Só há ${d1} peça(s) de 1ª qualidade.`);
+    if (bn2 > d2) return setBerro(`Só há ${d2} peça(s) de 2ª qualidade.`);
+    if (totalBaixa < 1) return setBerro("Informe ao menos 1 peça para dar baixa.");
+    setBaixando(true);
+    for (const [tipo, q] of [["Primeira", bn1], ["Segunda", bn2]]) {
+      if (q < 1) continue;
+      const { error } = await supabase.from("movimentos").insert({
+        pedido_id: pe.id, de_local: tipo, para_local: "Saida", qtd: q,
+        usuario_id: session.user.id, observacao: bmotivo.trim() || null,
+      });
+      if (error) { setBaixando(false); return setBerro(error.message); }
+    }
+    await arquivarSeConcluido(pe.id); // se foi a última peça sob gestão, o pedido é arquivado
+    setBaixando(false);
+    setBaixaAberta(false);
+    onOk?.(); // recarrega; se concluído, a gaveta fecha sozinha (o pedido sai da lista)
+  }
 
   const mudarQtd = (i, t, v) => { setSalvo(false); setLinhas((ls) => ls.map((l, j) => j === i ? { ...l, qtds: { ...l.qtds, [t]: v } } : l)); };
   const mudarVar = (i, v) => { setSalvo(false); setLinhas((ls) => ls.map((l, j) => j === i ? { ...l, variante: v } : l)); };
@@ -461,12 +427,21 @@ function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, onPdf, onBa
 
   return (
     <Overlay onFechar={onFechar} largura={720} rodape={
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {podeBaixar && (
-          <button onClick={onBaixa} style={{ ...btnDanger, width: "100%" }}><Trash2 size={14} /> Dar baixa</button>
-        )}
-        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, width: "100%" }}>{salvando ? "Salvando…" : salvo ? "Grade salva ✓" : "Salvar grade de faturamento"}</button>
-      </div>
+      baixaAberta ? (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setBaixaAberta(false)} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+          <button onClick={confirmarBaixa} disabled={baixando || totalBaixa < 1} style={{ ...btnDanger, flex: 1, opacity: totalBaixa < 1 ? 0.55 : 1 }}>
+            {baixando ? "Baixando…" : `Confirmar baixa de ${totalBaixa}`}
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {podeBaixar && (
+            <button onClick={abrirBaixa} style={{ ...btnDanger, width: "100%" }}><Trash2 size={14} /> Dar baixa</button>
+          )}
+          <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, width: "100%" }}>{salvando ? "Salvando…" : salvo ? "Grade salva ✓" : "Salvar grade de faturamento"}</button>
+        </div>
+      )
     }>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 4, paddingRight: 32 }}>
         <div>
@@ -491,6 +466,27 @@ function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, onPdf, onBa
           <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2, color: d2 > 0 ? "var(--orange)" : "var(--text-3)" }}>{d2}</div>
         </div>
       </div>
+
+      {baixaAberta && (
+        <div style={{ border: "1px solid var(--danger)", background: "rgba(220,60,55,.05)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--danger)", marginBottom: 3 }}>Dar baixa</div>
+          <p style={{ fontSize: 12, color: "var(--text-2)", margin: "0 0 12px" }}>Quantas peças saem de cada qualidade. Baixando tudo, o pedido conclui e vai para o Histórico.</p>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)", display: "inline-block", marginRight: 6 }} />1ª qualidade <span style={{ color: "var(--text-3)" }}>({d1} disp.)</span></label>
+              <input type="number" min="0" max={d1} value={bq1} disabled={d1 === 0} onChange={(e) => setBq1(e.target.value)} style={{ ...inp, opacity: d1 === 0 ? 0.5 : 1 }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--orange)", display: "inline-block", marginRight: 6 }} />2ª qualidade <span style={{ color: "var(--text-3)" }}>({d2} disp.)</span></label>
+              <input type="number" min="0" max={d2} value={bq2} disabled={d2 === 0} onChange={(e) => setBq2(e.target.value)} style={{ ...inp, opacity: d2 === 0 ? 0.5 : 1 }} />
+            </div>
+          </div>
+          <label style={{ ...lbl, marginTop: 12 }}>Motivo / destino (opcional)</label>
+          <input value={bmotivo} onChange={(e) => setBmotivo(e.target.value)} placeholder="Venda, envio ao cliente, avaria…" style={inp} />
+          {berro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "10px 0 0" }}>{berro}</p>}
+        </div>
+      )}
+
       {cls && <TabelaClassificacao cls={cls} />}
 
       <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".4px", margin: "14px 0 8px" }}>Grade de faturamento</div>
@@ -544,7 +540,8 @@ function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, onPdf, onBa
   );
 }
 
-// Mini-tabela do card "Em estoque": tamanhos classificados em 1ª/2ª qualidade.
+// Classificação por tamanho no mesmo estilo das outras grades do sistema:
+// qualidades nas linhas, tamanhos nas colunas, com coluna e linha de TOTAL.
 function TabelaClassificacao({ cls }) {
   const g1 = cls.primeira || {}, g2 = cls.segunda || {};
   const tams = TAMANHOS_GRADE.filter((t) => (g1[t] || 0) > 0 || (g2[t] || 0) > 0);
@@ -552,33 +549,41 @@ function TabelaClassificacao({ cls }) {
   if (tams.length === 0) return null;
   const t1 = tams.reduce((a, t) => a + (g1[t] || 0), 0);
   const t2 = tams.reduce((a, t) => a + (g2[t] || 0), 0);
-  const cel = { padding: "3px 6px", fontSize: 11.5, textAlign: "center", borderTop: "1px solid var(--border)" };
+
+  const cel = { border: "1px solid var(--border)", padding: "4px 6px", textAlign: "center", fontSize: 11.5, whiteSpace: "nowrap" };
+  const th = { ...cel, background: "var(--surface-2)", fontSize: 9.5, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".3px" };
+
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 9, overflow: "hidden", marginBottom: 12 }}>
-      <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".4px", color: "var(--text-2)", padding: "6px 8px", background: "var(--surface-2)" }}>CLASSIFICAÇÃO POR TAMANHO</div>
-      <table style={{ borderCollapse: "collapse", width: "100%" }}>
-        <thead>
-          <tr style={{ background: "var(--surface-2)" }}>
-            <th style={{ ...cel, borderTop: "none", textAlign: "left", fontSize: 9, fontWeight: 700, color: "var(--text-3)" }}>TAM</th>
-            <th style={{ ...cel, borderTop: "none", fontSize: 9, fontWeight: 700, color: "var(--success)" }}>1ª</th>
-            <th style={{ ...cel, borderTop: "none", fontSize: 9, fontWeight: 700, color: "var(--orange)" }}>2ª</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tams.map((t) => (
-            <tr key={t}>
-              <td style={{ ...cel, textAlign: "left", fontWeight: 600 }}>{t}</td>
-              <td style={{ ...cel, color: (g1[t] || 0) ? "var(--success)" : "var(--text-3)", fontWeight: (g1[t] || 0) ? 700 : 400 }}>{g1[t] || "·"}</td>
-              <td style={{ ...cel, color: (g2[t] || 0) ? "var(--orange)" : "var(--text-3)", fontWeight: (g2[t] || 0) ? 700 : 400 }}>{g2[t] || "·"}</td>
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Classificação por tamanho</div>
+      <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 9 }}>
+        <table style={{ borderCollapse: "collapse", width: "100%" }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: "left", minWidth: 96 }}>QUALIDADE</th>
+              {tams.map((t) => <th key={t} style={th}>{t}</th>)}
+              <th style={{ ...th, background: "var(--surface-3)", color: "var(--text-2)" }}>TOTAL</th>
             </tr>
-          ))}
-          <tr style={{ background: "var(--surface-2)" }}>
-            <td style={{ ...cel, textAlign: "left", fontWeight: 800, color: "var(--text-2)" }}>TOTAL</td>
-            <td style={{ ...cel, fontWeight: 800, color: "var(--success)" }}>{t1}</td>
-            <td style={{ ...cel, fontWeight: 800, color: "var(--orange)" }}>{t2}</td>
-          </tr>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ ...cel, textAlign: "left", fontWeight: 700, color: "var(--success)" }}>1ª qualidade</td>
+              {tams.map((t) => { const q = g1[t] || 0; return <td key={t} style={{ ...cel, color: q ? "var(--success)" : "var(--text-3)", fontWeight: q ? 700 : 400 }}>{q || "·"}</td>; })}
+              <td style={{ ...cel, background: "var(--surface-2)", fontWeight: 700, color: "var(--success)" }}>{t1}</td>
+            </tr>
+            <tr>
+              <td style={{ ...cel, textAlign: "left", fontWeight: 700, color: "var(--orange)" }}>2ª qualidade</td>
+              {tams.map((t) => { const q = g2[t] || 0; return <td key={t} style={{ ...cel, color: q ? "var(--orange)" : "var(--text-3)", fontWeight: q ? 700 : 400 }}>{q || "·"}</td>; })}
+              <td style={{ ...cel, background: "var(--surface-2)", fontWeight: 700, color: "var(--orange)" }}>{t2}</td>
+            </tr>
+            <tr>
+              <td style={{ ...cel, textAlign: "left", fontWeight: 700, background: "var(--surface-2)", color: "var(--text-2)" }}>TOTAL</td>
+              {tams.map((t) => { const soma = (g1[t] || 0) + (g2[t] || 0); return <td key={t} style={{ ...cel, fontWeight: 700, background: "var(--surface-2)", color: soma ? "var(--accent)" : "var(--text-3)" }}>{soma || "·"}</td>; })}
+              <td style={{ ...cel, background: "var(--accent-bg)", color: "var(--accent)", fontWeight: 800 }}>{t1 + t2}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
