@@ -36,6 +36,27 @@ export const CORES_ETAPA = {
   Perda: "var(--danger)",
 };
 
+// Histórico das etapas de um pedido: a primeira vez que ele chegou em cada fase
+// do fluxo, na ordem cronológica, derivado só dos movimentos.
+// Retorna [{ etapa, rotulo, data, qtd, inicio }].
+export function historicoEtapas(pedido, movimentos) {
+  const movs = (movimentos || [])
+    .filter((m) => m.pedido_id === pedido.id)
+    .sort((a, b) => String(a.data || a.criado_em || "").localeCompare(String(b.data || b.criado_em || "")));
+  const nodes = [];
+  const origem = movs[0]?.de_local;
+  if (origem && LOCAIS.includes(origem)) {
+    nodes.push({ etapa: origem, rotulo: rotuloLocal(origem), data: pedido.criado_em || pedido.created_at || null, inicio: true });
+  }
+  const vistos = new Set(origem ? [origem] : []);
+  movs.forEach((m) => {
+    if (!m.para_local || vistos.has(m.para_local) || !LOCAIS.includes(m.para_local)) return;
+    vistos.add(m.para_local);
+    nodes.push({ etapa: m.para_local, rotulo: rotuloLocal(m.para_local), data: m.data || m.criado_em, qtd: m.qtd });
+  });
+  return nodes;
+}
+
 // Saldo de peças de um pedido em cada local, reconstruído a partir dos movimentos.
 // Locais desconhecidos (dados antigos como "Primeira"/"Segunda") são tratados sem quebrar.
 export function calcularSaldos(pedidoId, total, movimentos) {
