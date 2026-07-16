@@ -17,7 +17,6 @@ export default function Estoque({ session, perfil }) {
   const [inspecionar, setInspecionar] = useState(null);
   const [darBaixa, setDarBaixa] = useState(null);
   const [detalhesId, setDetalhesId] = useState(null); // id do pedido aberto na gaveta de detalhes
-  const [faturamento, setFaturamento] = useState(null);
   const podeBaixar = ["master", "chefe_geral"].includes(perfil?.papel);
 
   const carregar = useCallback(async () => {
@@ -183,7 +182,6 @@ export default function Estoque({ session, perfil }) {
         )
       )}
 
-      {faturamento && <ModalFaturamento pedido={faturamento} onFechar={() => setFaturamento(null)} onOk={() => { setFaturamento(null); carregar(); }} />}
       {inspecionar && <ModalInspecao dados={inspecionar} session={session} pdfId={pdfId} onPdf={(pe, qtd) => baixarPdf(pe, qtd)} onFechar={() => setInspecionar(null)} onOk={() => { setInspecionar(null); carregar(); }} />}
       {darBaixa && <ModalBaixa dados={darBaixa} session={session} onFechar={() => setDarBaixa(null)} onOk={() => { setDarBaixa(null); carregar(); }} />}
       {(() => {
@@ -194,8 +192,8 @@ export default function Estoque({ session, perfil }) {
             pe={alvo.pe} s={alvo.s} cls={classificacaoDe(alvo.pe.id)}
             nomeCliente={nomeCliente} podeBaixar={podeBaixar} pdfId={pdfId}
             onPdf={() => baixarPdf(alvo.pe, (alvo.s.Primeira || 0) + (alvo.s.Segunda || 0), classificacaoDe(alvo.pe.id))}
-            onFaturamento={() => setFaturamento(alvo.pe)}
             onBaixa={() => setDarBaixa({ pe: alvo.pe, disp1: alvo.s.Primeira || 0, disp2: alvo.s.Segunda || 0 })}
+            onOk={carregar}
             onFechar={() => setDetalhesId(null)}
           />
         );
@@ -217,115 +215,6 @@ function Legenda({ cor, rotulo, valor }) {
 // Tamanhos numerados da grade de faturamento (como na ficha física).
 const TAMANHOS_FAT = ["PP/36", "P/38", "M/40", "G/42", "GG/44", "EG/46", "EGG/48", "EXG/50"];
 const somaLinha = (linha) => TAMANHOS_FAT.reduce((a, t) => a + (parseInt(linha.qtds[t], 10) || 0), 0);
-
-// Grade de faturamento: editável, com variantes (linhas) × tamanhos. Espelha a ficha de papel.
-function ModalFaturamento({ pedido, onFechar, onOk }) {
-  const salva = Array.isArray(pedido.grade_faturamento) && pedido.grade_faturamento.length
-    ? pedido.grade_faturamento
-    : [{ variante: "", qtds: {} }];
-  const [linhas, setLinhas] = useState(salva.map((l) => ({ variante: l.variante || "", qtds: { ...(l.qtds || {}) } })));
-  const [peso, setPeso] = useState(pedido.fat_peso || "");
-  const [volume, setVolume] = useState(pedido.fat_volume || "");
-  const [obs, setObs] = useState(pedido.fat_obs || "");
-  const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState(null);
-
-  const mudarQtd = (i, t, v) => setLinhas((ls) => ls.map((l, j) => j === i ? { ...l, qtds: { ...l.qtds, [t]: v } } : l));
-  const mudarVar = (i, v) => setLinhas((ls) => ls.map((l, j) => j === i ? { ...l, variante: v } : l));
-  const addLinha = () => setLinhas((ls) => [...ls, { variante: "", qtds: {} }]);
-  const removerLinha = (i) => setLinhas((ls) => ls.length > 1 ? ls.filter((_, j) => j !== i) : ls);
-
-  const totalPorTam = (t) => linhas.reduce((a, l) => a + (parseInt(l.qtds[t], 10) || 0), 0);
-  const totalGeral = linhas.reduce((a, l) => a + somaLinha(l), 0);
-
-  async function salvar() {
-    setErro(null);
-    setSalvando(true);
-    // Guarda só as linhas com algum dado.
-    const limpa = linhas
-      .map((l) => ({ variante: l.variante.trim(), qtds: Object.fromEntries(TAMANHOS_FAT.map((t) => [t, parseInt(l.qtds[t], 10) || 0]).filter(([, q]) => q > 0)) }))
-      .filter((l) => l.variante || Object.keys(l.qtds).length);
-    const { error } = await supabase.from("pedidos").update({
-      grade_faturamento: limpa.length ? limpa : null,
-      fat_peso: peso.trim() || null,
-      fat_volume: volume.trim() || null,
-      fat_obs: obs.trim() || null,
-    }).eq("id", pedido.id);
-    setSalvando(false);
-    if (error) return setErro(error.message);
-    onOk();
-  }
-
-  const cel = { border: "1px solid var(--border)", padding: 0, textAlign: "center" };
-  const inpCel = { width: "100%", border: "none", background: "transparent", textAlign: "center", fontSize: 12.5, padding: "6px 2px", color: "var(--text)", fontFamily: "inherit", outline: "none" };
-
-  return (
-    <Overlay onFechar={onFechar} largura={720} zIndex={106}>
-      <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Faturamento — {pedido.referencia}</h3>
-      <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "0 0 18px" }}>Compare o que foi pedido com o que realmente faturou.</p>
-
-      {pedido.grade && normalizarGrade(pedido.grade).length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Grade do pedido (referência)</div>
-          <GradeTabela grade={pedido.grade} margem="0" />
-        </div>
-      )}
-
-      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Grade de faturamento</div>
-      <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 10 }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 640 }}>
-          <thead>
-            <tr style={{ background: "var(--surface-2)" }}>
-              <th style={{ ...cel, textAlign: "left", padding: "7px 10px", fontSize: 10.5, color: "var(--text-3)", letterSpacing: ".3px", minWidth: 120 }}>VARIANTE</th>
-              {TAMANHOS_FAT.map((t) => <th key={t} style={{ ...cel, padding: "7px 4px", fontSize: 10, color: "var(--text-3)", minWidth: 52 }}>{t}</th>)}
-              <th style={{ ...cel, padding: "7px 6px", fontSize: 10.5, color: "var(--text-2)", background: "var(--surface-3)" }}>TOTAL</th>
-              <th style={{ ...cel, width: 34, background: "var(--surface-2)" }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {linhas.map((l, i) => (
-              <tr key={i}>
-                <td style={{ ...cel, textAlign: "left" }}>
-                  <input value={l.variante} onChange={(e) => mudarVar(i, e.target.value)} placeholder="cor / variante" style={{ ...inpCel, textAlign: "left", padding: "6px 10px", fontWeight: 600 }} />
-                </td>
-                {TAMANHOS_FAT.map((t) => (
-                  <td key={t} style={cel}>
-                    <input type="number" min="0" value={l.qtds[t] ?? ""} onChange={(e) => mudarQtd(i, t, e.target.value)} placeholder="—" style={inpCel} />
-                  </td>
-                ))}
-                <td style={{ ...cel, background: "var(--surface-2)", fontWeight: 700, fontSize: 13 }}>{somaLinha(l)}</td>
-                <td style={cel}>
-                  <button onClick={() => removerLinha(i)} disabled={linhas.length === 1} aria-label="Remover linha" style={{ display: "inline-flex", border: "none", background: "none", color: "var(--text-3)", cursor: linhas.length === 1 ? "not-allowed" : "pointer", padding: 5, opacity: linhas.length === 1 ? 0.4 : 1 }}><X size={13} /></button>
-                </td>
-              </tr>
-            ))}
-            <tr style={{ background: "var(--surface-2)", fontWeight: 700 }}>
-              <td style={{ ...cel, textAlign: "left", padding: "7px 10px", fontSize: 12 }}>TOTAL</td>
-              {TAMANHOS_FAT.map((t) => <td key={t} style={{ ...cel, fontSize: 12.5, color: totalPorTam(t) > 0 ? "var(--accent)" : "var(--text-3)" }}>{totalPorTam(t) || ""}</td>)}
-              <td style={{ ...cel, background: "var(--accent-bg)", color: "var(--accent)", fontSize: 14 }}>{totalGeral}</td>
-              <td style={cel}></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <button onClick={addLinha} style={{ ...btnGhost, marginTop: 10 }}><Plus size={14} /> Adicionar variante</button>
-
-      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-        <div style={{ flex: 1 }}><label style={lbl}>Peso</label><input value={peso} onChange={(e) => setPeso(e.target.value)} style={inp} /></div>
-        <div style={{ flex: 1 }}><label style={lbl}>Volume</label><input value={volume} onChange={(e) => setVolume(e.target.value)} placeholder="ex: 8 volumes" style={inp} /></div>
-      </div>
-      <label style={{ ...lbl, marginTop: 14 }}>Observações</label>
-      <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} placeholder="ex: 1 pç p/ showroom, falta 2 pçs da oficina…" style={{ ...inp, resize: "vertical" }} />
-
-      {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "10px 0 0" }}>{erro}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar grade"}</button>
-      </div>
-    </Overlay>
-  );
-}
 
 function Vazio({ texto }) {
   return (
@@ -525,25 +414,74 @@ function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
 }
 
 // Gaveta lateral "Ver detalhes" do card Em estoque: resumo, classificação e ações.
-function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, onPdf, onFaturamento, onBaixa, onFechar }) {
+// Gaveta "Ver detalhes" do card Em estoque: resumo da inspeção + grade de
+// faturamento editável (a própria tela), com PDF no topo e Dar baixa no rodapé.
+function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, onPdf, onBaixa, onFechar, onOk }) {
   const d1 = s.Primeira || 0;
   const d2 = s.Segunda || 0;
+
+  const salva = Array.isArray(pe.grade_faturamento) && pe.grade_faturamento.length
+    ? pe.grade_faturamento
+    : [{ variante: "", qtds: {} }];
+  const [linhas, setLinhas] = useState(salva.map((l) => ({ variante: l.variante || "", qtds: { ...(l.qtds || {}) } })));
+  const [peso, setPeso] = useState(pe.fat_peso || "");
+  const [volume, setVolume] = useState(pe.fat_volume || "");
+  const [obs, setObs] = useState(pe.fat_obs || "");
+  const [salvando, setSalvando] = useState(false);
+  const [salvo, setSalvo] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  const mudarQtd = (i, t, v) => { setSalvo(false); setLinhas((ls) => ls.map((l, j) => j === i ? { ...l, qtds: { ...l.qtds, [t]: v } } : l)); };
+  const mudarVar = (i, v) => { setSalvo(false); setLinhas((ls) => ls.map((l, j) => j === i ? { ...l, variante: v } : l)); };
+  const addLinha = () => setLinhas((ls) => [...ls, { variante: "", qtds: {} }]);
+  const removerLinha = (i) => setLinhas((ls) => ls.length > 1 ? ls.filter((_, j) => j !== i) : ls);
+  const totalPorTam = (t) => linhas.reduce((a, l) => a + (parseInt(l.qtds[t], 10) || 0), 0);
+  const totalGeral = linhas.reduce((a, l) => a + somaLinha(l), 0);
+
+  async function salvar() {
+    setErro(null);
+    setSalvando(true);
+    const limpa = linhas
+      .map((l) => ({ variante: l.variante.trim(), qtds: Object.fromEntries(TAMANHOS_FAT.map((t) => [t, parseInt(l.qtds[t], 10) || 0]).filter(([, q]) => q > 0)) }))
+      .filter((l) => l.variante || Object.keys(l.qtds).length);
+    const { error } = await supabase.from("pedidos").update({
+      grade_faturamento: limpa.length ? limpa : null,
+      fat_peso: peso.trim() || null,
+      fat_volume: volume.trim() || null,
+      fat_obs: obs.trim() || null,
+    }).eq("id", pe.id);
+    setSalvando(false);
+    if (error) return setErro(error.message);
+    setSalvo(true);
+    onOk?.(); // recarrega os dados; a gaveta continua aberta
+  }
+
+  const cel = { border: "1px solid var(--border)", padding: 0, textAlign: "center" };
+  const inpCel = { width: "100%", border: "none", background: "transparent", textAlign: "center", fontSize: 12.5, padding: "6px 2px", color: "var(--text)", fontFamily: "inherit", outline: "none" };
+
   return (
-    <Overlay onFechar={onFechar} rodape={
+    <Overlay onFechar={onFechar} largura={720} rodape={
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {podeBaixar && (
           <button onClick={onBaixa} style={{ ...btnDanger, width: "100%" }}><Trash2 size={14} /> Dar baixa</button>
         )}
-        <button onClick={onFaturamento} style={{ ...btnGhost, width: "100%" }}><FileText size={14} /> Grade de faturamento</button>
-        <button onClick={onPdf} disabled={pdfId === pe.id} style={{ ...btnGhost, width: "100%" }}><FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "PDF do pedido"}</button>
+        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, width: "100%" }}>{salvando ? "Salvando…" : salvo ? "Grade salva ✓" : "Salvar grade de faturamento"}</button>
       </div>
     }>
-      <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 2px" }}>{pe.referencia}</h3>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-        <span style={{ fontSize: 13, color: "var(--text-2)" }}>{nomeCliente(pe.cliente_id)}</span>
-        {pe.marca && <span style={tag}>{pe.marca}</span>}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 4, paddingRight: 32 }}>
+        <div>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 2px" }}>{pe.referencia}</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 13, color: "var(--text-2)" }}>{nomeCliente(pe.cliente_id)}</span>
+            {pe.marca && <span style={tag}>{pe.marca}</span>}
+          </div>
+        </div>
+        <button onClick={onPdf} disabled={pdfId === pe.id} style={{ ...btnGhost, flexShrink: 0 }}>
+          <FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "PDF do pedido"}
+        </button>
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+
+      <div style={{ display: "flex", gap: 8, margin: "16px 0" }}>
         <div style={{ flex: 1, padding: "9px 12px", borderRadius: 9, background: "var(--success-bg)" }}>
           <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".4px", color: "var(--success)" }}>1ª QUALIDADE</div>
           <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2, color: d1 > 0 ? "var(--success)" : "var(--text-3)" }}>{d1}</div>
@@ -554,8 +492,54 @@ function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, onPdf, onFa
         </div>
       </div>
       {cls && <TabelaClassificacao cls={cls} />}
-      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: ".4px", margin: "6px 0 6px" }}>Grade do pedido</div>
-      <GradeTabela grade={pe.grade} margem="0" />
+
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".4px", margin: "14px 0 8px" }}>Grade de faturamento</div>
+      <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 10 }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 640 }}>
+          <thead>
+            <tr style={{ background: "var(--surface-2)" }}>
+              <th style={{ ...cel, textAlign: "left", padding: "7px 10px", fontSize: 10.5, color: "var(--text-3)", letterSpacing: ".3px", minWidth: 120 }}>VARIANTE</th>
+              {TAMANHOS_FAT.map((t) => <th key={t} style={{ ...cel, padding: "7px 4px", fontSize: 10, color: "var(--text-3)", minWidth: 52 }}>{t}</th>)}
+              <th style={{ ...cel, padding: "7px 6px", fontSize: 10.5, color: "var(--text-2)", background: "var(--surface-3)" }}>TOTAL</th>
+              <th style={{ ...cel, width: 34, background: "var(--surface-2)" }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {linhas.map((l, i) => (
+              <tr key={i}>
+                <td style={{ ...cel, textAlign: "left" }}>
+                  <input value={l.variante} onChange={(e) => mudarVar(i, e.target.value)} placeholder="cor / variante" style={{ ...inpCel, textAlign: "left", padding: "6px 10px", fontWeight: 600 }} />
+                </td>
+                {TAMANHOS_FAT.map((t) => (
+                  <td key={t} style={cel}>
+                    <input type="number" min="0" value={l.qtds[t] ?? ""} onChange={(e) => mudarQtd(i, t, e.target.value)} placeholder="—" style={inpCel} />
+                  </td>
+                ))}
+                <td style={{ ...cel, background: "var(--surface-2)", fontWeight: 700, fontSize: 13 }}>{somaLinha(l)}</td>
+                <td style={cel}>
+                  <button onClick={() => removerLinha(i)} disabled={linhas.length === 1} aria-label="Remover linha" style={{ display: "inline-flex", border: "none", background: "none", color: "var(--text-3)", cursor: linhas.length === 1 ? "not-allowed" : "pointer", padding: 5, opacity: linhas.length === 1 ? 0.4 : 1 }}><X size={13} /></button>
+                </td>
+              </tr>
+            ))}
+            <tr style={{ background: "var(--surface-2)", fontWeight: 700 }}>
+              <td style={{ ...cel, textAlign: "left", padding: "7px 10px", fontSize: 12 }}>TOTAL</td>
+              {TAMANHOS_FAT.map((t) => <td key={t} style={{ ...cel, fontSize: 12.5, color: totalPorTam(t) > 0 ? "var(--accent)" : "var(--text-3)" }}>{totalPorTam(t) || ""}</td>)}
+              <td style={{ ...cel, background: "var(--accent-bg)", color: "var(--accent)", fontSize: 14 }}>{totalGeral}</td>
+              <td style={cel}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <button onClick={addLinha} style={{ ...btnGhost, marginTop: 10 }}><Plus size={14} /> Adicionar variante</button>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+        <div style={{ flex: 1 }}><label style={lbl}>Peso</label><input value={peso} onChange={(e) => { setSalvo(false); setPeso(e.target.value); }} style={inp} /></div>
+        <div style={{ flex: 1 }}><label style={lbl}>Volume</label><input value={volume} onChange={(e) => { setSalvo(false); setVolume(e.target.value); }} placeholder="ex: 8 volumes" style={inp} /></div>
+      </div>
+      <label style={{ ...lbl, marginTop: 14 }}>Observações</label>
+      <textarea value={obs} onChange={(e) => { setSalvo(false); setObs(e.target.value); }} rows={3} placeholder="ex: 1 pç p/ showroom, falta 2 pçs da oficina…" style={{ ...inp, resize: "vertical" }} />
+
+      {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "10px 0 0" }}>{erro}</p>}
     </Overlay>
   );
 }
