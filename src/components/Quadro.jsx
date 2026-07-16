@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient.js";
 import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown, Bell, Filter, X } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
-import { gerarPdfEtapa } from "../pdfEtapa.js";
+import { gerarPdfEtapa, gerarRomaneioColuna } from "../pdfEtapa.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
 import GradeTabela, { normalizarGrade, totalGrade, gradePorTamanho } from "./GradeTabela.jsx";
 import StatCard from "./StatCard.jsx";
@@ -71,6 +71,7 @@ export default function Quadro({ session, perfil }) {
   const [filtroCliente, setFiltroCliente] = useState("");
   const [filtroMarca, setFiltroMarca] = useState("");
   const [filtroReferencia, setFiltroReferencia] = useState("");
+  const [gerandoCol, setGerandoCol] = useState(null); // local cujo romaneio geral está sendo gerado
 
   useEffect(() => {
     const canal = supabase.channel("quadro")
@@ -143,6 +144,77 @@ export default function Quadro({ session, perfil }) {
 
   const temFiltro = filtroCliente || filtroMarca || filtroReferencia;
   const limparFiltros = () => { setFiltroCliente(""); setFiltroMarca(""); setFiltroReferencia(""); };
+
+  // Romaneio geral de uma coluna: mesma folha do romaneio individual para
+  // cada pedido visível na coluna (respeita filtros/busca), num PDF só.
+  async function baixarRomaneioColuna(local, cards) {
+    if (gerandoCol || !cards || cards.length === 0) return;
+    setGerandoCol(local);
+    try {
+      // Imagens de referência (solicitações): busca todas de uma vez.
+      const solIds = [...new Set(cards.map(({ pe }) => pe.solicitacao_id).filter(Boolean))];
+      const solMap = {};
+      if (solIds.length) {
+        const { data: sols } = await supabase.from("solicitacoes").select("id, imagem_url").in("id", solIds);
+        (sols || []).forEach((s) => { if (s.imagem_url) solMap[s.id] = s.imagem_url; });
+      }
+
+      const listaProc = local === "Corte" ? PROCESSOS_CORTE : local === "Acabamento" ? PROCESSOS_ACABAMENTO : null;
+
+      const itens = cards.map(({ pe, saldo }) => {
+        const partes = COLUNAS.filter((l) => saldo[l] > 0);
+        const idx = partes.indexOf(local);
+
+        const mapaProc = (local === "Corte" ? pe.processos_corte : pe.processos_acabamento) || {};
+
+        let remessasOficina = null;
+        if (local === "Oficina") {
+          remessasOficina = (remessas || [])
+            .filter((r) => r.pedido_id === pe.id)
+            .map((r) => ({
+              oficina: (oficinas || []).find((o) => o.id === r.oficina_id)?.nome_empresa || "—",
+              saida: r.data_saida, retorno: r.data_fechamento,
+              enviada: r.qtd_enviada, retornada: r.qtd_retornada,
+            }));
+        }
+
+        let aviamentos = null;
+        if (local === "Aviação" && pe.ficha_aviamentos) {
+          aviamentos = ITENS_AVIAMENTO
+            .filter((it) => itemPreenchido(pe.ficha_aviamentos[it.id]))
+            .map((it) => ({ nome: it.nome, tipoCampo: it.tipo, ...pe.ficha_aviamentos[it.id] }));
+        }
+
+        const imagens = [];
+        if (pe.anexo_amostra) {
+          const u = supabase.storage.from("anexos").getPublicUrl(pe.anexo_amostra).data.publicUrl;
+          if (u) imagens.push({ url: u, rotulo: "Amostra" });
+        }
+        if (pe.solicitacao_id && solMap[pe.solicitacao_id]) {
+          imagens.push({ url: solMap[pe.solicitacao_id], rotulo: "Referência" });
+        }
+
+        return {
+          pedido: pe,
+          cliente: nomeCliente(pe.cliente_id),
+          qtd: saldo[local],
+          parte: idx + 1,
+          totalPartes: partes.length,
+          oficina: (oficinas || []).find((o) => o.id === pe.oficina_id)?.nome_empresa || null,
+          processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], pe.total), grade: (mapaProc[n] && mapaProc[n].grade) || null, obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
+          remessasOficina,
+          aviamentos,
+          imagens,
+        };
+      });
+
+      await gerarRomaneioColuna({ local, itens });
+    } catch (e) {
+      setAviso({ tipo: "erro", titulo: "Não consegui gerar o romaneio", detalhe: e?.message || "Tente novamente." });
+    } finally {
+      setGerandoCol(null);
+    }
+  }
 
   if (carregando) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando quadro…</div>;
   if (!podeVerTudo && !perfil?.setor) return <div style={{ padding: 28, color: "var(--text-2)" }}>Seu usuário ainda não tem um setor definido.</div>;
@@ -279,6 +351,16 @@ export default function Quadro({ session, perfil }) {
                 <IconeCol size={15} style={{ color: CORES[local] }} />
                 <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.15 }}>{colunas.length === 1 ? "Pedidos no setor" : rotuloLocal(local)}</span>
                 <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", fontWeight: 600, background: "var(--surface-2)", borderRadius: 99, padding: "1px 8px" }}>{cards.length}</span>
+                {cards.length > 0 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); baixarRomaneioColuna(local, cards); }}
+                    disabled={gerandoCol === local}
+                    title={`Baixar romaneio de ${rotuloLocal(local)} (${cards.length} pedido${cards.length === 1 ? "" : "s"})`}
+                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-3)", cursor: gerandoCol === local ? "wait" : "pointer", flexShrink: 0, opacity: gerandoCol && gerandoCol !== local ? 0.4 : 1 }}
+                  >
+                    {gerandoCol === local ? <Clock size={12} className="pulse-dot" /> : <FileDown size={12} />}
+                  </button>
+                )}
               </div>
               <div style={colunas.length === 1
                 ? { flex: 1, minHeight: 0, overflowY: "auto", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 290px), 1fr))", gap: 10, alignContent: "start", paddingRight: 2 }
