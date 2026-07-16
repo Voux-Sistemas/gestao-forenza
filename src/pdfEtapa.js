@@ -54,7 +54,7 @@ async function carregarImagem(url) {
 // Desenha a folha de romaneio de UM pedido no `doc` recebido, começando numa
 // página já em branco. Não cria o documento, não renumera e não salva —
 // isso fica a cargo de quem chama (permite juntar vários pedidos num PDF só).
-async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, aviamentos, imagens }) {
+async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, aviamentos, imagens, classificacao }) {
   const larg = doc.internal.pageSize.getWidth();
   const mx = 16;
   let y = 18;
@@ -233,6 +233,66 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
         y += hLinha;
       }
       y += 13;
+    }
+  }
+
+  // ── Classificação por qualidade (1ª/2ª por tamanho) — só quando houver ──
+  if (classificacao && (classificacao.primeira || classificacao.segunda)) {
+    const g1 = classificacao.primeira || {};
+    const g2 = classificacao.segunda || {};
+    const tams = TAMANHOS_GRADE.filter((t) => (parseInt(g1[t], 10) || 0) > 0 || (parseInt(g2[t], 10) || 0) > 0);
+    // tamanhos fora da lista padrão, se houver
+    [...Object.keys(g1), ...Object.keys(g2)].forEach((t) => {
+      if (!tams.includes(t) && ((parseInt(g1[t], 10) || 0) > 0 || (parseInt(g2[t], 10) || 0) > 0)) tams.push(t);
+    });
+
+    if (tams.length > 0) {
+      const hLinha = 8;
+      quebraSePreciso(16 + (tams.length + 2) * hLinha);
+      tituloSecao("Classificação por qualidade");
+
+      const larguraTabela = larg - mx * 2;
+      const colTam = 40;
+      const cw = (larguraTabela - colTam) / 3; // 1ª, 2ª, Total
+      const tot1 = tams.reduce((a, t) => a + (parseInt(g1[t], 10) || 0), 0);
+      const tot2 = tams.reduce((a, t) => a + (parseInt(g2[t], 10) || 0), 0);
+
+      const cel = (cx, cy, cwid, texto, { fill, corTexto, bold, alinhar } = {}) => {
+        if (fill) { doc.setFillColor(...fill); doc.rect(cx, cy, cwid, hLinha, "F"); }
+        doc.setDrawColor(230).setLineWidth(0.2).rect(cx, cy, cwid, hLinha, "S");
+        doc.setFont("helvetica", bold ? "bold" : "normal").setFontSize(9).setTextColor(...(corTexto || TINTA));
+        const al = alinhar || "center";
+        const tx = al === "left" ? cx + 2 : al === "right" ? cx + cwid - 2 : cx + cwid / 2;
+        doc.text(String(texto), tx, cy + hLinha * 0.66, { align: al });
+      };
+
+      // Cabeçalho
+      let x = mx;
+      cel(x, y, colTam, "TAMANHO", { fill: [240, 240, 237], corTexto: CINZA, bold: true, alinhar: "left" }); x += colTam;
+      cel(x, y, cw, "1ª QUALIDADE", { fill: [225, 240, 233], corTexto: VERDE_ESCURO, bold: true }); x += cw;
+      cel(x, y, cw, "2ª QUALIDADE", { fill: [250, 236, 220], corTexto: [150, 90, 20], bold: true }); x += cw;
+      cel(x, y, cw, "TOTAL", { fill: [240, 240, 237], corTexto: CINZA, bold: true });
+      y += hLinha;
+
+      // Linhas por tamanho
+      tams.forEach((t) => {
+        const q1 = parseInt(g1[t], 10) || 0;
+        const q2 = parseInt(g2[t], 10) || 0;
+        x = mx;
+        cel(x, y, colTam, t, { bold: true, alinhar: "left" }); x += colTam;
+        cel(x, y, cw, q1 || "·", { corTexto: q1 ? TINTA : [190, 190, 185] }); x += cw;
+        cel(x, y, cw, q2 || "·", { corTexto: q2 ? TINTA : [190, 190, 185] }); x += cw;
+        cel(x, y, cw, q1 + q2, { fill: [250, 250, 248], corTexto: VERDE_ESCURO, bold: true });
+        y += hLinha;
+      });
+
+      // Total
+      x = mx;
+      cel(x, y, colTam, "TOTAL", { fill: VERDE_ESCURO, corTexto: [255, 255, 255], bold: true, alinhar: "left" }); x += colTam;
+      cel(x, y, cw, tot1, { fill: VERDE_ESCURO, corTexto: [255, 255, 255], bold: true }); x += cw;
+      cel(x, y, cw, tot2, { fill: VERDE_ESCURO, corTexto: [255, 255, 255], bold: true }); x += cw;
+      cel(x, y, cw, tot1 + tot2, { fill: VERDE_ESCURO, corTexto: [255, 255, 255], bold: true });
+      y += hLinha + 13;
     }
   }
 
