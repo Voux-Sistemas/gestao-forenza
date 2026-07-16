@@ -278,10 +278,10 @@ function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
   }
 
   const gradeVisivel = pe.grade && normalizarGrade(pe.grade).length > 0;
-  const thI = { border: "1px solid var(--border)", background: "var(--surface-2)", padding: "7px 8px", textAlign: "center", fontSize: 9.5, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".3px", whiteSpace: "nowrap" };
-  const celI = { border: "1px solid var(--border)", padding: "4px 6px", textAlign: "center", fontSize: 12.5 };
-  const celInputI = { border: "1px solid var(--border)", padding: 0, textAlign: "center" };
-  const inpCelI = { width: "100%", border: "none", background: "transparent", textAlign: "center", fontSize: 13.5, padding: "8px 4px", color: "var(--text)", fontFamily: "inherit", outline: "none" };
+  const celI = { border: "1px solid var(--border)", padding: "4px 6px", textAlign: "center", fontSize: 11.5, whiteSpace: "nowrap" };
+  const thI = { ...celI, background: "var(--surface-2)", fontSize: 9.5, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".3px" };
+  const celInputI = { border: "1px solid var(--border)", padding: 0, textAlign: "center", whiteSpace: "nowrap" };
+  const inpCelI = { width: "100%", boxSizing: "border-box", border: "none", background: "transparent", textAlign: "center", fontSize: 12.5, padding: "6px 4px", color: "var(--text)", fontFamily: "inherit", outline: "none" };
 
   return (
     <Overlay onFechar={onFechar}>
@@ -307,23 +307,26 @@ function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
             <table style={{ borderCollapse: "collapse", width: "100%" }}>
               <thead>
                 <tr>
-                  <th style={{ ...thI, textAlign: "left", minWidth: 90 }}>TAMANHO</th>
-                  <th style={{ ...thI, color: "var(--success)" }}>1ª QUALIDADE</th>
-                  <th style={{ ...thI, color: "var(--orange)" }}>2ª QUALIDADE</th>
+                  <th style={{ ...thI, textAlign: "left", minWidth: 96 }}>QUALIDADE</th>
+                  {tamanhos.map((t) => <th key={t} style={thI}>{t}</th>)}
+                  <th style={{ ...thI, background: "var(--surface-3)", color: "var(--text-2)" }}>TOTAL</th>
                 </tr>
               </thead>
               <tbody>
-                {tamanhos.map((t) => (
-                  <tr key={t}>
-                    <td style={{ ...celI, textAlign: "left", padding: "6px 10px", fontWeight: 700, fontSize: 13 }}>{t}</td>
-                    <td style={celInputI}><input type="number" min="0" value={g1[t] ?? "0"} onChange={(e) => setSize(setG1)(t, e.target.value)} style={inpCelI} /></td>
-                    <td style={celInputI}><input type="number" min="0" value={g2[t] ?? "0"} onChange={(e) => setSize(setG2)(t, e.target.value)} style={inpCelI} /></td>
-                  </tr>
-                ))}
                 <tr>
-                  <td style={{ ...celI, textAlign: "left", padding: "7px 10px", fontWeight: 700, fontSize: 12, background: "var(--surface-2)" }}>TOTAL</td>
+                  <td style={{ ...celI, textAlign: "left", fontWeight: 700, color: "var(--success)" }}>1ª qualidade</td>
+                  {tamanhos.map((t) => <td key={t} style={celInputI}><input type="number" min="0" value={g1[t] ?? "0"} onChange={(e) => setSize(setG1)(t, e.target.value)} style={{ ...inpCelI, color: "var(--success)", fontWeight: 600 }} /></td>)}
                   <td style={{ ...celI, background: "var(--surface-2)", fontWeight: 800, color: "var(--success)" }}>{n1}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...celI, textAlign: "left", fontWeight: 700, color: "var(--orange)" }}>2ª qualidade</td>
+                  {tamanhos.map((t) => <td key={t} style={celInputI}><input type="number" min="0" value={g2[t] ?? "0"} onChange={(e) => setSize(setG2)(t, e.target.value)} style={{ ...inpCelI, color: "var(--orange)", fontWeight: 600 }} /></td>)}
                   <td style={{ ...celI, background: "var(--surface-2)", fontWeight: 800, color: "var(--orange)" }}>{n2}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...celI, textAlign: "left", fontWeight: 700, background: "var(--surface-2)", color: "var(--text-2)" }}>TOTAL</td>
+                  {tamanhos.map((t) => { const soma = (parseInt(g1[t], 10) || 0) + (parseInt(g2[t], 10) || 0); return <td key={t} style={{ ...celI, background: "var(--surface-2)", fontWeight: 700, color: soma ? "var(--accent)" : "var(--text-3)" }}>{soma || "·"}</td>; })}
+                  <td style={{ ...celI, background: "var(--accent-bg)", fontWeight: 800, color: "var(--accent)" }}>{n1 + n2}</td>
                 </tr>
               </tbody>
             </table>
