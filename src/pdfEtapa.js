@@ -556,13 +556,12 @@ export async function gerarPdfEtapa(params) {
 // Romaneio GERAL de uma coluna: uma página-resumo do lote + a folha
 // detalhada de cada pedido (uma por página), tudo num PDF só.
 // `itens` = lista de params no mesmo formato de gerarPdfEtapa (sem `local`).
+// Romaneio GERAL de uma coluna: apenas o resumo do que há no setor (uma folha).
+// Para ver um pedido específico, gera-se o PDF direto do pedido.
+// `itens` = lista de { pedido, cliente, qtd }.
 export async function gerarRomaneioColuna({ local, itens }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   desenharResumoColuna(doc, local, itens);
-  for (const item of itens) {
-    doc.addPage();
-    await desenharPedidoNoPdf(doc, { ...item, local });
-  }
   renumerarPaginas(doc);
   const hoje = new Date().toISOString().slice(0, 10);
   doc.save(`romaneio-${limparNome(rotuloLocal(local))}-${hoje}.pdf`);
