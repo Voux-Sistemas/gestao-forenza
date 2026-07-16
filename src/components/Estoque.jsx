@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
 import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2, FileText, Plus, X } from "lucide-react";
 import StatCard from "./StatCard.jsx";
-import { calcularSaldos as saldos } from "../etapas.js";
+import { calcularSaldos as saldos, historicoEtapas } from "../etapas.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
 import GradeTabela, { normalizarGrade, gradePorTamanho, totalGrade, TAMANHOS_GRADE } from "./GradeTabela.jsx";
 import { gerarPdfEtapa } from "../pdfEtapa.js";
@@ -71,6 +71,7 @@ export default function Estoque({ session, perfil }) {
       await gerarPdfEtapa({
         pedido: pe, cliente: nomeCliente(pe.cliente_id), local: "Estoque", qtd,
         parte: 1, totalPartes: 1, oficina: null, processos: null, imagens, classificacao,
+        historico: historicoEtapas(pe, movimentos),
       });
     } finally {
       setPdfId(null);
@@ -575,7 +576,7 @@ function TabelaClassificacao({ cls }) {
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Grade de Qualidade</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Classificação por tamanho</div>
       <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 9 }}>
         <table style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead>

@@ -12,7 +12,7 @@ import GradeEditor, { limparGrade } from "./GradeEditor.jsx";
 
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import Overlay from "./Gaveta.jsx";
-import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal } from "../etapas.js";
+import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal, historicoEtapas } from "../etapas.js";
 
 const ICONES_COLUNA = {
   Entrada: Download, "Ficha Técnica de Corte": FileText, Corte: Scissors,
@@ -473,6 +473,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
         remessasOficina,
         aviamentos,
         imagens,
+        historico: historicoEtapas(ped, movimentos),
       });
     } finally {
       setGerandoPdf(false);
@@ -971,21 +972,7 @@ function LinhaTempoEtapas({ pedido, movimentos }) {
     } catch { return String(d); }
   };
 
-  const movs = (movimentos || [])
-    .filter((m) => m.pedido_id === pedido.id)
-    .sort((a, b) => String(a.data || a.criado_em || "").localeCompare(String(b.data || b.criado_em || "")));
-
-  const nodes = [];
-  const origem = movs[0]?.de_local;
-  if (origem && LOCAIS.includes(origem)) {
-    nodes.push({ etapa: origem, data: pedido.criado_em || pedido.created_at || null, inicio: true });
-  }
-  const vistos = new Set(origem ? [origem] : []);
-  movs.forEach((m) => {
-    if (!m.para_local || vistos.has(m.para_local) || !LOCAIS.includes(m.para_local)) return;
-    vistos.add(m.para_local);
-    nodes.push({ etapa: m.para_local, data: m.data || m.criado_em, qtd: m.qtd });
-  });
+  const nodes = historicoEtapas(pedido, movimentos);
 
   if (nodes.length === 0) return null;
 
