@@ -277,7 +277,11 @@ function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
     }
   }
 
-  const colGrid = "minmax(58px, .7fr) 1fr 1fr";
+  const gradeVisivel = pe.grade && normalizarGrade(pe.grade).length > 0;
+  const thI = { border: "1px solid var(--border)", background: "var(--surface-2)", padding: "7px 8px", textAlign: "center", fontSize: 9.5, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".3px", whiteSpace: "nowrap" };
+  const celI = { border: "1px solid var(--border)", padding: "4px 6px", textAlign: "center", fontSize: 12.5 };
+  const celInputI = { border: "1px solid var(--border)", padding: 0, textAlign: "center" };
+  const inpCelI = { width: "100%", border: "none", background: "transparent", textAlign: "center", fontSize: 13.5, padding: "8px 4px", color: "var(--text)", fontFamily: "inherit", outline: "none" };
 
   return (
     <Overlay onFechar={onFechar}>
@@ -289,40 +293,53 @@ function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
         </button>
       )}
 
+      {gradeVisivel && (
+        <>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Grade do pedido</div>
+          <GradeTabela grade={pe.grade} margem="0 0 18px" />
+        </>
+      )}
+
       {temGrade ? (
-        <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: colGrid, background: "var(--surface-2)", fontSize: 10, fontWeight: 700, letterSpacing: ".3px" }}>
-            <div style={{ padding: "8px 10px", color: "var(--text-3)" }}>TAMANHO</div>
-            <div style={{ padding: "8px 10px", textAlign: "center", color: "var(--success)" }}>1ª QUALIDADE</div>
-            <div style={{ padding: "8px 10px", textAlign: "center", color: "var(--orange)" }}>2ª QUALIDADE</div>
-          </div>
-          {tamanhos.map((t) => (
-            <div key={t} style={{ display: "grid", gridTemplateColumns: colGrid, alignItems: "center", borderTop: "1px solid var(--border)" }}>
-              <div style={{ padding: "6px 10px", fontWeight: 600, fontSize: 13 }}>{t}</div>
-              <div style={{ padding: 6 }}><input type="number" min="0" value={g1[t] ?? "0"} onChange={(e) => setSize(setG1)(t, e.target.value)} style={inpMini} /></div>
-              <div style={{ padding: 6 }}><input type="number" min="0" value={g2[t] ?? "0"} onChange={(e) => setSize(setG2)(t, e.target.value)} style={inpMini} /></div>
-            </div>
-          ))}
-          <div style={{ display: "grid", gridTemplateColumns: colGrid, alignItems: "center", borderTop: "1px solid var(--border)", background: "var(--surface-2)" }}>
-            <div style={{ padding: "8px 10px", fontSize: 11, fontWeight: 700, color: "var(--text-2)" }}>TOTAL</div>
-            <div style={{ padding: "8px 10px", textAlign: "center", fontWeight: 800, color: "var(--success)" }}>{n1}</div>
-            <div style={{ padding: "8px 10px", textAlign: "center", fontWeight: 800, color: "var(--orange)" }}>{n2}</div>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Enviar para 1ª / 2ª qualidade</div>
+          <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 9 }}>
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              <thead>
+                <tr>
+                  <th style={{ ...thI, textAlign: "left", minWidth: 90 }}>TAMANHO</th>
+                  <th style={{ ...thI, color: "var(--success)" }}>1ª QUALIDADE</th>
+                  <th style={{ ...thI, color: "var(--orange)" }}>2ª QUALIDADE</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tamanhos.map((t) => (
+                  <tr key={t}>
+                    <td style={{ ...celI, textAlign: "left", padding: "6px 10px", fontWeight: 700, fontSize: 13 }}>{t}</td>
+                    <td style={celInputI}><input type="number" min="0" value={g1[t] ?? "0"} onChange={(e) => setSize(setG1)(t, e.target.value)} style={inpCelI} /></td>
+                    <td style={celInputI}><input type="number" min="0" value={g2[t] ?? "0"} onChange={(e) => setSize(setG2)(t, e.target.value)} style={inpCelI} /></td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={{ ...celI, textAlign: "left", padding: "7px 10px", fontWeight: 700, fontSize: 12, background: "var(--surface-2)" }}>TOTAL</td>
+                  <td style={{ ...celI, background: "var(--surface-2)", fontWeight: 800, color: "var(--success)" }}>{n1}</td>
+                  <td style={{ ...celI, background: "var(--surface-2)", fontWeight: 800, color: "var(--orange)" }}>{n2}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       ) : (
-        <>
-          <GradeTabela grade={pe.grade} margem="0 0 16px" />
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)", display: "inline-block", marginRight: 6 }} />1ª qualidade</label>
-              <input type="number" min="0" max={disponivel} value={q1} onChange={(e) => setQ1(e.target.value)} autoFocus style={inp} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--orange)", display: "inline-block", marginRight: 6 }} />2ª qualidade</label>
-              <input type="number" min="0" max={disponivel} value={q2} onChange={(e) => setQ2(e.target.value)} style={inp} />
-            </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)", display: "inline-block", marginRight: 6 }} />1ª qualidade</label>
+            <input type="number" min="0" max={disponivel} value={q1} onChange={(e) => setQ1(e.target.value)} autoFocus style={inp} />
           </div>
-        </>
+          <div style={{ flex: 1 }}>
+            <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--orange)", display: "inline-block", marginRight: 6 }} />2ª qualidade</label>
+            <input type="number" min="0" max={disponivel} value={q2} onChange={(e) => setQ2(e.target.value)} style={inp} />
+          </div>
+        </div>
       )}
 
       {soma > 0 && (
@@ -597,7 +614,6 @@ const subTab = (ativo) => ({
 const cartao = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "16px", boxShadow: "var(--shadow-card)" };
 const tag = { fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", color: "var(--accent)", background: "var(--accent-bg)", whiteSpace: "nowrap" };
 const inp = { width: "100%", padding: "9px 11px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
-const inpMini = { width: "100%", padding: "6px 8px", fontSize: 13, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", textAlign: "center", boxSizing: "border-box" };
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 };
 const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer", transition: "background .15s" };
 
