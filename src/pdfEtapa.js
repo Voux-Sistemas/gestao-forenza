@@ -450,21 +450,23 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     tituloSecao("Aviamentos");
 
     const larguraTabela = larg - mx * 2;
-    const colItem = larguraTabela * 0.32;
-    const colDet = larguraTabela * 0.48;
-    const colQtd = larguraTabela * 0.20;
+    const colItem = larguraTabela * 0.3;
+    const colDet = larguraTabela * 0.34;
+    const colCons = larguraTabela * 0.2;
+    const colQtd = larguraTabela * 0.16;
 
     // Cabeçalho em faixa
     doc.setFillColor(244, 244, 241).rect(mx, y, larguraTabela, hLinha, "F");
     doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...CINZA);
     doc.text("ITEM", mx + 3, y + 4.7);
     doc.text("ESPECIFICAÇÃO", mx + colItem + 3, y + 4.7);
+    doc.text("CONSUMO", mx + colItem + colDet + 3, y + 4.7);
     doc.text("QTD", larg - mx - 3, y + 4.7, { align: "right" });
     y += hLinha;
 
     aviamentos.forEach((a, idx) => {
       quebraSePreciso(hLinha);
-      // Descrição conforme o tipo.
+      // Especificação conforme o tipo (o consumo agora vai em coluna própria).
       const partes = [];
       if (a.largura) partes.push(`largura ${a.largura}`);
       if (a.tipoCampo === "ziper") {
@@ -473,7 +475,6 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       } else if (a.tamanho) {
         partes.push(`tam. ${a.tamanho}`);
       }
-      if (a.consumo) partes.push(`consumo ${a.consumo}`);
       const detalhe = partes.join(" · ") || "—";
 
       if (idx % 2 === 1) { doc.setFillColor(250, 250, 248).rect(mx, y, larguraTabela, hLinha, "F"); }
@@ -481,6 +482,8 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       doc.text(a.nome, mx + 3, y + 4.8);
       doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
       doc.text(doc.splitTextToSize(detalhe, colDet - 4)[0] || detalhe, mx + colItem + 3, y + 4.8);
+      doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...(a.consumo ? TINTA : [190, 190, 185]));
+      doc.text(a.consumo ? String(a.consumo) : "—", mx + colItem + colDet + 3, y + 4.8);
       if (a.qtd) {
         doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...TINTA);
         doc.text(String(a.qtd), larg - mx - 3, y + 4.8, { align: "right" });
