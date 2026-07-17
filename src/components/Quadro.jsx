@@ -499,9 +499,14 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   const remessasAbertas = (remessas || []).filter((r) => r.pedido_id === pedido.id && !r.data_fechamento);
   const [remessaId, setRemessaId] = useState(remessasAbertas[0]?.id || "");
   const [motivoFechamento, setMotivoFechamento] = useState("");
-  // O retorno atual vai fechar a remessa selecionada?
+  const [encerrar, setEncerrar] = useState(false); // encerrar a remessa mandando as faltantes p/ perda
+  // Estado do retorno da oficina em relação à remessa selecionada.
   const remessaSel = remessasAbertas.find((r) => r.id === Number(remessaId));
-  const vaiFechar = local === "Oficina" && remessaSel && (remessaSel.qtd_retornada + (parseInt(qtd, 10) || 0)) >= remessaSel.qtd_enviada;
+  const qNum = parseInt(qtd, 10) || 0;
+  const restanteRemessa = remessaSel ? remessaSel.qtd_enviada - remessaSel.qtd_retornada : 0;
+  const podeEncerrar = local === "Oficina" && remessaSel && qNum > 0 && qNum < restanteRemessa;
+  const faltantes = encerrar && podeEncerrar ? restanteRemessa - qNum : 0;
+  const fechaRemessa = local === "Oficina" && remessaSel && (qNum >= restanteRemessa || (encerrar && podeEncerrar));
 
   async function mudarOficina(novo) {
     setOficinaId(novo);
@@ -532,8 +537,8 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       const r = remessasAbertas.find((x) => x.id === Number(remessaId));
       const restante = r ? r.qtd_enviada - r.qtd_retornada : 0;
       if (q > restante) return setErro(`Essa remessa tem ${restante} peça(s) em aberto.`);
-      // Se esse retorno fecha a remessa, o motivo é obrigatório.
-      if (r && r.qtd_retornada + q >= r.qtd_enviada && !motivoFechamento.trim()) {
+      // Se esse retorno fecha a remessa (por completar ou por encerrar), o motivo é obrigatório.
+      if (fechaRemessa && !motivoFechamento.trim()) {
         return setErro("Informe o motivo do fechamento da remessa.");
       }
     }
@@ -549,18 +554,25 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       if (r.error) { setSalvando(false); return setErro("Falha ao registrar a remessa: " + r.error.message); }
       novaRemessaId = r.data.id;
     }
-    // 2) Volta da Oficina: abate remessa
+    // 2) Volta da Oficina: abate remessa (e encerra, mandando as faltantes p/ perda)
     if (local === "Oficina" && remessaId) {
       const r = remessasAbertas.find((x) => x.id === Number(remessaId));
       const novaQtd = r.qtd_retornada + q;
-      const fechada = novaQtd >= r.qtd_enviada;
       const up = await supabase.from("remessas_oficina").update({
         qtd_retornada: novaQtd,
-        data_fechamento: fechada ? new Date().toISOString().slice(0, 10) : null,
-        motivo_fechamento: fechada ? motivoFechamento.trim() : null,
+        data_fechamento: fechaRemessa ? new Date().toISOString().slice(0, 10) : null,
+        motivo_fechamento: fechaRemessa ? motivoFechamento.trim() : null,
       }).eq("id", r.id);
       if (up.error) { setSalvando(false); return setErro("Falha ao abater a remessa: " + up.error.message); }
       novaRemessaId = r.id;
+      // Encerramento: peças que não voltaram viram perda, com o motivo.
+      if (faltantes > 0) {
+        const perda = await supabase.from("movimentos").insert({
+          pedido_id: pedido.id, de_local: "Oficina", para_local: "Perda", qtd: faltantes,
+          usuario_id: session.user.id, remessa_id: r.id, observacao: motivoFechamento.trim(),
+        });
+        if (perda.error) { setSalvando(false); return setErro("Falha ao registrar a perda: " + perda.error.message); }
+      }
     }
 
     const { error } = await supabase.from("movimentos").insert({
@@ -574,7 +586,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       const { data: novoId, error: eId } = await supabase.rpc("proximo_id_corte");
       if (!eId && novoId) await supabase.from("pedidos").update({ corte_id: novoId }).eq("id", pedido.id);
     }
-    if (destino === "Perda") await arquivarSeConcluido(pedido.id); // última peça perdida pode concluir o pedido
+    if (destino === "Perda" || faltantes > 0) await arquivarSeConcluido(pedido.id); // última peça perdida pode concluir o pedido
     onOk({ destino, qtd: q, referencia: pedido.referencia });
   }
 
@@ -631,7 +643,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Aviação" && <PainelAviamento pedido={pedido} podeEditar={podeEditar} />}
-      {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} session={session} podeEditar={podeEditar} onOk={onOk} />}
+      {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
       {podeEditar ? (
         <>
           {local === "Oficina" && remessasAbertas.length > 0 && (
@@ -647,18 +659,24 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
               </select>
             </>
           )}
-          <label style={{ ...lbl, marginTop: 14 }}>Quantidade</label>
+          <label style={{ ...lbl, marginTop: 14 }}>{local === "Oficina" ? "Quantidade que voltou" : "Quantidade"}</label>
           <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
           <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
           <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
             <option value="">Selecionar…</option>
             {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
           </select>
-          {vaiFechar && (
+          {podeEncerrar && (
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
+              <input type="checkbox" checked={encerrar} onChange={(e) => setEncerrar(e.target.checked)} style={{ marginTop: 2 }} />
+              <span>Encerrar a remessa mesmo assim — as <strong>{restanteRemessa - qNum}</strong> peça(s) que não voltaram vão para <strong style={{ color: "var(--danger)" }}>perda</strong>.</span>
+            </label>
+          )}
+          {fechaRemessa && (
             <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 9, border: "1px solid var(--border)" }}>
               <label style={{ ...lbl, marginTop: 0, display: "flex", alignItems: "center", gap: 6 }}>Motivo do fechamento da remessa <span style={{ color: "var(--danger)" }}>*</span></label>
               <textarea value={motivoFechamento} onChange={(e) => setMotivoFechamento(e.target.value)} rows={2} placeholder="Ex.: retorno completo e conferido; 2 peças com defeito; etc." style={{ ...inp, resize: "vertical" }} />
-              <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>Este retorno completa a remessa — o motivo é obrigatório.</div>
+              <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>{faltantes > 0 ? `${faltantes} peça(s) irão para perda ao encerrar — ` : "Este retorno completa a remessa — "}o motivo é obrigatório.</div>
             </div>
           )}
         </>
@@ -896,37 +914,7 @@ function infoRemessasOficina(pe, remessas, oficinas) {
   };
 }
 
-function PainelOficina({ pedido, remessas, movimentos, oficinas, session, podeEditar, onOk }) {
-  const [encerrando, setEncerrando] = useState(null); // id da remessa em processo de encerramento manual
-  const [motivoEnc, setMotivoEnc] = useState("");
-  const [salvandoEnc, setSalvandoEnc] = useState(false);
-
-  async function encerrarRemessa(r) {
-    const restante = (r.qtd_enviada || 0) - (r.qtd_retornada || 0);
-    if (!motivoEnc.trim()) return;
-    setSalvandoEnc(true);
-    try {
-      // Peças que não voltaram são registradas como perda, com o motivo.
-      if (restante > 0) {
-        await supabase.from("movimentos").insert({
-          pedido_id: pedido.id, de_local: "Oficina", para_local: "Perda", qtd: restante,
-          usuario_id: session?.user?.id, remessa_id: r.id, observacao: motivoEnc.trim(),
-        });
-      }
-      await supabase.from("remessas_oficina").update({
-        data_fechamento: new Date().toISOString().slice(0, 10),
-        motivo_fechamento: motivoEnc.trim(),
-      }).eq("id", r.id);
-      await arquivarSeConcluido(pedido.id);
-      setEncerrando(null); setMotivoEnc("");
-      onOk && onOk();
-    } catch (e) {
-      window.alert("Não foi possível encerrar a remessa: " + (e?.message || e));
-    } finally {
-      setSalvandoEnc(false);
-    }
-  }
-
+function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
   function fmtData(d) {
     if (!d) return "—";
     const str = String(d);
@@ -1015,21 +1003,6 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas, session, podeEd
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--text-2)" }}>
                 <span style={{ color: "var(--text-3)", fontWeight: 600 }}>Motivo do fechamento:</span> {r.motivo_fechamento}
               </div>
-            )}
-            {aberta && podeEditar && (
-              encerrando === r.id ? (
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--danger)", marginBottom: 6 }}>Encerrar remessa</div>
-                  {restante > 0 && <div style={{ fontSize: 11.5, color: "var(--text-2)", marginBottom: 8 }}>{restante} peça(s) não voltaram — serão registradas como <strong>perda</strong>.</div>}
-                  <textarea value={motivoEnc} onChange={(e) => setMotivoEnc(e.target.value)} rows={2} placeholder="Motivo do encerramento (obrigatório)…" style={{ ...inpMini, width: "100%", resize: "vertical", boxSizing: "border-box" }} />
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button onClick={() => { setEncerrando(null); setMotivoEnc(""); }} style={{ ...btnGhost, flex: 1, padding: "8px 12px" }}>Cancelar</button>
-                    <button onClick={() => encerrarRemessa(r)} disabled={salvandoEnc || !motivoEnc.trim()} style={{ ...btnDanger, flex: 1, padding: "8px 12px", opacity: !motivoEnc.trim() ? 0.55 : 1 }}>{salvandoEnc ? "Encerrando…" : "Confirmar encerramento"}</button>
-                  </div>
-                </div>
-              ) : (
-                <button onClick={() => { setEncerrando(r.id); setMotivoEnc(""); }} style={{ ...btnGhost, width: "100%", marginTop: 12, color: "var(--danger)", borderColor: "var(--danger)" }}>Encerrar remessa</button>
-              )
             )}
           </div>
         );
