@@ -247,6 +247,7 @@ function DetalhePedido({ pedido, nomeCliente, onFechar }) {
         remessasOficina: remessas.length
           ? remessas.map((r) => ({ oficina: nomeOficina(r.oficina_id), saida: r.data_saida, retorno: r.data_fechamento, enviada: r.qtd_enviada, retornada: r.qtd_retornada, motivo: r.motivo_fechamento || "" }))
           : null,
+        movimentos: movs || [],
       });
     } finally { setGerando(false); }
   }
@@ -297,7 +298,7 @@ function DetalhePedido({ pedido, nomeCliente, onFechar }) {
 
       {temCls && (
         <>
-          {secTit("Grade de qualidade")}
+          {secTit("Classificação por tamanho")}
           <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 9 }}>
             <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11.5 }}>
               <thead><tr style={{ background: "var(--surface-2)" }}>
