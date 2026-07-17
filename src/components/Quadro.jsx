@@ -446,6 +446,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
           oficina: (oficinas || []).find((o) => o.id === r.oficina_id)?.nome_empresa || "—",
           saida: r.data_saida, retorno: r.data_fechamento,
           enviada: r.qtd_enviada, retornada: r.qtd_retornada,
+          motivo: r.motivo_fechamento || "",
         }));
       }
 
@@ -497,6 +498,10 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   // remessas em aberto desse pedido (saída pra oficina ainda não fechada)
   const remessasAbertas = (remessas || []).filter((r) => r.pedido_id === pedido.id && !r.data_fechamento);
   const [remessaId, setRemessaId] = useState(remessasAbertas[0]?.id || "");
+  const [motivoFechamento, setMotivoFechamento] = useState("");
+  // O retorno atual vai fechar a remessa selecionada?
+  const remessaSel = remessasAbertas.find((r) => r.id === Number(remessaId));
+  const vaiFechar = local === "Oficina" && remessaSel && (remessaSel.qtd_retornada + (parseInt(qtd, 10) || 0)) >= remessaSel.qtd_enviada;
 
   async function mudarOficina(novo) {
     setOficinaId(novo);
@@ -527,6 +532,10 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       const r = remessasAbertas.find((x) => x.id === Number(remessaId));
       const restante = r ? r.qtd_enviada - r.qtd_retornada : 0;
       if (q > restante) return setErro(`Essa remessa tem ${restante} peça(s) em aberto.`);
+      // Se esse retorno fecha a remessa, o motivo é obrigatório.
+      if (r && r.qtd_retornada + q >= r.qtd_enviada && !motivoFechamento.trim()) {
+        return setErro("Informe o motivo do fechamento da remessa.");
+      }
     }
 
     setSalvando(true);
@@ -548,6 +557,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       const up = await supabase.from("remessas_oficina").update({
         qtd_retornada: novaQtd,
         data_fechamento: fechada ? new Date().toISOString().slice(0, 10) : null,
+        motivo_fechamento: fechada ? motivoFechamento.trim() : null,
       }).eq("id", r.id);
       if (up.error) { setSalvando(false); return setErro("Falha ao abater a remessa: " + up.error.message); }
       novaRemessaId = r.id;
@@ -621,7 +631,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Aviação" && <PainelAviamento pedido={pedido} podeEditar={podeEditar} />}
-      {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
+      {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} session={session} podeEditar={podeEditar} onOk={onOk} />}
       {podeEditar ? (
         <>
           {local === "Oficina" && remessasAbertas.length > 0 && (
@@ -644,6 +654,13 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
             <option value="">Selecionar…</option>
             {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
           </select>
+          {vaiFechar && (
+            <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 9, border: "1px solid var(--border)" }}>
+              <label style={{ ...lbl, marginTop: 0, display: "flex", alignItems: "center", gap: 6 }}>Motivo do fechamento da remessa <span style={{ color: "var(--danger)" }}>*</span></label>
+              <textarea value={motivoFechamento} onChange={(e) => setMotivoFechamento(e.target.value)} rows={2} placeholder="Ex.: retorno completo e conferido; 2 peças com defeito; etc." style={{ ...inp, resize: "vertical" }} />
+              <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>Este retorno completa a remessa — o motivo é obrigatório.</div>
+            </div>
+          )}
         </>
       ) : (
         <p style={{ fontSize: 13, color: "var(--text-2)", margin: "4px 0 0", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>Você tem acesso de visualização. Mover peças e editar processos é só para chefe de setor.</p>
@@ -879,7 +896,37 @@ function infoRemessasOficina(pe, remessas, oficinas) {
   };
 }
 
-function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
+function PainelOficina({ pedido, remessas, movimentos, oficinas, session, podeEditar, onOk }) {
+  const [encerrando, setEncerrando] = useState(null); // id da remessa em processo de encerramento manual
+  const [motivoEnc, setMotivoEnc] = useState("");
+  const [salvandoEnc, setSalvandoEnc] = useState(false);
+
+  async function encerrarRemessa(r) {
+    const restante = (r.qtd_enviada || 0) - (r.qtd_retornada || 0);
+    if (!motivoEnc.trim()) return;
+    setSalvandoEnc(true);
+    try {
+      // Peças que não voltaram são registradas como perda, com o motivo.
+      if (restante > 0) {
+        await supabase.from("movimentos").insert({
+          pedido_id: pedido.id, de_local: "Oficina", para_local: "Perda", qtd: restante,
+          usuario_id: session?.user?.id, remessa_id: r.id, observacao: motivoEnc.trim(),
+        });
+      }
+      await supabase.from("remessas_oficina").update({
+        data_fechamento: new Date().toISOString().slice(0, 10),
+        motivo_fechamento: motivoEnc.trim(),
+      }).eq("id", r.id);
+      await arquivarSeConcluido(pedido.id);
+      setEncerrando(null); setMotivoEnc("");
+      onOk && onOk();
+    } catch (e) {
+      window.alert("Não foi possível encerrar a remessa: " + (e?.message || e));
+    } finally {
+      setSalvandoEnc(false);
+    }
+  }
+
   function fmtData(d) {
     if (!d) return "—";
     const str = String(d);
@@ -963,6 +1010,26 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
                   );
                 })}
               </div>
+            )}
+            {!aberta && r.motivo_fechamento && (
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--text-2)" }}>
+                <span style={{ color: "var(--text-3)", fontWeight: 600 }}>Motivo do fechamento:</span> {r.motivo_fechamento}
+              </div>
+            )}
+            {aberta && podeEditar && (
+              encerrando === r.id ? (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--danger)", marginBottom: 6 }}>Encerrar remessa</div>
+                  {restante > 0 && <div style={{ fontSize: 11.5, color: "var(--text-2)", marginBottom: 8 }}>{restante} peça(s) não voltaram — serão registradas como <strong>perda</strong>.</div>}
+                  <textarea value={motivoEnc} onChange={(e) => setMotivoEnc(e.target.value)} rows={2} placeholder="Motivo do encerramento (obrigatório)…" style={{ ...inpMini, width: "100%", resize: "vertical", boxSizing: "border-box" }} />
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <button onClick={() => { setEncerrando(null); setMotivoEnc(""); }} style={{ ...btnGhost, flex: 1, padding: "8px 12px" }}>Cancelar</button>
+                    <button onClick={() => encerrarRemessa(r)} disabled={salvandoEnc || !motivoEnc.trim()} style={{ ...btnDanger, flex: 1, padding: "8px 12px", opacity: !motivoEnc.trim() ? 0.55 : 1 }}>{salvandoEnc ? "Encerrando…" : "Confirmar encerramento"}</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => { setEncerrando(r.id); setMotivoEnc(""); }} style={{ ...btnGhost, width: "100%", marginTop: 12, color: "var(--danger)", borderColor: "var(--danger)" }}>Encerrar remessa</button>
+              )
             )}
           </div>
         );
