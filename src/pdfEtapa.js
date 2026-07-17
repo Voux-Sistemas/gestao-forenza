@@ -54,7 +54,7 @@ async function carregarImagem(url) {
 // Desenha a folha de romaneio de UM pedido no `doc` recebido, começando numa
 // página já em branco. Não cria o documento, não renumera e não salva —
 // isso fica a cargo de quem chama (permite juntar vários pedidos num PDF só).
-async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, aviamentos, imagens, classificacao, historico }) {
+async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, aviamentos, imagens, classificacao, historico, dossie, processosAcabamento }) {
   const larg = doc.internal.pageSize.getWidth();
   const mx = 16;
   let y = 18;
@@ -110,8 +110,8 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   doc.text("GESTÃO DE PRODUÇÃO", mx + 15.5, y + 4.5);
 
   // Selo do setor (canto direito) + emissão — cor por setor
-  const corSetor = corDoSetor(local);
-  const selo = rotuloLocal(local).toUpperCase();
+  const corSetor = dossie ? VERDE_ESCURO : corDoSetor(local);
+  const selo = (dossie ? "Dossiê" : rotuloLocal(local)).toUpperCase();
   doc.setFont("helvetica", "bold").setFontSize(9);
   const wSelo = doc.getTextWidth(selo) + 12;
   doc.setFillColor(...corSetor).roundedRect(larg - mx - wSelo, y - 4.5, wSelo, 7.5, 2, 2, "F");
@@ -126,7 +126,7 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
 
   // ── Título com linha grossa ──
   doc.setFont("helvetica", "bold").setFontSize(18).setTextColor(...TINTA);
-  doc.text("Romaneio de produção", mx, y);
+  doc.text(dossie ? "Dossiê do pedido" : "Romaneio de produção", mx, y);
   y += 3;
   doc.setDrawColor(...TINTA).setLineWidth(0.8).line(mx, y, larg - mx, y);
   y += 10;
@@ -134,15 +134,24 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   // ── Bloco de destaque da quantidade ──
   doc.setFillColor(237, 247, 242).roundedRect(mx, y, larg - mx * 2, 20, 3, 3, "F");
   doc.setFont("helvetica", "bold").setFontSize(24).setTextColor(...VERDE_ESCURO);
-  const qtdNum = String(qtd);
+  const qtdNum = String(dossie ? pedido.total : qtd);
   const largNum = doc.getTextWidth(qtdNum);
   doc.text(qtdNum, mx + 8, y + 13.5);
   doc.setFont("helvetica", "normal").setFontSize(11).setTextColor(90);
-  doc.text(`peças em ${rotuloLocal(local).toLowerCase()}`, mx + 12 + largNum, y + 13.5);
-  doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
-  doc.text("PEDIDO COMPLETO", larg - mx - 8, y + 8, { align: "right" });
-  doc.setFont("helvetica", "bold").setFontSize(13).setTextColor(...TINTA);
-  doc.text(`${pedido.total} peças`, larg - mx - 8, y + 15, { align: "right" });
+  doc.text(dossie ? "peças · pedido finalizado" : `peças em ${rotuloLocal(local).toLowerCase()}`, mx + 12 + largNum, y + 13.5);
+  if (dossie) {
+    if (pedido.arquivado_em) {
+      doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
+      doc.text("ARQUIVADO EM", larg - mx - 8, y + 8, { align: "right" });
+      doc.setFont("helvetica", "bold").setFontSize(13).setTextColor(...TINTA);
+      doc.text(fmtData(pedido.arquivado_em) || "—", larg - mx - 8, y + 15, { align: "right" });
+    }
+  } else {
+    doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
+    doc.text("PEDIDO COMPLETO", larg - mx - 8, y + 8, { align: "right" });
+    doc.setFont("helvetica", "bold").setFontSize(13).setTextColor(...TINTA);
+    doc.text(`${pedido.total} peças`, larg - mx - 8, y + 15, { align: "right" });
+  }
   y += 30;
 
   // ── Informações em duas colunas ──
@@ -298,16 +307,17 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     }
   }
 
-  // ── Rastreio dos processos da etapa (trilha visual) ──
-  if (processos && processos.length > 0) {
+  // ── Rastreio dos processos (trilha visual) — reutilizável (corte/acabamento) ──
+  const desenharProcessos = (titulo, lista) => {
+    if (!lista || lista.length === 0) return;
     quebraSePreciso(14);
-    const concluidos = processos.filter((p) => p.qtd >= pedido.total).length;
-    tituloSecao("Processos", `${concluidos} de ${processos.length} concluídos`);
+    const concluidos = lista.filter((p) => p.qtd >= pedido.total).length;
+    tituloSecao(titulo, `${concluidos} de ${lista.length} concluídos`);
     y += 3; // respiro entre o título e o primeiro processo
 
     const cx = mx + 3; // centro das bolinhas (eixo da trilha)
     let topoAnterior = 0;
-    processos.forEach(({ nome, qtd: feitas, grade, obs }, idx) => {
+    lista.forEach(({ nome, qtd: feitas, grade, obs }, idx) => {
       const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, larg - mx * 2 - 14) : [];
       const temGrade = grade && Object.entries(grade).some(([, q]) => (parseInt(q, 10) || 0) > 0);
       const alturaItem = 6 + 7 + (temGrade ? 8 : 0) + obsLinhas.length * 4 + 5;
@@ -320,16 +330,14 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       const cor = completo ? VERDE : parcial ? AMBAR : [190, 190, 185];
       const topo = y - 1.6;
 
-      // Linha da trilha ligando à bolinha anterior (só na mesma página e se a distância for curta).
       if (idx > 0 && topoAnterior > 0 && topo - topoAnterior < 40 && topo > topoAnterior) {
         doc.setDrawColor(215).setLineWidth(0.5).line(cx, topoAnterior + 2.2, cx, topo - 2.2);
       }
 
-      // Bolinha do processo.
       if (completo) {
         doc.setFillColor(...VERDE).circle(cx, topo, 2.2, "F");
         doc.setDrawColor(255).setLineWidth(0.5);
-        doc.line(cx - 1, topo, cx - 0.2, topo + 0.9); doc.line(cx - 0.2, topo + 0.9, cx + 1.1, topo - 0.8); // check
+        doc.line(cx - 1, topo, cx - 0.2, topo + 0.9); doc.line(cx - 0.2, topo + 0.9, cx + 1.1, topo - 0.8);
       } else if (parcial) {
         doc.setFillColor(...AMBAR).circle(cx, topo, 2.2, "F");
         doc.setFillColor(255).circle(cx, topo, 0.8, "F");
@@ -337,13 +345,11 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
         doc.setFillColor(255).setDrawColor(...cor).setLineWidth(0.5).circle(cx, topo, 2.2, "FD");
       }
 
-      // Nome + contagem.
       doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(...(completo || parcial ? TINTA : CINZA));
       doc.text(nome, cx + 6, y);
       doc.setFont("helvetica", "bold").setTextColor(...(completo ? VERDE_ESCURO : parcial ? AMBAR : CINZA));
       doc.text(`${feitas}/${pedido.total}`, larg - mx, y, { align: "right" });
 
-      // Mini barra de progresso.
       const pct = Math.max(0, Math.min(1, feitas / (pedido.total || 1)));
       const barX = cx + 6, barW = larg - mx - barX - 20, barY = y + 1.8;
       doc.setFillColor(235, 235, 231).roundedRect(barX, barY, barW, 1.4, 0.7, 0.7, "F");
@@ -351,7 +357,6 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       y += 7;
 
       if (temGrade) {
-        // Ordena na ordem oficial de tamanhos; extras ao fim.
         const ordenados = Object.entries(grade)
           .filter(([, q]) => (parseInt(q, 10) || 0) > 0)
           .sort(([a], [b]) => {
@@ -364,7 +369,6 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
           doc.setFont("helvetica", "bold").setFontSize(7.5);
           const label = `${t}  ${q}`;
           const wChip = doc.getTextWidth(label) + 8;
-          // quebra de linha se passar da margem
           if (chipX + wChip > larg - mx) { chipX = cx + 6; y += chipH + 2; }
           doc.setFillColor(242, 241, 236).setDrawColor(226, 224, 216).setLineWidth(0.2).roundedRect(chipX, y, wChip, chipH, 1, 1, "FD");
           doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...TINTA).text(String(t), chipX + 3, y + 3.4);
@@ -383,6 +387,13 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       y += 5;
     });
     y += 2;
+  };
+
+  if (dossie) {
+    desenharProcessos("Processos do corte", processos);
+    desenharProcessos("Processos do acabamento", processosAcabamento);
+  } else {
+    desenharProcessos("Processos", processos);
   }
 
   // ── Observações gerais ──
@@ -596,6 +607,21 @@ export async function gerarPdfEtapa(params) {
   renumerarPaginas(doc);
   const { pedido, local, totalPartes, parte } = params;
   doc.save(`${limparNome(pedido.referencia) || "pedido"}-${limparNome(rotuloLocal(local))}${totalPartes > 1 ? `-parte${parte}de${totalPartes}` : ""}.pdf`);
+}
+
+// Dossiê completo de um pedido finalizado: todas as etapas num documento só
+// (grade, classificação, processos de corte e acabamento, aviamentos, remessas).
+export async function gerarDossiePedido({ pedido, cliente, classificacao, processosCorte, processosAcabamento, aviamentos, remessasOficina }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  await desenharPedidoNoPdf(doc, {
+    pedido, cliente, local: "Estoque", qtd: pedido.total, parte: 1, totalPartes: 1,
+    oficina: null, processos: processosCorte || null, processosAcabamento: processosAcabamento || null,
+    remessasOficina: remessasOficina || null, aviamentos: aviamentos || null, imagens: [],
+    classificacao: classificacao || null, historico: null, dossie: true,
+  });
+  renumerarPaginas(doc);
+  const hoje = new Date().toISOString().slice(0, 10);
+  doc.save(`dossie-${limparNome(pedido.referencia) || "pedido"}-${hoje}.pdf`);
 }
 
 // Romaneio GERAL de uma coluna: uma página-resumo do lote + a folha
