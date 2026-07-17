@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown, Bell, Filter, X } from "lucide-react";
+import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown, Bell, Filter, X, MoreHorizontal } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { gerarPdfEtapa, gerarRomaneioColuna } from "../pdfEtapa.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
@@ -424,6 +424,8 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   const { pedido, local, saldo, destinoInicial, cliente, parte, totalPartes } = dados;
   const destinos = LOCAIS.filter((l) => l !== local);
   const [editarGrade, setEditarGrade] = useState(false);
+  const [aba, setAba] = useState("etapa");
+  const [menuAberto, setMenuAberto] = useState(false);
 
   const [gerandoPdf, setGerandoPdf] = useState(false);
   async function baixarPdf() {
@@ -607,92 +609,112 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
 
   return (
     <Overlay onFechar={onFechar} rodape={rodape}>
-      <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Mover peças</h3>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 12px" }}>{pedido.referencia} · {saldo} peças em {rotuloLocal(local)}</p>
-      <button type="button" onClick={baixarPdf} disabled={gerandoPdf}
-        style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "9px 15px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 13, fontWeight: 600, opacity: gerandoPdf ? 0.7 : 1 }}>
-        <FileDown size={16} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando PDF…" : "Baixar PDF desta etapa"}
-      </button>
-      <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px" }}>Detalhes do pedido</span>
-          {podeAdministrar && (
-            <button type="button" onClick={() => setEditarGrade(true)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", fontSize: 11.5, fontWeight: 600, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--accent)", cursor: "pointer" }}>
-              <Tags size={12} /> {normalizarGrade(pedido.grade).length ? "Editar tamanhos" : "Adicionar tamanhos"}
-            </button>
-          )}
-        </div>
-        {normalizarGrade(pedido.grade).length > 0
-          ? <GradeTabela grade={pedido.grade} margem="0 0 10px" />
-          : <div style={{ fontSize: 12.5, color: "var(--text-3)", marginBottom: 10 }}>Sem grade de tamanhos cadastrada.</div>}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 18px", fontSize: 12.5 }}>
-          {pedido.cor && <span><span style={{ color: "var(--text-3)" }}>Cor:</span> {pedido.cor}</span>}
-          {pedido.peso && <span><span style={{ color: "var(--text-3)" }}>Peso:</span> {pedido.peso}</span>}
-            {pedido.volume && <span><span style={{ color: "var(--text-3)" }}>Volume:</span> {pedido.volume}</span>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, paddingRight: 30 }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{pedido.referencia}</h3>
+            {pedido.corte_id && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".3px", padding: "2px 9px", borderRadius: 99, background: "var(--azul-bg, rgba(37,99,235,.1))", color: "var(--azul)" }}>{pedido.corte_id}</span>}
           </div>
-          {pedido.observacoes && <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "8px 0 0", whiteSpace: "pre-wrap" }}>{pedido.observacoes}</p>}
+          <p style={{ fontSize: 13, color: "var(--text-2)", margin: "2px 0 0" }}>{saldo} peças em {rotuloLocal(local)}</p>
         </div>
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 }}>Oficina responsável</label>
-        <select value={oficinaId} onChange={(e) => mudarOficina(e.target.value)} disabled={!podeEditar} style={inpMini}>
-          <option value="">Selecionar…</option>
-          {(oficinas || []).filter((o) => o.ativo).map((o) => <option key={o.id} value={String(o.id)}>{o.nome_empresa}</option>)}
-        </select>
-      </div>
-      {local === "Amostra" && <PainelAmostra pedido={pedido} podeEditar={podeEditar} />}
-      {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
-      {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
-      {local === "Aviação" && <PainelAviamento pedido={pedido} podeEditar={podeEditar} />}
-      {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
-      {podeEditar ? (
-        <>
-          {local === "Oficina" && remessasAbertas.length > 0 && (
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <button type="button" aria-label="Mais ações" onClick={() => setMenuAberto((a) => !a)}
+            style={{ width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>
+            <MoreHorizontal size={18} />
+          </button>
+          {menuAberto && (
             <>
-              <label style={lbl}>Abater de qual remessa</label>
-              <select value={remessaId} onChange={(e) => setRemessaId(e.target.value)} style={inp}>
-                <option value="">Selecionar…</option>
-                {remessasAbertas.map((r) => {
-                  const ofic = (oficinas || []).find((o) => o.id === r.oficina_id);
-                  const restante = r.qtd_enviada - r.qtd_retornada;
-                  return <option key={r.id} value={r.id}>{(ofic?.nome_empresa || "—")} · saiu {fmtDataResumo(r.data_saida)} · faltam {restante} de {r.qtd_enviada}</option>;
-                })}
-              </select>
+              <div onClick={() => setMenuAberto(false)} style={{ position: "fixed", inset: 0, zIndex: 9 }} />
+              <div style={{ position: "absolute", right: 0, top: 36, zIndex: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "var(--shadow-card)", minWidth: 210, overflow: "hidden", padding: "4px 0" }}>
+                <button type="button" onClick={() => { setMenuAberto(false); baixarPdf(); }} disabled={gerandoPdf} style={itemMenu}><FileDown size={15} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando PDF…" : "Baixar PDF desta etapa"}</button>
+                {podeAdministrar && <button type="button" onClick={() => { setMenuAberto(false); setEditarGrade(true); }} style={itemMenu}><Tags size={15} style={{ color: "var(--accent)" }} /> {normalizarGrade(pedido.grade).length ? "Editar tamanhos" : "Adicionar tamanhos"}</button>}
+                {pedido.solicitacao_id && <button type="button" onClick={() => { setMenuAberto(false); setVerResumo(true); }} style={itemMenu}><FileText size={15} style={{ color: "var(--text-3)" }} /> Ver ficha e histórico</button>}
+                {ehMaster && <button type="button" onClick={() => { setMenuAberto(false); excluirPedido(); }} style={{ ...itemMenu, color: "var(--danger)" }}><Trash2 size={15} /> Excluir pedido</button>}
+              </div>
             </>
           )}
-          <label style={{ ...lbl, marginTop: 14 }}>{local === "Oficina" ? "Quantidade que voltou" : "Quantidade"}</label>
-          <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
-          <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
-          <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
-            <option value="">Selecionar…</option>
-            {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
-          </select>
-          {podeEncerrar && (
-            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
-              <input type="checkbox" checked={encerrar} onChange={(e) => setEncerrar(e.target.checked)} style={{ marginTop: 2 }} />
-              <span>Encerrar a remessa mesmo assim — as <strong>{restanteRemessa - qNum}</strong> peça(s) que não voltaram vão para <strong style={{ color: "var(--danger)" }}>perda</strong>.</span>
-            </label>
-          )}
-          {fechaRemessa && (
-            <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 9, border: "1px solid var(--border)" }}>
-              <label style={{ ...lbl, marginTop: 0, display: "flex", alignItems: "center", gap: 6 }}>Motivo do fechamento da remessa <span style={{ color: "var(--danger)" }}>*</span></label>
-              <textarea value={motivoFechamento} onChange={(e) => setMotivoFechamento(e.target.value)} rows={2} placeholder="Ex.: retorno completo e conferido; 2 peças com defeito; etc." style={{ ...inp, resize: "vertical" }} />
-              <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>{faltantes > 0 ? `${faltantes} peça(s) irão para perda ao encerrar — ` : "Este retorno completa a remessa — "}o motivo é obrigatório.</div>
-            </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 20, margin: "14px 0 16px", borderBottom: "1px solid var(--border)" }}>
+        {[["etapa", "Etapa"], ["detalhes", "Detalhes"]].map(([k, label]) => (
+          <button key={k} type="button" onClick={() => setAba(k)}
+            style={{ padding: "0 0 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: aba === k ? 700 : 500, color: aba === k ? "var(--text)" : "var(--text-2)", borderBottom: aba === k ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1 }}>{label}</button>
+        ))}
+      </div>
+
+      {aba === "etapa" ? (
+        <>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 }}>Oficina responsável</label>
+            <select value={oficinaId} onChange={(e) => mudarOficina(e.target.value)} disabled={!podeEditar} style={inpMini}>
+              <option value="">Selecionar…</option>
+              {(oficinas || []).filter((o) => o.ativo).map((o) => <option key={o.id} value={String(o.id)}>{o.nome_empresa}</option>)}
+            </select>
+          </div>
+          {local === "Amostra" && <PainelAmostra pedido={pedido} podeEditar={podeEditar} />}
+          {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
+          {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
+          {local === "Aviação" && <PainelAviamento pedido={pedido} podeEditar={podeEditar} />}
+          {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
+          {podeEditar ? (
+            <>
+              {local === "Oficina" && remessasAbertas.length > 0 && (
+                <>
+                  <label style={lbl}>Abater de qual remessa</label>
+                  <select value={remessaId} onChange={(e) => setRemessaId(e.target.value)} style={inp}>
+                    <option value="">Selecionar…</option>
+                    {remessasAbertas.map((r) => {
+                      const ofic = (oficinas || []).find((o) => o.id === r.oficina_id);
+                      const restante = r.qtd_enviada - r.qtd_retornada;
+                      return <option key={r.id} value={r.id}>{(ofic?.nome_empresa || "—")} · saiu {fmtDataResumo(r.data_saida)} · faltam {restante} de {r.qtd_enviada}</option>;
+                    })}
+                  </select>
+                </>
+              )}
+              <label style={{ ...lbl, marginTop: 14 }}>{local === "Oficina" ? "Quantidade que voltou" : "Quantidade"}</label>
+              <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
+              <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
+              <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
+                <option value="">Selecionar…</option>
+                {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
+              </select>
+              {podeEncerrar && (
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
+                  <input type="checkbox" checked={encerrar} onChange={(e) => setEncerrar(e.target.checked)} style={{ marginTop: 2 }} />
+                  <span>Encerrar a remessa mesmo assim — as <strong>{restanteRemessa - qNum}</strong> peça(s) que não voltaram vão para <strong style={{ color: "var(--danger)" }}>perda</strong>.</span>
+                </label>
+              )}
+              {fechaRemessa && (
+                <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 9, border: "1px solid var(--border)" }}>
+                  <label style={{ ...lbl, marginTop: 0, display: "flex", alignItems: "center", gap: 6 }}>Motivo do fechamento da remessa <span style={{ color: "var(--danger)" }}>*</span></label>
+                  <textarea value={motivoFechamento} onChange={(e) => setMotivoFechamento(e.target.value)} rows={2} placeholder="Ex.: retorno completo e conferido; 2 peças com defeito; etc." style={{ ...inp, resize: "vertical" }} />
+                  <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>{faltantes > 0 ? `${faltantes} peça(s) irão para perda ao encerrar — ` : "Este retorno completa a remessa — "}o motivo é obrigatório.</div>
+                </div>
+              )}
+            </>
+          ) : (
+            <p style={{ fontSize: 13, color: "var(--text-2)", margin: "4px 0 0", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>Você tem acesso de visualização. Mover peças e editar processos é só para chefe de setor.</p>
           )}
         </>
       ) : (
-        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "4px 0 0", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>Você tem acesso de visualização. Mover peças e editar processos é só para chefe de setor.</p>
+        <div style={{ padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
+          {normalizarGrade(pedido.grade).length > 0
+            ? <GradeTabela grade={pedido.grade} margem="0 0 12px" />
+            : <div style={{ fontSize: 12.5, color: "var(--text-3)", marginBottom: 12 }}>Sem grade de tamanhos cadastrada.</div>}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", fontSize: 12.5 }}>
+            {pedido.marca && <span><span style={{ color: "var(--text-3)" }}>Marca:</span> {pedido.marca}</span>}
+            {pedido.corte_id && <span><span style={{ color: "var(--text-3)" }}>ID de corte:</span> {pedido.corte_id}</span>}
+            {pedido.nota_fiscal && <span><span style={{ color: "var(--text-3)" }}>Nota fiscal:</span> {pedido.nota_fiscal}</span>}
+            {pedido.cor && <span><span style={{ color: "var(--text-3)" }}>Cor:</span> {pedido.cor}</span>}
+            {pedido.peso && <span><span style={{ color: "var(--text-3)" }}>Peso:</span> {pedido.peso}</span>}
+            {pedido.volume && <span><span style={{ color: "var(--text-3)" }}>Volume:</span> {pedido.volume}</span>}
+            {pedido.prazo && <span><span style={{ color: "var(--text-3)" }}>Prazo:</span> {fmtDataResumo(pedido.prazo)}</span>}
+          </div>
+          {pedido.observacoes && <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "10px 0 0", whiteSpace: "pre-wrap" }}>{pedido.observacoes}</p>}
+        </div>
       )}
-      {pedido.solicitacao_id && (
-        <button onClick={() => setVerResumo(true)} style={{ ...btnGhost, width: "100%", marginTop: 10 }}>
-          Ver ficha e histórico da pilotagem
-        </button>
-      )}
-      {ehMaster && (
-        <button onClick={excluirPedido} style={{ display: "block", width: "100%", marginTop: 10, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" }}>
-          Excluir pedido
-        </button>
-      )}
+
       {verResumo && <ResumoPilotagem solicitacaoId={pedido.solicitacao_id} onFechar={() => setVerResumo(false)} />}
       {editarGrade && <ModalEditarGrade pedido={pedido} onFechar={() => setEditarGrade(false)} onOk={() => { setEditarGrade(false); onOk(); }} />}
     </Overlay>
@@ -1623,38 +1645,35 @@ function Rastreio({ ordem, processos, totalPecas, gradePedido, podeEditar, onQtd
                   <div style={{ width: `${Math.round((pr.qtd / totalPecas) * 100)}%`, height: "100%", borderRadius: 99, background: feito ? "var(--success)" : "var(--accent)", transition: "width .25s ease" }} />
                 </div>
 
-                {temGrade && (
-                  <button type="button" onClick={() => setExpandido(grExp ? null : nome)}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 6, padding: 0, border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "var(--accent)" }}>
-                    <ChevronDown size={12} style={{ transform: grExp ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-                    {grExp ? "ocultar tamanhos" : "detalhar por tamanho"}
-                  </button>
-                )}
-                {temGrade && grExp && (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(74px, 1fr))", gap: 6, marginTop: 8, padding: 10, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 9 }}>
-                    {Object.entries(gradePedido).map(([tam, totTam]) => {
-                      const feitoTam = (pr.grade || {})[tam] || 0;
-                      return (
-                        <div key={tam}>
-                          <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", marginBottom: 2 }}>{tam} <span style={{ color: "var(--text-3)", fontWeight: 600 }}>({totTam})</span></div>
-                          {podeEditar ? (
-                            <input type="number" min="0" max={totTam} value={feitoTam}
-                              onChange={(e) => onQtdTam(nome, tam, e.target.value)} onBlur={onSalvarQtd}
-                              aria-label={`${nome} tamanho ${tam}`}
-                              style={{ ...inpMini, width: "100%", padding: "5px 6px", fontSize: 12, textAlign: "center" }} />
-                          ) : (
-                            <div style={{ fontSize: 12.5, fontWeight: 700, textAlign: "center", padding: "5px 0", color: feitoTam >= totTam ? "var(--success)" : feitoTam > 0 ? "var(--accent)" : "var(--text-3)" }}>{feitoTam}</div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <button type="button" onClick={() => setExpandido(grExp ? null : nome)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 6, padding: 0, border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "var(--accent)" }}>
+                  <ChevronDown size={12} style={{ transform: grExp ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+                  {grExp ? "ocultar detalhes" : "detalhes"}
+                </button>
 
-                {feito ? (
-                  pr.feito_em && <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> em {pr.feito_em}</div>
-                ) : (
-                  <div style={{ marginTop: 6 }}>
+                {!grExp && pr.obs && <div style={{ fontSize: 11.5, color: "var(--text-2)", fontStyle: "italic", marginTop: 4 }}>Obs: {pr.obs}</div>}
+                {!grExp && feito && pr.feito_em && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> em {pr.feito_em}</div>}
+
+                {grExp && (
+                  <div style={{ marginTop: 8 }}>
+                    {temGrade && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(74px, 1fr))", gap: 6, marginBottom: 10, padding: 10, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 9 }}>
+                        {Object.entries(gradePedido).map(([tam, totTam]) => {
+                          const feitoTam = (pr.grade || {})[tam] || 0;
+                          return (
+                            <div key={tam}>
+                              <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", marginBottom: 2 }}>{tam} <span style={{ color: "var(--text-3)", fontWeight: 600 }}>({totTam})</span></div>
+                              {podeEditar ? (
+                                <input type="number" min="0" max={totTam} value={feitoTam} onChange={(e) => onQtdTam(nome, tam, e.target.value)} onBlur={onSalvarQtd} aria-label={`${nome} tamanho ${tam}`} style={{ ...inpMini, width: "100%", padding: "5px 6px", fontSize: 12, textAlign: "center" }} />
+                              ) : (
+                                <div style={{ fontSize: 12.5, fontWeight: 700, textAlign: "center", padding: "5px 0", color: feitoTam >= totTam ? "var(--success)" : feitoTam > 0 ? "var(--accent)" : "var(--text-3)" }}>{feitoTam}</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {feito && pr.feito_em && <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> finalizado em {pr.feito_em}</div>}
                     <input value={pr.obs} onChange={(e) => onObs(nome, e.target.value)} onBlur={onSalvarObs} disabled={!podeEditar} placeholder="Observação (opcional)…" style={{ ...inpMini, fontSize: 12 }} />
                   </div>
                 )}
@@ -1750,3 +1769,4 @@ const btnPrimary = { display: "inline-flex", alignItems: "center", justifyConten
 const selectPill = { padding: "5px 10px", fontSize: 12, borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--danger)", color: "#fff", cursor: "pointer" };
+const itemMenu = { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 14px", border: "none", background: "none", textAlign: "left", fontSize: 13, color: "var(--text)", cursor: "pointer" };
