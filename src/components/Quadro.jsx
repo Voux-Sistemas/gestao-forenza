@@ -12,7 +12,7 @@ import GradeEditor, { limparGrade } from "./GradeEditor.jsx";
 
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import Overlay from "./Gaveta.jsx";
-import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal, historicoEtapas } from "../etapas.js";
+import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal, movimentosDaEtapa } from "../etapas.js";
 
 const ICONES_COLUNA = {
   Entrada: Download, "Ficha Técnica de Corte": FileText, Corte: Scissors,
@@ -473,7 +473,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
         remessasOficina,
         aviamentos,
         imagens,
-        historico: historicoEtapas(ped, movimentos),
+        historico: movimentosDaEtapa(ped, movimentos, local),
       });
     } finally {
       setGerandoPdf(false);
@@ -606,11 +606,10 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
         </select>
       </div>
       {local === "Amostra" && <PainelAmostra pedido={pedido} podeEditar={podeEditar} />}
-      {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
+      {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} movimentos={movimentos} />}
       {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Aviação" && <PainelAviamento pedido={pedido} podeEditar={podeEditar} />}
       {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
-      <LinhaTempoEtapas pedido={pedido} movimentos={movimentos} />
       {podeEditar ? (
         <>
           {local === "Oficina" && remessasAbertas.length > 0 && (
@@ -960,43 +959,44 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
   );
 }
 
-// Linha do tempo das etapas: quando o pedido passou por cada fase do fluxo.
-// Tudo derivado dos movimentos (primeira chegada em cada etapa) — sem dados novos.
-function LinhaTempoEtapas({ pedido, movimentos }) {
+// Histórico de UMA etapa: entradas e saídas do pedido naquela fase, com datas.
+// Ex.: dentro do painel de Corte mostra tudo que entrou/saiu do Corte.
+function HistoricoEtapa({ etapa, pedido, movimentos }) {
+  const movs = movimentosDaEtapa(pedido, movimentos, etapa);
+  if (movs.length === 0) return null;
+  const rot = rotuloLocal(etapa).toLowerCase();
   const fmtDT = (d) => {
-    if (!d) return null;
+    if (!d) return "data não registrada";
     try {
       const dt = new Date(d);
       if (isNaN(dt.getTime())) return String(d).slice(0, 10);
       return dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
     } catch { return String(d); }
   };
-
-  const nodes = historicoEtapas(pedido, movimentos);
-
-  if (nodes.length === 0) return null;
-
   return (
-    <div style={{ marginBottom: 16, padding: "14px 16px", background: "var(--surface-2)", borderRadius: 11, border: "1px solid var(--border)" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 12 }}>Linha do tempo das etapas</div>
+    <div style={{ marginTop: 14, padding: "14px 16px", background: "var(--surface-2)", borderRadius: 11, border: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 12 }}>Histórico do {rot}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {nodes.map((n, idx) => {
-          const cor = CORES[n.etapa] || "var(--accent)";
-          const dataFmt = fmtDT(n.data);
+        {movs.map((m, idx) => {
+          const entrada = m.tipo === "entrada";
           return (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
-              {idx < nodes.length - 1 && <span style={{ position: "absolute", left: 11, top: 22, bottom: -12, width: 2, background: "var(--border)" }} />}
-              <div style={{ width: 22, height: 22, borderRadius: 99, background: cor, flexShrink: 0, zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ width: 7, height: 7, borderRadius: 99, background: "#fff" }} />
+              {idx < movs.length - 1 && <span style={{ position: "absolute", left: 11, top: 22, bottom: -12, width: 2, background: "var(--border)" }} />}
+              <div style={{ width: 22, height: 22, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center", background: entrada ? "var(--success)" : "var(--accent)", flexShrink: 0, zIndex: 1 }}>
+                {entrada ? <ArrowDownLeft size={12} style={{ color: "#fff" }} /> : <ArrowUpRight size={12} style={{ color: "#fff" }} />}
               </div>
               <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <div>
-                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>{n.inicio ? "Começou em " : "Entrou em "}{rotuloLocal(n.etapa)}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+                    {entrada
+                      ? `Entrou no ${rot}${m.rotuloOutro ? ` (de ${m.rotuloOutro})` : ""}`
+                      : `Saiu do ${rot}${m.rotuloOutro ? ` para ${m.rotuloOutro}` : ""}`}
+                  </div>
                   <div style={{ fontSize: 11, color: "var(--text-3)", display: "inline-flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-                    <Calendar size={10} /> {dataFmt || "data não registrada"}
+                    <Calendar size={10} /> {fmtDT(m.data)}
                   </div>
                 </div>
-                {n.qtd != null && <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 99, background: "var(--surface)", color: "var(--text-2)", border: "1px solid var(--border)" }}>{n.qtd} pç{n.qtd === 1 ? "" : "s"}</span>}
+                {m.qtd != null && <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 99, background: entrada ? "var(--success-bg)" : "var(--accent-bg)", color: entrada ? "var(--success)" : "var(--accent)" }}>{m.qtd} pç{m.qtd === 1 ? "" : "s"}</span>}
               </div>
             </div>
           );
@@ -1292,7 +1292,7 @@ function PainelAmostra({ pedido, podeEditar }) {
   );
 }
 
-function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
+function PainelCorte({ pedido, onBloqueioChange, podeEditar, movimentos }) {
   const [tamanho, setTamanho] = useState(pedido.tamanho || "");
   const [tecido, setTecido] = useState(pedido.tecido || "");
   const [descanso, setDescanso] = useState(!!pedido.descanso_tecido);
@@ -1390,6 +1390,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
           {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. Registre a observação do que falta.
         </div>
       )}
+      <HistoricoEtapa etapa="Corte" pedido={pedido} movimentos={movimentos} />
     </div>
   );
 }
