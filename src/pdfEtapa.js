@@ -148,6 +148,7 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   // ── Informações em duas colunas ──
   const campos = [
     ["Referência", pedido.referencia],
+    ["ID de corte", pedido.corte_id],
     ["Cliente", cliente],
     ["Marca", pedido.marca],
     ["Oficina responsável", oficina],
