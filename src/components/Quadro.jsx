@@ -329,7 +329,10 @@ export default function Quadro({ session, perfil }) {
                       )}
                       {pe.marca && <span style={{ fontSize: 10.5, fontWeight: 600, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap", color: "var(--text-2)", background: "var(--surface-2)", flexShrink: 0 }}>{pe.marca}</span>}
                     </div>
-                    <div style={{ fontSize: 11.5, color: "var(--text-3)", fontWeight: 500, margin: "2px 0 6px" }}>{pe.referencia}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", margin: "2px 0 6px" }}>
+                      <span style={{ fontSize: 11.5, color: "var(--text-3)", fontWeight: 500 }}>{pe.referencia}</span>
+                      {pe.corte_id && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".2px", padding: "1px 6px", borderRadius: 99, background: "var(--azul-bg, rgba(37,99,235,.1))", color: "var(--azul)" }}>{pe.corte_id}</span>}
+                    </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       {(() => {
                         const completo = saldo[local] === pe.total;
@@ -556,6 +559,11 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     });
     setSalvando(false);
     if (error) return setErro(error.message);
+    // Gera o ID de corte (sequência no banco) na 1ª vez que o pedido entra no corte.
+    if (destino === "Corte" && !pedido.corte_id) {
+      const { data: novoId, error: eId } = await supabase.rpc("proximo_id_corte");
+      if (!eId && novoId) await supabase.from("pedidos").update({ corte_id: novoId }).eq("id", pedido.id);
+    }
     if (destino === "Perda") await arquivarSeConcluido(pedido.id); // última peça perdida pode concluir o pedido
     onOk({ destino, qtd: q, referencia: pedido.referencia });
   }
@@ -1370,7 +1378,12 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
 
   return (
     <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Liberação para o corte</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 700 }}>Liberação para o corte</div>
+        {pedido.corte_id && (
+          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: ".3px", padding: "3px 10px", borderRadius: 99, background: "var(--azul-bg, rgba(37,99,235,.1))", color: "var(--azul)", border: "1px solid var(--azul)" }}>{pedido.corte_id}</span>
+        )}
+      </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
         <div style={{ flex: 1 }}>
