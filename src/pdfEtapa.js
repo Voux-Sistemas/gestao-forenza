@@ -54,7 +54,7 @@ async function carregarImagem(url) {
 // Desenha a folha de romaneio de UM pedido no `doc` recebido, começando numa
 // página já em branco. Não cria o documento, não renumera e não salva —
 // isso fica a cargo de quem chama (permite juntar vários pedidos num PDF só).
-async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, aviamentos, imagens, classificacao, historico, dossie, processosAcabamento }) {
+async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, totalPartes, oficina, processos, remessasOficina, aviamentos, imagens, classificacao, historico, dossie, processosAcabamento, linhaTempo }) {
   const larg = doc.internal.pageSize.getWidth();
   const mx = 16;
   let y = 18;
@@ -582,6 +582,46 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     y += 13;
   }
 
+  // ── Linha do tempo: todos os movimentos do pedido, em ordem ──
+  if (linhaTempo && linhaTempo.length) {
+    const hLinha = 8;
+    quebraSePreciso(16 + hLinha);
+    tituloSecao("Linha do tempo");
+    const fmtDT = (d) => {
+      if (!d) return "—";
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return String(d).slice(0, 10);
+      return dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+    };
+    const larguraTabela = larg - mx * 2;
+    const colMov = larguraTabela * 0.5;
+    const colQtd = larguraTabela * 0.16;
+    const colData = larguraTabela - colMov - colQtd;
+    const cel = (cx, cwid, texto, { fill, corTexto, bold, alinhar } = {}) => {
+      if (fill) { doc.setFillColor(...fill); doc.rect(cx, y, cwid, hLinha, "F"); }
+      doc.setDrawColor(230).setLineWidth(0.2).rect(cx, y, cwid, hLinha, "S");
+      doc.setFont("helvetica", bold ? "bold" : "normal").setFontSize(9).setTextColor(...(corTexto || TINTA));
+      const al = alinhar || "center";
+      const tx = al === "left" ? cx + 2.5 : al === "right" ? cx + cwid - 2.5 : cx + cwid / 2;
+      doc.text(String(texto), tx, y + hLinha * 0.66, { align: al });
+    };
+    let x = mx;
+    cel(x, colMov, "MOVIMENTO", { fill: [240, 240, 237], corTexto: CINZA, bold: true, alinhar: "left" }); x += colMov;
+    cel(x, colQtd, "PEÇAS", { fill: [240, 240, 237], corTexto: CINZA, bold: true }); x += colQtd;
+    cel(x, colData, "DATA", { fill: [240, 240, 237], corTexto: CINZA, bold: true });
+    y += hLinha;
+    linhaTempo.forEach((m, i) => {
+      quebraSePreciso(hLinha);
+      x = mx;
+      if (i % 2 === 1) { doc.setFillColor(247, 249, 247).rect(mx, y, larguraTabela, hLinha, "F"); }
+      cel(x, colMov, `${rotuloLocal(m.de_local)} > ${rotuloLocal(m.para_local)}`, { bold: true, alinhar: "left" }); x += colMov;
+      cel(x, colQtd, m.qtd != null ? String(m.qtd) : "—", { corTexto: [70, 68, 62] }); x += colQtd;
+      cel(x, colData, fmtDT(m.data), { corTexto: [70, 68, 62] });
+      y += hLinha;
+    });
+    y += 13;
+  }
+
   rodape();
 }
 
@@ -611,13 +651,18 @@ export async function gerarPdfEtapa(params) {
 
 // Dossiê completo de um pedido finalizado: todas as etapas num documento só
 // (grade, classificação, processos de corte e acabamento, aviamentos, remessas).
-export async function gerarDossiePedido({ pedido, cliente, classificacao, processosCorte, processosAcabamento, aviamentos, remessasOficina }) {
+export async function gerarDossiePedido({ pedido, cliente, classificacao, processosCorte, processosAcabamento, aviamentos, remessasOficina, movimentos }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const linhaTempo = (movimentos || [])
+    .slice()
+    .sort((a, b) => String(a.criado_em || a.data || "").localeCompare(String(b.criado_em || b.data || "")))
+    .map((m) => ({ de_local: m.de_local, para_local: m.para_local, qtd: m.qtd, data: m.criado_em || m.data }));
   await desenharPedidoNoPdf(doc, {
     pedido, cliente, local: "Estoque", qtd: pedido.total, parte: 1, totalPartes: 1,
     oficina: null, processos: processosCorte || null, processosAcabamento: processosAcabamento || null,
     remessasOficina: remessasOficina || null, aviamentos: aviamentos || null, imagens: [],
     classificacao: classificacao || null, historico: null, dossie: true,
+    linhaTempo: linhaTempo.length ? linhaTempo : null,
   });
   renumerarPaginas(doc);
   const hoje = new Date().toISOString().slice(0, 10);
