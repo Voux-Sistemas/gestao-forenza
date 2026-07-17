@@ -526,22 +526,15 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     });
   }
 
-  // ── Histórico da etapa: entradas e saídas do pedido nesta fase, com datas ──
+  // ── Histórico dos processos: quando cada processo desta etapa foi finalizado ──
   if (historico && historico.length) {
     const hLinha = 8;
     quebraSePreciso(16 + (historico.length + 1) * hLinha);
-    tituloSecao(`Histórico do ${rotuloLocal(local).toLowerCase()}`);
-    const fmtHist = (d) => {
-      if (!d) return "—";
-      const dt = new Date(d);
-      if (isNaN(dt.getTime())) return String(d).slice(0, 10);
-      return dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
-    };
+    tituloSecao("Histórico dos processos");
     const larguraTabela = larg - mx * 2;
-    const colTipo = larguraTabela * 0.2;
-    const colOutro = larguraTabela * 0.32;
-    const colData = larguraTabela * 0.3;
-    const colQtd = larguraTabela - colTipo - colOutro - colData;
+    const colProc = larguraTabela * 0.4;
+    const colData = larguraTabela * 0.4;
+    const colQtd = larguraTabela - colProc - colData;
     const cel = (cx, cwid, texto, { fill, corTexto, bold, alinhar } = {}) => {
       if (fill) { doc.setFillColor(...fill); doc.rect(cx, y, cwid, hLinha, "F"); }
       doc.setDrawColor(230).setLineWidth(0.2).rect(cx, y, cwid, hLinha, "S");
@@ -551,18 +544,15 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       doc.text(String(texto), tx, y + hLinha * 0.66, { align: al });
     };
     let x = mx;
-    cel(x, colTipo, "MOVIMENTO", { fill: [240, 240, 237], corTexto: CINZA, bold: true, alinhar: "left" }); x += colTipo;
-    cel(x, colOutro, "DE / PARA", { fill: [240, 240, 237], corTexto: CINZA, bold: true, alinhar: "left" }); x += colOutro;
-    cel(x, colData, "DATA", { fill: [240, 240, 237], corTexto: CINZA, bold: true }); x += colData;
+    cel(x, colProc, "PROCESSO", { fill: [240, 240, 237], corTexto: CINZA, bold: true, alinhar: "left" }); x += colProc;
+    cel(x, colData, "FINALIZADO EM", { fill: [240, 240, 237], corTexto: CINZA, bold: true }); x += colData;
     cel(x, colQtd, "PEÇAS", { fill: [240, 240, 237], corTexto: CINZA, bold: true });
     y += hLinha;
     historico.forEach((n, i) => {
       x = mx;
       if (i % 2 === 1) { doc.setFillColor(247, 249, 247).rect(mx, y, larguraTabela, hLinha, "F"); }
-      const entrada = n.tipo === "entrada";
-      cel(x, colTipo, entrada ? "Entrada" : "Saída", { bold: true, alinhar: "left", corTexto: entrada ? VERDE_ESCURO : TINTA }); x += colTipo;
-      cel(x, colOutro, n.rotuloOutro || "—", { alinhar: "left", corTexto: [70, 68, 62] }); x += colOutro;
-      cel(x, colData, fmtHist(n.data), { corTexto: [70, 68, 62] }); x += colData;
+      cel(x, colProc, n.nome, { bold: true, alinhar: "left" }); x += colProc;
+      cel(x, colData, n.feito_em || "—", { corTexto: [70, 68, 62] }); x += colData;
       cel(x, colQtd, n.qtd != null ? String(n.qtd) : "—", { corTexto: [70, 68, 62] });
       y += hLinha;
     });

@@ -36,20 +36,6 @@ export const CORES_ETAPA = {
   Perda: "var(--danger)",
 };
 
-// Movimentos de um pedido que envolvem UMA etapa específica (entrada ou saída),
-// em ordem cronológica. Ex.: histórico do Corte = tudo que entrou/saiu do Corte.
-// Retorna [{ tipo: "entrada"|"saida", outro, rotuloOutro, data, qtd }].
-export function movimentosDaEtapa(pedido, movimentos, etapa) {
-  return (movimentos || [])
-    .filter((m) => m.pedido_id === pedido.id && (m.para_local === etapa || m.de_local === etapa))
-    .sort((a, b) => String(a.data || a.criado_em || "").localeCompare(String(b.data || b.criado_em || "")))
-    .map((m) => {
-      const entrada = m.para_local === etapa;
-      const outro = entrada ? m.de_local : m.para_local;
-      return { tipo: entrada ? "entrada" : "saida", outro, rotuloOutro: outro ? rotuloLocal(outro) : null, data: m.data || m.criado_em, qtd: m.qtd };
-    });
-}
-
 // Saldo de peças de um pedido em cada local, reconstruído a partir dos movimentos.
 // Locais desconhecidos (dados antigos como "Primeira"/"Segunda") são tratados sem quebrar.
 export function calcularSaldos(pedidoId, total, movimentos) {
