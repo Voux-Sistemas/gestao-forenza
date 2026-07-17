@@ -585,7 +585,7 @@ function TabelaClassificacao({ cls }) {
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Classificação por tamanho</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Grade de Qualidade</div>
       <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 9 }}>
         <table style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead>
