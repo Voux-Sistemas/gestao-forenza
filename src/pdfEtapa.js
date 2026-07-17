@@ -437,6 +437,13 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
         x += cols[i];
       });
       y += hLinha;
+      if (r.motivo) {
+        const linhas = doc.splitTextToSize(`Motivo do fechamento: ${r.motivo}`, larguraTabela - 6);
+        quebraSePreciso(linhas.length * 4 + 3);
+        doc.setFont("helvetica", "italic").setFontSize(7.5).setTextColor(...CINZA);
+        linhas.forEach((ln) => { doc.text(ln, mx + 3, y + 3); y += 4; });
+        y += 1.5;
+      }
     });
     // Borda inferior da tabela
     doc.setDrawColor(225).setLineWidth(0.25).line(mx, y, larg - mx, y);
