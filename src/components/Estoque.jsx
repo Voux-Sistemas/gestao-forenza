@@ -241,6 +241,7 @@ function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
   const [q2, setQ2] = useState("0");
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const [notaFiscal, setNotaFiscal] = useState(pe.nota_fiscal || "");
 
   const somaObj = (o) => Object.values(o).reduce((a, v) => a + (parseInt(v, 10) || 0), 0);
   const n1 = temGrade ? somaObj(g1) : (parseInt(q1, 10) || 0);
@@ -270,6 +271,11 @@ function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
         const r = await supabase.from("movimentos").insert({ pedido_id: pe.id, de_local: "Estoque", para_local: "Segunda", qtd: n2, grade: temGrade ? limpaGrade(g2) : null, usuario_id: session.user.id });
         if (r.error) throw r.error;
       }
+      // Nota fiscal (opcional) — guardada no pedido.
+      if ((notaFiscal.trim() || "") !== (pe.nota_fiscal || "")) {
+        const rnf = await supabase.from("pedidos").update({ nota_fiscal: notaFiscal.trim() || null }).eq("id", pe.id);
+        if (rnf.error) throw rnf.error;
+      }
       onOk();
     } catch (e) {
       setErro(e.message || "Erro ao salvar.");
@@ -292,6 +298,9 @@ function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
           <FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "Baixar PDF"}
         </button>
       )}
+
+      <label style={lbl}>Número da nota fiscal <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
+      <input value={notaFiscal} onChange={(e) => setNotaFiscal(e.target.value)} placeholder="Ex.: 12345" style={{ ...inp, marginBottom: 16 }} />
 
       {gradeVisivel && (
         <>
@@ -466,9 +475,10 @@ function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, session, on
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 4, paddingRight: 32 }}>
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 2px" }}>{pe.referencia}</h3>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, color: "var(--text-2)" }}>{nomeCliente(pe.cliente_id)}</span>
             {pe.marca && <span style={tag}>{pe.marca}</span>}
+            {pe.nota_fiscal && <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-2)", background: "var(--surface-2)", borderRadius: 99, padding: "2px 8px" }}>NF {pe.nota_fiscal}</span>}
           </div>
         </div>
         <button onClick={onPdf} disabled={pdfId === pe.id} style={{ ...btnGhost, flexShrink: 0 }}>
