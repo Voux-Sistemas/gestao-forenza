@@ -1097,6 +1097,7 @@ function PainelAviamento({ pedido, podeEditar }) {
   const [ficha, setFicha] = useState(() => pedido.ficha_aviamentos || {});
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
+  const [manuais, setManuais] = useState({}); // { "itemId.campo": true } quando o usuário optou por digitar
 
   const setCampo = (itemId, campo, valor) => {
     setSalvo(false);
@@ -1116,12 +1117,31 @@ function PainelAviamento({ pedido, podeEditar }) {
 
   const preenchidos = contarAviamentos(ficha);
 
-  const selBox = (valor, onChange, opcoes, placeholder) => (
-    <select value={valor || ""} onChange={(e) => onChange(e.target.value)} disabled={!podeEditar} style={{ ...inpMini, cursor: podeEditar ? "pointer" : "default" }}>
-      <option value="">{placeholder}</option>
-      {opcoes.map((o) => <option key={o} value={o}>{o}</option>)}
-    </select>
-  );
+  // Campo de lista que permite, quando necessário, digitar um valor manual
+  // ("Outro (digitar)…") sem perder o formato de lista no uso comum.
+  const campoLista = (itemId, campo, valor, opcoes, placeholder) => {
+    const key = `${itemId}.${campo}`;
+    const ehManual = manuais[key] || (valor && !opcoes.includes(valor));
+    const onChange = (v) => setCampo(itemId, campo, v);
+    if (ehManual) {
+      return (
+        <div style={{ display: "flex", gap: 4 }}>
+          <input type="text" value={valor || ""} onChange={(e) => onChange(e.target.value)} disabled={!podeEditar} placeholder="Digite o valor…" style={inpMini} />
+          <button type="button" title="Voltar para a lista" disabled={!podeEditar}
+            onClick={() => { onChange(""); setManuais((m) => { const n = { ...m }; delete n[key]; return n; }); }}
+            style={{ flexShrink: 0, width: 30, border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface)", color: "var(--text-3)", cursor: podeEditar ? "pointer" : "default", fontSize: 13 }}>☰</button>
+        </div>
+      );
+    }
+    return (
+      <select value={valor || ""} disabled={!podeEditar} style={{ ...inpMini, cursor: podeEditar ? "pointer" : "default" }}
+        onChange={(e) => { if (e.target.value === "__manual__") { setManuais((m) => ({ ...m, [key]: true })); onChange(""); } else onChange(e.target.value); }}>
+        <option value="">{placeholder}</option>
+        {opcoes.map((o) => <option key={o} value={o}>{o}</option>)}
+        <option value="__manual__">Outro (digitar)…</option>
+      </select>
+    );
+  };
   const numBox = (valor, onChange, ph) => (
     <input
       type="text"
@@ -1157,7 +1177,7 @@ function PainelAviamento({ pedido, podeEditar }) {
         <div key={it.id} style={caixaAvi}>
           {cabecalho}
           <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: 8 }}>
-            <div><div style={rotAvi}>Largura</div>{selBox(d.largura, (v) => setCampo(it.id, "largura", v), LARGURAS_ELASTICO, "Selecionar…")}</div>
+            <div><div style={rotAvi}>Largura</div>{campoLista(it.id, "largura", d.largura, LARGURAS_ELASTICO, "Selecionar…")}</div>
             <div><div style={rotAvi}>Consumo</div>{numBox(d.consumo, (v) => setCampo(it.id, "consumo", v), "m")}</div>
             <div><div style={rotAvi}>Qtd enviada</div>{numBox(d.qtd, (v) => setCampo(it.id, "qtd", v), "Qtd")}</div>
           </div>
@@ -1169,8 +1189,8 @@ function PainelAviamento({ pedido, podeEditar }) {
         <div key={it.id} style={caixaAvi}>
           {cabecalho}
           <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: 8 }}>
-            <div><div style={rotAvi}>Tipo</div>{selBox(d.tipo, (v) => setCampo(it.id, "tipo", v), TIPOS_ZIPER, "Selecionar…")}</div>
-            <div><div style={rotAvi}>Tamanho</div>{selBox(d.tamanho, (v) => setCampo(it.id, "tamanho", v), TAMANHOS_ZIPER, "Selecionar…")}</div>
+            <div><div style={rotAvi}>Tipo</div>{campoLista(it.id, "tipo", d.tipo, TIPOS_ZIPER, "Selecionar…")}</div>
+            <div><div style={rotAvi}>Tamanho</div>{campoLista(it.id, "tamanho", d.tamanho, TAMANHOS_ZIPER, "Selecionar…")}</div>
             <div><div style={rotAvi}>Qtd enviada</div>{numBox(d.qtd, (v) => setCampo(it.id, "qtd", v), "Qtd")}</div>
           </div>
         </div>
@@ -1181,7 +1201,7 @@ function PainelAviamento({ pedido, podeEditar }) {
         <div key={it.id} style={caixaAvi}>
           {cabecalho}
           <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: 8 }}>
-            <div><div style={rotAvi}>Tamanho</div>{selBox(d.tamanho, (v) => setCampo(it.id, "tamanho", v), TAMANHOS_ETIQUETA, "Selecionar…")}</div>
+            <div><div style={rotAvi}>Tamanho</div>{campoLista(it.id, "tamanho", d.tamanho, TAMANHOS_ETIQUETA, "Selecionar…")}</div>
             <div></div>
             <div><div style={rotAvi}>Qtd enviada</div>{numBox(d.qtd, (v) => setCampo(it.id, "qtd", v), "Qtd")}</div>
           </div>
