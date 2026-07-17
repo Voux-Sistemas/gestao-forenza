@@ -297,7 +297,7 @@ function DetalhePedido({ pedido, nomeCliente, onFechar }) {
 
       {temCls && (
         <>
-          {secTit("Classificação por tamanho")}
+          {secTit("Grade de qualidade")}
           <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 9 }}>
             <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11.5 }}>
               <thead><tr style={{ background: "var(--surface-2)" }}>
