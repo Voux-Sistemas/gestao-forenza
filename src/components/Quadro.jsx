@@ -12,7 +12,7 @@ import GradeEditor, { limparGrade } from "./GradeEditor.jsx";
 
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import Overlay from "./Gaveta.jsx";
-import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal, movimentosDaEtapa } from "../etapas.js";
+import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal } from "../etapas.js";
 
 const ICONES_COLUNA = {
   Entrada: Download, "Ficha Técnica de Corte": FileText, Corte: Scissors,
@@ -465,15 +465,19 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
           .map((it) => ({ nome: it.nome, tipoCampo: it.tipo, ...ped.ficha_aviamentos[it.id] }));
       }
 
+      const processosArr = listaProc
+        ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], ped.total), grade: (mapaProc[n] && mapaProc[n].grade) || null, obs: (mapaProc[n] && mapaProc[n].obs) || "", feito_em: (mapaProc[n] && mapaProc[n].feito_em) || "" }))
+        : null;
+
       await gerarPdfEtapa({
         pedido: ped, cliente: cliente || ped.referencia, local, qtd: saldo,
         parte: parte || 1, totalPartes: totalPartes || 1,
         oficina: (oficinas || []).find((o) => o.id === ped.oficina_id)?.nome_empresa || null,
-        processos: listaProc ? listaProc.map((n) => ({ nome: n, qtd: qtdProcesso(mapaProc[n], ped.total), grade: (mapaProc[n] && mapaProc[n].grade) || null, obs: (mapaProc[n] && mapaProc[n].obs) || "" })) : null,
+        processos: processosArr,
         remessasOficina,
         aviamentos,
         imagens,
-        historico: movimentosDaEtapa(ped, movimentos, local),
+        historico: processosArr ? historicoProcessos(processosArr, ped.total) : null,
       });
     } finally {
       setGerandoPdf(false);
@@ -606,7 +610,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
         </select>
       </div>
       {local === "Amostra" && <PainelAmostra pedido={pedido} podeEditar={podeEditar} />}
-      {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} movimentos={movimentos} />}
+      {local === "Corte" && <PainelCorte pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Acabamento" && <PainelAcabamento pedido={pedido} onBloqueioChange={setBloqueado} podeEditar={podeEditar} />}
       {local === "Aviação" && <PainelAviamento pedido={pedido} podeEditar={podeEditar} />}
       {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
@@ -959,49 +963,57 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
   );
 }
 
-// Histórico de UMA etapa: entradas e saídas do pedido naquela fase, com datas.
-// Ex.: dentro do painel de Corte mostra tudo que entrou/saiu do Corte.
-function HistoricoEtapa({ etapa, pedido, movimentos }) {
-  const movs = movimentosDaEtapa(pedido, movimentos, etapa);
-  if (movs.length === 0) return null;
-  const rot = rotuloLocal(etapa).toLowerCase();
-  const fmtDT = (d) => {
-    if (!d) return "data não registrada";
-    try {
-      const dt = new Date(d);
-      if (isNaN(dt.getTime())) return String(d).slice(0, 10);
-      return dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
-    } catch { return String(d); }
+// Ordena e filtra os processos concluídos pela data de conclusão (feito_em).
+function historicoProcessos(lista, total) {
+  const parse = (s) => {
+    const m = String(s || "").match(/(\d{2})\/(\d{2}).*?(\d{2}):(\d{2})/);
+    return m ? (+m[2]) * 1e6 + (+m[1]) * 1e4 + (+m[3]) * 100 + (+m[4]) : 0;
   };
+  return lista
+    .filter((p) => p.feito_em && (p.qtd || 0) >= total)
+    .sort((a, b) => parse(a.feito_em) - parse(b.feito_em));
+}
+
+// Histórico dos processos de uma etapa: quando cada processo foi finalizado.
+// Ex.: no Corte — "Caseado finalizou em 16/07, 20:54", "Estampado em 16/07, 21:20"…
+function HistoricoProcessos({ processos, ordem, total }) {
+  const lista = ordem.map((nome) => ({ nome, qtd: processos[nome]?.qtd || 0, feito_em: processos[nome]?.feito_em || "" }));
+  const feitos = historicoProcessos(lista, total);
+  const pendentes = ordem.filter((nome) => (processos[nome]?.qtd || 0) < total);
+
+  if (feitos.length === 0 && pendentes.length === 0) return null;
+
   return (
     <div style={{ marginTop: 14, padding: "14px 16px", background: "var(--surface-2)", borderRadius: 11, border: "1px solid var(--border)" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 12 }}>Histórico do {rot}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {movs.map((m, idx) => {
-          const entrada = m.tipo === "entrada";
-          return (
-            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
-              {idx < movs.length - 1 && <span style={{ position: "absolute", left: 11, top: 22, bottom: -12, width: 2, background: "var(--border)" }} />}
-              <div style={{ width: 22, height: 22, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center", background: entrada ? "var(--success)" : "var(--accent)", flexShrink: 0, zIndex: 1 }}>
-                {entrada ? <ArrowDownLeft size={12} style={{ color: "#fff" }} /> : <ArrowUpRight size={12} style={{ color: "#fff" }} />}
+      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 12 }}>Histórico dos processos</div>
+      {feitos.length === 0 ? (
+        <div style={{ fontSize: 12.5, color: "var(--text-3)" }}>Nenhum processo finalizado ainda.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {feitos.map((p, idx) => (
+            <div key={p.nome} style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
+              {idx < feitos.length - 1 && <span style={{ position: "absolute", left: 11, top: 22, bottom: -12, width: 2, background: "var(--border)" }} />}
+              <div style={{ width: 22, height: 22, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--success)", flexShrink: 0, zIndex: 1 }}>
+                <Check size={13} style={{ color: "#fff" }} />
               </div>
               <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <div>
-                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>
-                    {entrada
-                      ? `Entrou no ${rot}${m.rotuloOutro ? ` (de ${m.rotuloOutro})` : ""}`
-                      : `Saiu do ${rot}${m.rotuloOutro ? ` para ${m.rotuloOutro}` : ""}`}
-                  </div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>{p.nome}</div>
                   <div style={{ fontSize: 11, color: "var(--text-3)", display: "inline-flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-                    <Calendar size={10} /> {fmtDT(m.data)}
+                    <Calendar size={10} /> finalizou em {p.feito_em}
                   </div>
                 </div>
-                {m.qtd != null && <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 99, background: entrada ? "var(--success-bg)" : "var(--accent-bg)", color: entrada ? "var(--success)" : "var(--accent)" }}>{m.qtd} pç{m.qtd === 1 ? "" : "s"}</span>}
+                <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 99, background: "var(--success-bg)", color: "var(--success)" }}>{p.qtd} pç{p.qtd === 1 ? "" : "s"}</span>
               </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
+      {pendentes.length > 0 && (
+        <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: feitos.length ? 12 : 0, paddingTop: feitos.length ? 10 : 0, borderTop: feitos.length ? "1px solid var(--border)" : "none" }}>
+          Ainda não finalizados: {pendentes.join(", ")}
+        </div>
+      )}
     </div>
   );
 }
@@ -1292,7 +1304,7 @@ function PainelAmostra({ pedido, podeEditar }) {
   );
 }
 
-function PainelCorte({ pedido, onBloqueioChange, podeEditar, movimentos }) {
+function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
   const [tamanho, setTamanho] = useState(pedido.tamanho || "");
   const [tecido, setTecido] = useState(pedido.tecido || "");
   const [descanso, setDescanso] = useState(!!pedido.descanso_tecido);
@@ -1390,7 +1402,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar, movimentos }) {
           {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. Registre a observação do que falta.
         </div>
       )}
-      <HistoricoEtapa etapa="Corte" pedido={pedido} movimentos={movimentos} />
+      <HistoricoProcessos processos={processos} ordem={PROCESSOS_CORTE} total={pedido.total} />
     </div>
   );
 }

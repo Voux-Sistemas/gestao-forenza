@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
 import { Package, Boxes, CheckCircle2, Award, ArrowRight, Trash2, FileText, Plus, X } from "lucide-react";
 import StatCard from "./StatCard.jsx";
-import { calcularSaldos as saldos, movimentosDaEtapa } from "../etapas.js";
+import { calcularSaldos as saldos } from "../etapas.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
 import GradeTabela, { normalizarGrade, gradePorTamanho, totalGrade, TAMANHOS_GRADE } from "./GradeTabela.jsx";
 import { gerarPdfEtapa } from "../pdfEtapa.js";
@@ -71,7 +71,6 @@ export default function Estoque({ session, perfil }) {
       await gerarPdfEtapa({
         pedido: pe, cliente: nomeCliente(pe.cliente_id), local: "Estoque", qtd,
         parte: 1, totalPartes: 1, oficina: null, processos: null, imagens, classificacao,
-        historico: movimentosDaEtapa(pe, movimentos, "Estoque"),
       });
     } finally {
       setPdfId(null);
