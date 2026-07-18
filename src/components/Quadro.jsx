@@ -596,6 +596,19 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
     <>
       {bloqueado && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px", fontWeight: 600 }}>Corte travado — o tecido está em descanso. Libere o descanso para mover.</p>}
       {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px" }}>{erro}</p>}
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 10 }}>
+        <div style={{ width: 104 }}>
+          <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 4 }}>{local === "Oficina" ? "Qtd. voltou" : "Quantidade"}</div>
+          <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={{ ...inp, boxSizing: "border-box" }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 4 }}>Enviar para</div>
+          <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
+            <option value="">Selecionar…</option>
+            {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
+          </select>
+        </div>
+      </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
         <button onClick={confirmar} disabled={salvando || bloqueado} style={{ ...btnPrimary, flex: 1, opacity: bloqueado ? 0.5 : 1, cursor: bloqueado ? "not-allowed" : "pointer" }}>
@@ -672,13 +685,6 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
                   </select>
                 </>
               )}
-              <label style={{ ...lbl, marginTop: 14 }}>{local === "Oficina" ? "Quantidade que voltou" : "Quantidade"}</label>
-              <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
-              <label style={{ ...lbl, marginTop: 14 }}>Enviar para</label>
-              <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
-                <option value="">Selecionar…</option>
-                {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
-              </select>
               {podeEncerrar && (
                 <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
                   <input type="checkbox" checked={encerrar} onChange={(e) => setEncerrar(e.target.checked)} style={{ marginTop: 2 }} />
@@ -712,6 +718,13 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
             {pedido.prazo && <span><span style={{ color: "var(--text-3)" }}>Prazo:</span> {fmtDataResumo(pedido.prazo)}</span>}
           </div>
           {pedido.observacoes && <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "10px 0 0", whiteSpace: "pre-wrap" }}>{pedido.observacoes}</p>}
+          {(local === "Corte" || local === "Acabamento") && (() => {
+            const ordem = local === "Corte" ? PROCESSOS_CORTE : PROCESSOS_ACABAMENTO;
+            const salvo = (local === "Corte" ? pedido.processos_corte : pedido.processos_acabamento) || {};
+            const mapa = {};
+            ordem.forEach((n) => { const sv = salvo[n] || {}; mapa[n] = { qtd: qtdProcesso(sv, pedido.total), feito_em: sv.feito_em || "" }; });
+            return <HistoricoProcessos processos={mapa} ordem={ordem} total={pedido.total} />;
+          })()}
         </div>
       )}
 
@@ -1460,44 +1473,26 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
 
   return (
     <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 700 }}>Liberação para o corte</div>
-        {pedido.corte_id && (
-          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: ".3px", padding: "3px 10px", borderRadius: 99, background: "var(--azul-bg, rgba(37,99,235,.1))", color: "var(--azul)", border: "1px solid var(--azul)" }}>{pedido.corte_id}</span>
-        )}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 9, padding: "8px 12px", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 120 }}>
+          <span style={{ fontSize: 11.5, color: "var(--text-3)", whiteSpace: "nowrap" }}>Tam.</span>
+          <input value={tamanho} onChange={(e) => setTamanho(e.target.value)} onBlur={salvarInfo} disabled={!podeEditar} placeholder="P, M, G" style={{ ...inpMini, padding: "5px 8px", fontSize: 12.5 }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 120 }}>
+          <span style={{ fontSize: 11.5, color: "var(--text-3)", whiteSpace: "nowrap" }}>Tecido</span>
+          <input value={tecido} onChange={(e) => setTecido(e.target.value)} onBlur={salvarInfo} disabled={!podeEditar} placeholder="malha" style={{ ...inpMini, padding: "5px 8px", fontSize: 12.5 }} />
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: descanso ? 600 : 400, color: descanso ? "var(--danger)" : "var(--text-2)", cursor: podeEditar ? "pointer" : "default", whiteSpace: "nowrap" }}>
+          <input type="checkbox" checked={descanso} onChange={toggleDescanso} disabled={!podeEditar} /> em descanso
+        </label>
       </div>
-
-      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-        <div style={{ flex: 1 }}>
-          <div style={lblMini}>Referência</div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{pedido.referencia}</div>
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={lblMini}>Tamanho</div>
-          <input value={tamanho} onChange={(e) => setTamanho(e.target.value)} onBlur={salvarInfo} disabled={!podeEditar} placeholder="P, M, G…" style={inpMini} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={lblMini}>Tecido</div>
-          <input value={tecido} onChange={(e) => setTecido(e.target.value)} onBlur={salvarInfo} disabled={!podeEditar} placeholder="malha…" style={inpMini} />
-        </div>
-      </div>
-
-      <button onClick={toggleDescanso} disabled={!podeEditar} style={{
-        width: "100%", padding: "10px 12px", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 14,
-        border: descanso ? "1px solid var(--danger)" : "1px solid var(--border)",
-        background: descanso ? "var(--danger-bg)" : "var(--surface)",
-        color: descanso ? "var(--danger)" : "var(--text-2)",
-      }}>
-        {descanso ? "Tecido em descanso — corte travado (clique para liberar)" : "Marcar tecido em descanso"}
-      </button>
 
       <Rastreio ordem={PROCESSOS_CORTE} processos={processos} totalPecas={pedido.total} gradePedido={gradePorTamanho(pedido.grade)} podeEditar={podeEditar} onQtd={mudarQtd} onQtdTam={mudarQtdTam} onSalvarQtd={salvarQtd} onTudo={alternarTudo} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do corte" />
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
-          {pendentes.length} processo(s) pendente(s): {pendentes.join(", ")}. Registre a observação do que falta.
+          {pendentes.length} processo(s) ainda em aberto. Use "detalhes" para registrar o que falta.
         </div>
       )}
-      <HistoricoProcessos processos={processos} ordem={PROCESSOS_CORTE} total={pedido.total} />
     </div>
   );
 }
