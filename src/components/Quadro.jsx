@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../supabaseClient.js";
-import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown, Bell, Filter, X, MoreHorizontal } from "lucide-react";
+import { Plus, ArrowRight, ArrowUpRight, ArrowDownLeft, Package, ClipboardList, AlertTriangle, Boxes, Trash2, Download, Scissors, Factory, Sparkles, Calendar, Search, Check, Clock, FileText, Shirt, Paperclip, ChevronDown, Tags, FileDown, Bell, Filter, X } from "lucide-react";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { gerarPdfEtapa, gerarRomaneioColuna } from "../pdfEtapa.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
@@ -425,7 +425,6 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   const destinos = LOCAIS.filter((l) => l !== local);
   const [editarGrade, setEditarGrade] = useState(false);
   const [aba, setAba] = useState("etapa");
-  const [menuAberto, setMenuAberto] = useState(false);
 
   const [gerandoPdf, setGerandoPdf] = useState(false);
   async function baixarPdf() {
@@ -630,23 +629,10 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
           </div>
           <p style={{ fontSize: 13, color: "var(--text-2)", margin: "2px 0 0" }}>{saldo} peças em {rotuloLocal(local)}</p>
         </div>
-        <div style={{ position: "relative", flexShrink: 0 }}>
-          <button type="button" aria-label="Mais ações" onClick={() => setMenuAberto((a) => !a)}
-            style={{ width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>
-            <MoreHorizontal size={18} />
-          </button>
-          {menuAberto && (
-            <>
-              <div onClick={() => setMenuAberto(false)} style={{ position: "fixed", inset: 0, zIndex: 9 }} />
-              <div style={{ position: "absolute", right: 0, top: 36, zIndex: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "var(--shadow-card)", minWidth: 210, overflow: "hidden", padding: "4px 0" }}>
-                <button type="button" onClick={() => { setMenuAberto(false); baixarPdf(); }} disabled={gerandoPdf} style={itemMenu}><FileDown size={15} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando PDF…" : "Baixar PDF desta etapa"}</button>
-                {podeAdministrar && <button type="button" onClick={() => { setMenuAberto(false); setEditarGrade(true); }} style={itemMenu}><Tags size={15} style={{ color: "var(--accent)" }} /> {normalizarGrade(pedido.grade).length ? "Editar tamanhos" : "Adicionar tamanhos"}</button>}
-                {pedido.solicitacao_id && <button type="button" onClick={() => { setMenuAberto(false); setVerResumo(true); }} style={itemMenu}><FileText size={15} style={{ color: "var(--text-3)" }} /> Ver ficha e histórico</button>}
-                {ehMaster && <button type="button" onClick={() => { setMenuAberto(false); excluirPedido(); }} style={{ ...itemMenu, color: "var(--danger)" }}><Trash2 size={15} /> Excluir pedido</button>}
-              </div>
-            </>
-          )}
-        </div>
+        <button type="button" onClick={baixarPdf} disabled={gerandoPdf}
+          style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
+          <FileDown size={15} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "PDF"}
+        </button>
       </div>
 
       <div style={{ display: "flex", gap: 20, margin: "14px 0 16px", borderBottom: "1px solid var(--border)" }}>
@@ -704,28 +690,44 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
           )}
         </>
       ) : (
-        <div style={{ padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
-          {normalizarGrade(pedido.grade).length > 0
-            ? <GradeTabela grade={pedido.grade} margem="0 0 12px" />
-            : <div style={{ fontSize: 12.5, color: "var(--text-3)", marginBottom: 12 }}>Sem grade de tamanhos cadastrada.</div>}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", fontSize: 12.5 }}>
-            {pedido.marca && <span><span style={{ color: "var(--text-3)" }}>Marca:</span> {pedido.marca}</span>}
-            {pedido.corte_id && <span><span style={{ color: "var(--text-3)" }}>ID de corte:</span> {pedido.corte_id}</span>}
-            {pedido.nota_fiscal && <span><span style={{ color: "var(--text-3)" }}>Nota fiscal:</span> {pedido.nota_fiscal}</span>}
-            {pedido.cor && <span><span style={{ color: "var(--text-3)" }}>Cor:</span> {pedido.cor}</span>}
-            {pedido.peso && <span><span style={{ color: "var(--text-3)" }}>Peso:</span> {pedido.peso}</span>}
-            {pedido.volume && <span><span style={{ color: "var(--text-3)" }}>Volume:</span> {pedido.volume}</span>}
-            {pedido.prazo && <span><span style={{ color: "var(--text-3)" }}>Prazo:</span> {fmtDataResumo(pedido.prazo)}</span>}
+        <>
+          <div style={{ padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px" }}>Detalhes do pedido</span>
+              {podeAdministrar && (
+                <button type="button" onClick={() => setEditarGrade(true)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", fontSize: 11.5, fontWeight: 600, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--accent)", cursor: "pointer" }}>
+                  <Tags size={12} /> {normalizarGrade(pedido.grade).length ? "Editar tamanhos" : "Adicionar tamanhos"}
+                </button>
+              )}
+            </div>
+            {normalizarGrade(pedido.grade).length > 0
+              ? <GradeTabela grade={pedido.grade} margem="0 0 12px" />
+              : <div style={{ fontSize: 12.5, color: "var(--text-3)", marginBottom: 12 }}>Sem grade de tamanhos cadastrada.</div>}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", fontSize: 12.5 }}>
+              {pedido.marca && <span><span style={{ color: "var(--text-3)" }}>Marca:</span> {pedido.marca}</span>}
+              {pedido.corte_id && <span><span style={{ color: "var(--text-3)" }}>ID de corte:</span> {pedido.corte_id}</span>}
+              {pedido.nota_fiscal && <span><span style={{ color: "var(--text-3)" }}>Nota fiscal:</span> {pedido.nota_fiscal}</span>}
+              {pedido.cor && <span><span style={{ color: "var(--text-3)" }}>Cor:</span> {pedido.cor}</span>}
+              {pedido.peso && <span><span style={{ color: "var(--text-3)" }}>Peso:</span> {pedido.peso}</span>}
+              {pedido.volume && <span><span style={{ color: "var(--text-3)" }}>Volume:</span> {pedido.volume}</span>}
+              {pedido.prazo && <span><span style={{ color: "var(--text-3)" }}>Prazo:</span> {fmtDataResumo(pedido.prazo)}</span>}
+            </div>
+            {pedido.observacoes && <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "10px 0 0", whiteSpace: "pre-wrap" }}>{pedido.observacoes}</p>}
+            {(local === "Corte" || local === "Acabamento") && (() => {
+              const ordem = local === "Corte" ? PROCESSOS_CORTE : PROCESSOS_ACABAMENTO;
+              const salvo = (local === "Corte" ? pedido.processos_corte : pedido.processos_acabamento) || {};
+              const mapa = {};
+              ordem.forEach((n) => { const sv = salvo[n] || {}; mapa[n] = { qtd: qtdProcesso(sv, pedido.total), feito_em: sv.feito_em || "" }; });
+              return <HistoricoProcessos processos={mapa} ordem={ordem} total={pedido.total} />;
+            })()}
           </div>
-          {pedido.observacoes && <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "10px 0 0", whiteSpace: "pre-wrap" }}>{pedido.observacoes}</p>}
-          {(local === "Corte" || local === "Acabamento") && (() => {
-            const ordem = local === "Corte" ? PROCESSOS_CORTE : PROCESSOS_ACABAMENTO;
-            const salvo = (local === "Corte" ? pedido.processos_corte : pedido.processos_acabamento) || {};
-            const mapa = {};
-            ordem.forEach((n) => { const sv = salvo[n] || {}; mapa[n] = { qtd: qtdProcesso(sv, pedido.total), feito_em: sv.feito_em || "" }; });
-            return <HistoricoProcessos processos={mapa} ordem={ordem} total={pedido.total} />;
-          })()}
-        </div>
+          {pedido.solicitacao_id && (
+            <button onClick={() => setVerResumo(true)} style={{ ...btnGhost, width: "100%", marginTop: 10 }}>Ver ficha e histórico da pilotagem</button>
+          )}
+          {ehMaster && (
+            <button onClick={excluirPedido} style={{ display: "block", width: "100%", marginTop: 10, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--surface)", color: "var(--danger)", cursor: "pointer" }}>Excluir pedido</button>
+          )}
+        </>
       )}
 
       {verResumo && <ResumoPilotagem solicitacaoId={pedido.solicitacao_id} onFechar={() => setVerResumo(false)} />}
@@ -1764,4 +1766,3 @@ const btnPrimary = { display: "inline-flex", alignItems: "center", justifyConten
 const selectPill = { padding: "5px 10px", fontSize: 12, borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
 const btnDanger = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", fontSize: 13, fontWeight: 700, borderRadius: 9, border: "1px solid var(--danger)", background: "var(--danger)", color: "#fff", cursor: "pointer" };
-const itemMenu = { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 14px", border: "none", background: "none", textAlign: "left", fontSize: 13, color: "var(--text)", cursor: "pointer" };
