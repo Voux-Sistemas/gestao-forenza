@@ -1577,7 +1577,6 @@ function Rastreio({ ordem, processos, totalPecas, gradePedido, podeEditar, onQtd
   const somaFeita = ordem.reduce((a, n) => a + processos[n].qtd, 0);
   const pct = Math.round((somaFeita / (totalPecas * total)) * 100) || 0;
   const completo = feitos === total;
-  const idxAtual = ordem.findIndex((n) => processos[n].qtd < totalPecas);
 
   return (
     <div style={{ marginTop: 4 }}>
@@ -1593,90 +1592,74 @@ function Rastreio({ ordem, processos, totalPecas, gradePedido, podeEditar, onQtd
         <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: completo ? "var(--success)" : "linear-gradient(90deg,var(--accent),var(--accent-2))", transition: "width .4s cubic-bezier(.2,.7,.3,1)" }} />
       </div>
 
-      {aberto && <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {aberto && <div style={{ display: "flex", flexDirection: "column" }}>
         {ordem.map((nome, i) => {
           const pr = processos[nome];
           const feito = pr.qtd >= totalPecas;
           const parcial = pr.qtd > 0 && !feito;
-          const atual = !feito && i === idxAtual;
           const ultimo = i === ordem.length - 1;
-          const cor = feito ? "var(--success)" : parcial || atual ? "var(--accent)" : "var(--border-strong)";
           const grExp = expandido === nome;
+          const pct = Math.round((pr.qtd / totalPecas) * 100);
           return (
-            <div key={nome} style={{ position: "relative", display: "flex", gap: 12, paddingBottom: ultimo ? 0 : 6 }}>
-              {!ultimo && <span style={{ position: "absolute", left: 12, top: 27, bottom: -4, width: 2, borderRadius: 2, background: feito ? "var(--success)" : "var(--border)" }} />}
-              <button type="button" onClick={() => podeEditar && onTudo(nome)} disabled={!podeEditar}
-                title={feito ? "Concluído — clique para zerar" : "Marcar todas as peças"}
-                aria-label={feito ? `${nome} concluído, clique para zerar` : `Marcar todas as peças de ${nome}`}
-                style={{
-                  position: "relative", zIndex: 1, flexShrink: 0, width: 26, height: 26, borderRadius: 99, padding: 0,
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  border: feito ? "none" : `2px solid ${cor}`,
-                  background: feito ? "var(--success)" : parcial || atual ? "var(--accent-bg)" : "var(--surface)",
-                  color: "#fff", cursor: podeEditar ? "pointer" : "default",
-                  boxShadow: feito ? "var(--shadow-sm)" : "none",
-                }}>
-                {feito ? <Check size={15} /> : <span style={{ width: 7, height: 7, borderRadius: 99, background: parcial || atual ? "var(--accent)" : "transparent" }} />}
-              </button>
-              <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: feito ? "var(--text-2)" : "var(--text)" }}>{nome}</span>
-                  <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <div key={nome} style={{ borderBottom: ultimo ? "none" : "1px solid var(--border)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0" }}>
+                <button type="button" onClick={() => podeEditar && onTudo(nome)} disabled={!podeEditar}
+                  title={feito ? "Concluído — clique para zerar" : "Marcar todas as peças"}
+                  aria-label={feito ? `${nome} concluído, clique para zerar` : `Marcar todas as peças de ${nome}`}
+                  style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 99, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    border: feito ? "none" : `2px solid ${parcial ? "var(--warning)" : "var(--border-strong)"}`,
+                    background: feito ? "var(--success)" : "var(--surface)", color: "#fff", cursor: podeEditar ? "pointer" : "default", boxShadow: feito ? "var(--shadow-sm)" : "none" }}>
+                  {feito ? <Check size={13} /> : parcial ? <span style={{ width: 6, height: 6, borderRadius: 99, background: "var(--warning)" }} /> : null}
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, flex: 1, color: feito ? "var(--text-2)" : "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nome}</span>
                     {podeEditar && !feito ? (
                       <>
-                        <input type="number" min="0" max={totalPecas} value={pr.qtd}
-                          onChange={(e) => onQtd(nome, e.target.value)} onBlur={onSalvarQtd}
-                          aria-label={`Peças com ${nome} feito`}
-                          style={{ ...inpMini, width: 64, padding: "5px 7px", fontSize: 12.5, textAlign: "right" }} />
-                        <span style={{ fontSize: 11.5, color: "var(--text-3)", whiteSpace: "nowrap" }}>/{totalPecas}</span>
-                        <button type="button" onClick={() => onTudo(nome)}
-                          style={{ fontSize: 10.5, fontWeight: 700, padding: "4px 8px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>tudo</button>
+                        <input type="number" min="0" max={totalPecas} value={pr.qtd} onChange={(e) => onQtd(nome, e.target.value)} onBlur={onSalvarQtd} aria-label={`Peças com ${nome} feito`} style={{ ...inpMini, width: 58, padding: "5px 7px", fontSize: 12.5, textAlign: "right" }} />
+                        <span style={{ fontSize: 11, color: "var(--text-3)", whiteSpace: "nowrap" }}>/{totalPecas}</span>
+                        <button type="button" onClick={() => onTudo(nome)} style={{ fontSize: 10.5, fontWeight: 700, padding: "4px 8px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" }}>tudo</button>
                       </>
                     ) : (
-                      <span style={{ fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
-                        color: feito ? "var(--success)" : parcial ? "var(--accent)" : "var(--text-3)" }}>
-                        {pr.qtd}<span style={{ fontWeight: 600, color: "var(--text-3)" }}>/{totalPecas}</span>
-                      </span>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap", color: feito ? "var(--success)" : "var(--text-3)" }}>{pr.qtd}<span style={{ fontWeight: 600, color: "var(--text-3)" }}>/{totalPecas}</span></span>
                     )}
-                  </span>
-                </div>
-                <div style={{ height: 4, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden", marginTop: 5 }}>
-                  <div style={{ width: `${Math.round((pr.qtd / totalPecas) * 100)}%`, height: "100%", borderRadius: 99, background: feito ? "var(--success)" : "var(--accent)", transition: "width .25s ease" }} />
-                </div>
-
-                <button type="button" onClick={() => setExpandido(grExp ? null : nome)}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 6, padding: 0, border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "var(--accent)" }}>
-                  <ChevronDown size={12} style={{ transform: grExp ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-                  {grExp ? "ocultar detalhes" : "detalhes"}
-                </button>
-
-                {!grExp && pr.obs && <div style={{ fontSize: 11.5, color: "var(--text-2)", fontStyle: "italic", marginTop: 4 }}>Obs: {pr.obs}</div>}
-                {!grExp && feito && pr.feito_em && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> em {pr.feito_em}</div>}
-
-                {grExp && (
-                  <div style={{ marginTop: 8 }}>
-                    {temGrade && (
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(74px, 1fr))", gap: 6, marginBottom: 10, padding: 10, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 9 }}>
-                        {Object.entries(gradePedido).map(([tam, totTam]) => {
-                          const feitoTam = (pr.grade || {})[tam] || 0;
-                          return (
-                            <div key={tam}>
-                              <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", marginBottom: 2 }}>{tam} <span style={{ color: "var(--text-3)", fontWeight: 600 }}>({totTam})</span></div>
-                              {podeEditar ? (
-                                <input type="number" min="0" max={totTam} value={feitoTam} onChange={(e) => onQtdTam(nome, tam, e.target.value)} onBlur={onSalvarQtd} aria-label={`${nome} tamanho ${tam}`} style={{ ...inpMini, width: "100%", padding: "5px 6px", fontSize: 12, textAlign: "center" }} />
-                              ) : (
-                                <div style={{ fontSize: 12.5, fontWeight: 700, textAlign: "center", padding: "5px 0", color: feitoTam >= totTam ? "var(--success)" : feitoTam > 0 ? "var(--accent)" : "var(--text-3)" }}>{feitoTam}</div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {feito && pr.feito_em && <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> finalizado em {pr.feito_em}</div>}
-                    <input value={pr.obs} onChange={(e) => onObs(nome, e.target.value)} onBlur={onSalvarObs} disabled={!podeEditar} placeholder="Observação (opcional)…" style={{ ...inpMini, fontSize: 12 }} />
                   </div>
-                )}
+                  {parcial && (
+                    <div style={{ height: 3, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden", marginTop: 6 }}>
+                      <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: "var(--warning)", transition: "width .25s ease" }} />
+                    </div>
+                  )}
+                  {feito && pr.feito_em && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 3 }}>{pr.feito_em}</div>}
+                  {!grExp && pr.obs && <div style={{ fontSize: 11.5, color: "var(--text-2)", fontStyle: "italic", marginTop: 4 }}>Obs: {pr.obs}</div>}
+                </div>
+                <button type="button" onClick={() => setExpandido(grExp ? null : nome)} aria-label={`Detalhes de ${nome}`}
+                  style={{ flexShrink: 0, padding: 4, border: "none", background: "none", cursor: "pointer", color: "var(--text-3)", display: "flex" }}>
+                  <ChevronDown size={16} style={{ transform: grExp ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+                </button>
               </div>
+              {grExp && (
+                <div style={{ padding: "0 0 12px 32px" }}>
+                  {temGrade && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(74px, 1fr))", gap: 6, marginBottom: 10, padding: 10, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 9 }}>
+                      {Object.entries(gradePedido).map(([tam, totTam]) => {
+                        const feitoTam = (pr.grade || {})[tam] || 0;
+                        return (
+                          <div key={tam}>
+                            <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", marginBottom: 2 }}>{tam} <span style={{ color: "var(--text-3)", fontWeight: 600 }}>({totTam})</span></div>
+                            {podeEditar ? (
+                              <input type="number" min="0" max={totTam} value={feitoTam} onChange={(e) => onQtdTam(nome, tam, e.target.value)} onBlur={onSalvarQtd} aria-label={`${nome} tamanho ${tam}`} style={{ ...inpMini, width: "100%", padding: "5px 6px", fontSize: 12, textAlign: "center" }} />
+                            ) : (
+                              <div style={{ fontSize: 12.5, fontWeight: 700, textAlign: "center", padding: "5px 0", color: feitoTam >= totTam ? "var(--success)" : feitoTam > 0 ? "var(--warning)" : "var(--text-3)" }}>{feitoTam}</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {feito && pr.feito_em && <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> finalizado em {pr.feito_em}</div>}
+                  <input value={pr.obs} onChange={(e) => onObs(nome, e.target.value)} onBlur={onSalvarObs} disabled={!podeEditar} placeholder="Observação (opcional)…" style={{ ...inpMini, fontSize: 12 }} />
+                </div>
+              )}
             </div>
           );
         })}
