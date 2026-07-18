@@ -620,26 +620,28 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   );
 
   return (
-    <Overlay onFechar={onFechar} rodape={rodape}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, paddingRight: 30 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{pedido.referencia}</h3>
-            {pedido.corte_id && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".3px", padding: "2px 9px", borderRadius: 99, background: "var(--azul-bg, rgba(37,99,235,.1))", color: "var(--azul)" }}>{pedido.corte_id}</span>}
+    <Overlay onFechar={onFechar} rodape={rodape} bgRodape="var(--surface-2)">
+      <div style={{ margin: "-22px -22px 16px", padding: "18px 22px 0", background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, paddingRight: 30 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{pedido.referencia}</h3>
+              {pedido.corte_id && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".3px", padding: "2px 9px", borderRadius: 99, background: "var(--azul-bg, rgba(37,99,235,.1))", color: "var(--azul)" }}>{pedido.corte_id}</span>}
+            </div>
+            <p style={{ fontSize: 13, color: "var(--text-2)", margin: "2px 0 0" }}>{saldo} peças em {rotuloLocal(local)}</p>
           </div>
-          <p style={{ fontSize: 13, color: "var(--text-2)", margin: "2px 0 0" }}>{saldo} peças em {rotuloLocal(local)}</p>
+          <button type="button" onClick={baixarPdf} disabled={gerandoPdf}
+            style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
+            <FileDown size={15} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "PDF"}
+          </button>
         </div>
-        <button type="button" onClick={baixarPdf} disabled={gerandoPdf}
-          style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
-          <FileDown size={15} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "PDF"}
-        </button>
-      </div>
 
-      <div style={{ display: "flex", gap: 20, margin: "14px 0 16px", borderBottom: "1px solid var(--border)" }}>
-        {[["etapa", "Etapa"], ["detalhes", "Detalhes"]].map(([k, label]) => (
-          <button key={k} type="button" onClick={() => setAba(k)}
-            style={{ padding: "0 0 8px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: aba === k ? 700 : 500, color: aba === k ? "var(--text)" : "var(--text-2)", borderBottom: aba === k ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1 }}>{label}</button>
-        ))}
+        <div style={{ display: "flex", gap: 20, marginTop: 14 }}>
+          {[["etapa", "Etapa"], ["detalhes", "Detalhes"]].map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setAba(k)}
+              style={{ padding: "0 0 9px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: aba === k ? 700 : 500, color: aba === k ? "var(--text)" : "var(--text-2)", borderBottom: aba === k ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1 }}>{label}</button>
+          ))}
+        </div>
       </div>
 
       {aba === "etapa" ? (
