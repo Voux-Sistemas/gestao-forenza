@@ -46,6 +46,71 @@ const rotuloPeriodo = (p, de, ate) => {
 };
 const LIMITE_FECHADAS = 30;
 
+// --- Calendário de intervalo (seleciona início e fim clicando nos dias) ---
+const MESES_CAL = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const DIAS_CAL = ["D", "S", "T", "Q", "Q", "S", "S"];
+const pad2 = (n) => String(n).padStart(2, "0");
+const ymd = (dt) => `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+const parseYmd = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+
+function CalendarioRange({ de, ate, onChange }) {
+  const [ref, setRef] = useState(() => (de ? parseYmd(de) : new Date()));
+  const ano = ref.getFullYear(), mes = ref.getMonth();
+  const primeiro = new Date(ano, mes, 1);
+  const inicioGrid = new Date(ano, mes, 1 - primeiro.getDay());
+  const dias = Array.from({ length: 42 }, (_, i) => { const d = new Date(inicioGrid); d.setDate(inicioGrid.getDate() + i); return d; });
+  const deD = de ? parseYmd(de) : null;
+  const ateD = ate ? parseYmd(ate) : null;
+  const hojeStr = ymd(new Date());
+
+  function clicar(d) {
+    const s = ymd(d);
+    if (!de || (de && ate)) { onChange(s, ""); return; }   // começa novo intervalo
+    if (parseYmd(s) < deD) onChange(s, de);                 // clicou antes do início → inverte
+    else onChange(de, s);                                   // fecha o intervalo
+  }
+
+  const navBtn = { width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer", fontSize: 15, lineHeight: 1 };
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, textTransform: "capitalize" }}>{MESES_CAL[mes]} de {ano}</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button type="button" onClick={() => setRef(new Date(ano, mes - 1, 1))} style={navBtn} aria-label="Mês anterior">‹</button>
+          <button type="button" onClick={() => setRef(new Date(ano, mes + 1, 1))} style={navBtn} aria-label="Próximo mês">›</button>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+        {DIAS_CAL.map((d, i) => <div key={i} style={{ textAlign: "center", fontSize: 10.5, fontWeight: 700, color: "var(--text-3)", padding: "2px 0" }}>{d}</div>)}
+        {dias.map((d, i) => {
+          const s = ymd(d);
+          const doMes = d.getMonth() === mes;
+          const ehInicio = de && s === de;
+          const ehFim = ate && s === ate;
+          const noMeio = deD && ateD && d > deD && d < ateD;
+          const selecionado = ehInicio || ehFim;
+          return (
+            <button key={i} type="button" onClick={() => clicar(d)}
+              style={{
+                height: 30, border: "none", cursor: "pointer", fontSize: 12.5,
+                borderRadius: selecionado ? 8 : noMeio ? 0 : 8,
+                background: selecionado ? "var(--accent)" : noMeio ? "var(--accent-bg)" : "transparent",
+                color: selecionado ? "#fff" : !doMes ? "var(--text-3)" : "var(--text)",
+                fontWeight: selecionado || s === hojeStr ? 700 : 400,
+                outline: s === hojeStr && !selecionado ? "1px solid var(--accent)" : "none",
+                opacity: doMes ? 1 : 0.5,
+              }}>
+              {d.getDate()}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
 export default function ControleOficinas({ session, perfil }) {
   const [pedidos, setPedidos] = useState([]);
   const [movimentos, setMovimentos] = useState([]);
@@ -214,11 +279,11 @@ export default function ControleOficinas({ session, perfil }) {
           {filtroPeriodo === "custom" && popPeriodo && (
             <>
               <div onClick={() => setPopPeriodo(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
-              <div style={{ position: "absolute", top: 42, left: 0, zIndex: 41, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-card)", padding: 14, width: 230 }}>
-                <label style={{ fontSize: 11, color: "var(--text-2)", display: "block", marginBottom: 4 }}>De</label>
-                <input type="date" value={dataDe} onChange={(e) => { setDataDe(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={{ ...inp, marginBottom: 10 }} />
-                <label style={{ fontSize: 11, color: "var(--text-2)", display: "block", marginBottom: 4 }}>Até</label>
-                <input type="date" value={dataAte} onChange={(e) => { setDataAte(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={{ ...inp, marginBottom: 12 }} />
+              <div style={{ position: "absolute", top: 42, left: 0, zIndex: 41, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-card)", padding: 14, width: 268 }}>
+                <CalendarioRange de={dataDe} ate={dataAte} onChange={(d, a) => { setDataDe(d); setDataAte(a); setLimiteFechadas(LIMITE_FECHADAS); }} />
+                <div style={{ fontSize: 11.5, color: "var(--text-2)", textAlign: "center", margin: "10px 0 8px" }}>
+                  {dataDe ? fmtData(dataDe) : "início"} — {dataAte ? fmtData(dataAte) : (dataDe ? "selecione o fim" : "hoje")}
+                </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => { setDataDe(""); setDataAte(""); }} style={{ ...btnGhost, flex: 1, padding: "7px 10px" }}>Limpar</button>
                   <button onClick={() => setPopPeriodo(false)} style={{ ...btnPrimary, flex: 1, padding: "7px 10px" }}>Aplicar</button>
