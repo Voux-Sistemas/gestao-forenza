@@ -620,8 +620,8 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   );
 
   return (
-    <Overlay onFechar={onFechar} rodape={rodape} bgRodape="var(--accent-bg)" bgCorpo="var(--surface-2)">
-      <div style={{ margin: "-22px -22px 16px", padding: "18px 22px 0", background: "var(--accent-bg)", borderBottom: "1px solid var(--border)" }}>
+    <Overlay onFechar={onFechar} rodape={rodape} bgRodape="var(--zona-grad)" bgCorpo="var(--surface-2)" bordaRodape="var(--zona-borda)">
+      <div style={{ margin: "-22px -22px 16px", padding: "18px 22px 0", background: "var(--zona-grad)", borderBottom: "1px solid var(--zona-borda)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, paddingRight: 30 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
