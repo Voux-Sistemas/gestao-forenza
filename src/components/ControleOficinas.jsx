@@ -30,11 +30,30 @@ function fmtData(d) {
   return p[2] + "/" + p[1] + "/" + p[0];
 }
 
+// Início do período (YYYY-MM-DD) para o filtro; null = sem limite ("Tudo").
+function periodoInicio(p) {
+  if (p === "todos") return null;
+  const d = new Date();
+  if (p === "30") d.setDate(d.getDate() - 30);
+  else if (p === "90") d.setDate(d.getDate() - 90);
+  else if (p === "365") d.setFullYear(d.getFullYear() - 1);
+  return d.toISOString().slice(0, 10);
+}
+const rotuloPeriodo = (p) => ({ "30": "Últimos 30 dias", "90": "Últimos 90 dias", "365": "Último ano", "todos": "Todo o período" }[p] || "");
+const LIMITE_FECHADAS = 30;
+
 export default function ControleOficinas({ session, perfil }) {
   const [pedidos, setPedidos] = useState([]);
   const [movimentos, setMovimentos] = useState([]);
   const [oficinas, setOficinas] = useState([]);
-  const [remessas, setRemessas] = useState([]);
+  const [abertas, setAbertas] = useState([]);          // remessas em aberto (poucas, carrega inteiras)
+  const [fechadas, setFechadas] = useState([]);        // fechadas do filtro atual (limitadas no banco)
+  const [totalFechadas, setTotalFechadas] = useState(0);
+  const [limiteFechadas, setLimiteFechadas] = useState(LIMITE_FECHADAS);
+  const [refExtra, setRefExtra] = useState({});        // referências de pedidos arquivados (das fechadas)
+  const [filtroOficina, setFiltroOficina] = useState("");
+  const [filtroPeriodo, setFiltroPeriodo] = useState("90");
+  const [gerandoPdf, setGerandoPdf] = useState(false);
   const [clientes, setClientes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [novaSaida, setNovaSaida] = useState(false);
@@ -43,37 +62,55 @@ export default function ControleOficinas({ session, perfil }) {
   const [expandida, setExpandida] = useState(null); // id da remessa expandida
 
   const carregar = useCallback(async () => {
-    const [p, o, r, c] = await Promise.all([
+    const [p, o, c, rAb] = await Promise.all([
       supabase.from("pedidos").select("*").eq("arquivado", false).order("id", { ascending: false }),
       supabase.from("oficinas").select("*").eq("ativo", true).order("nome_empresa"),
-      supabase.from("remessas_oficina").select("*").order("id", { ascending: false }),
       supabase.from("clientes").select("id, nome"),
+      supabase.from("remessas_oficina").select("*").is("data_fechamento", null).order("id", { ascending: false }),
     ]);
     const idsAtivos = (p.data || []).map((x) => x.id);
     const m = idsAtivos.length ? await supabase.from("movimentos").select("*").in("pedido_id", idsAtivos).order("id") : { data: [] };
     setPedidos(p.data || []);
     setMovimentos(m.data || []);
     setOficinas(o.data || []);
-    setRemessas(r.data || []);
     setClientes(c.data || []);
+    setAbertas(rAb.data || []);
     setCarregando(false);
   }, []);
 
+  // Busca as fechadas do filtro atual — sempre limitada no banco (escala p/ milhares).
+  const carregarFechadas = useCallback(async () => {
+    let q = supabase.from("remessas_oficina").select("*", { count: "exact" })
+      .not("data_fechamento", "is", null)
+      .order("data_fechamento", { ascending: false });
+    if (filtroOficina) q = q.eq("oficina_id", Number(filtroOficina));
+    const inicio = periodoInicio(filtroPeriodo);
+    if (inicio) q = q.gte("data_fechamento", inicio);
+    const { data, count } = await q.limit(limiteFechadas);
+    setFechadas(data || []);
+    setTotalFechadas(count || 0);
+    // Referências dos pedidos que não estão na lista ativa (arquivados).
+    const faltam = [...new Set((data || []).map((r) => r.pedido_id))];
+    if (faltam.length) {
+      const { data: peds } = await supabase.from("pedidos").select("id, referencia").in("id", faltam);
+      setRefExtra((prev) => { const n = { ...prev }; (peds || []).forEach((p) => { n[p.id] = p.referencia; }); return n; });
+    }
+  }, [filtroOficina, filtroPeriodo, limiteFechadas]);
+
   useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { if (!carregando) carregarFechadas(); }, [carregarFechadas, carregando]);
 
   useEffect(() => {
     const canal = supabase.channel("controle-oficinas")
-      .on("postgres_changes", { event: "*", schema: "public", table: "remessas_oficina" }, carregar)
+      .on("postgres_changes", { event: "*", schema: "public", table: "remessas_oficina" }, () => { carregar(); carregarFechadas(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "movimentos" }, carregar)
       .subscribe();
     return () => { supabase.removeChannel(canal); };
-  }, [carregar]);
+  }, [carregar, carregarFechadas]);
 
   const nomeCliente = (id) => clientes.find((c) => c.id === id)?.nome || "—";
   const nomeOficina = (id) => oficinas.find((o) => o.id === id)?.nome_empresa || "—";
-
-  const abertas = useMemo(() => remessas.filter((r) => !r.data_fechamento), [remessas]);
-  const fechadasRecentes = useMemo(() => remessas.filter((r) => r.data_fechamento).slice(0, 20), [remessas]);
+  const refDe = (id) => pedidos.find((p) => p.id === id)?.referencia || refExtra[id] || "#" + id;
 
   // Agrupa abertas por oficina
   const porOficina = useMemo(() => {
@@ -89,23 +126,32 @@ export default function ControleOficinas({ session, perfil }) {
   const totalPecasFora = abertas.reduce((s, r) => s + (r.qtd_enviada - r.qtd_retornada), 0);
   const remessasAtrasadas = abertas.filter((r) => diasEntre(r.data_saida, null) > 7).length;
 
-  // Monta uma remessa no formato do PDF.
-  const mapRemessa = (r) => ({
-    ref: pedidos.find((p) => p.id === r.pedido_id)?.referencia || "#" + r.pedido_id,
-    saida: r.data_saida, fechamento: r.data_fechamento,
-    enviada: r.qtd_enviada, retornada: r.qtd_retornada,
-  });
-
-  // Gera o relatório: uma oficina (ofId informado) ou todas (ofId nulo).
-  function gerarRelatorio(ofId = null) {
-    const ids = ofId != null ? [ofId] : [...new Set(remessas.map((r) => r.oficina_id))];
-    const grupos = ids.map((id) => ({
-      nome: nomeOficina(id),
-      abertas: remessas.filter((r) => r.oficina_id === id && !r.data_fechamento).map(mapRemessa),
-      fechadas: remessas.filter((r) => r.oficina_id === id && r.data_fechamento).map(mapRemessa),
-    })).filter((g) => g.abertas.length + g.fechadas.length > 0);
-    if (grupos.length === 0) return window.alert("Não há remessas para gerar o relatório.");
-    gerarPdfOficinas({ grupos, titulo: ofId != null ? nomeOficina(ofId) : "Todas as oficinas" });
+  // Gera o relatório respeitando o filtro (oficina + período) — busca sob demanda.
+  async function gerarRelatorio() {
+    if (gerandoPdf) return;
+    setGerandoPdf(true);
+    try {
+      let q = supabase.from("remessas_oficina").select("*").order("data_saida", { ascending: false });
+      if (filtroOficina) q = q.eq("oficina_id", Number(filtroOficina));
+      const inicio = periodoInicio(filtroPeriodo);
+      if (inicio) q = q.gte("data_saida", inicio);
+      const { data: rs } = await q;
+      if (!rs || rs.length === 0) { window.alert("Não há remessas no filtro selecionado."); return; }
+      const ids = [...new Set(rs.map((r) => r.pedido_id))];
+      const { data: peds } = await supabase.from("pedidos").select("id, referencia").in("id", ids);
+      const refMap = {}; (peds || []).forEach((p) => { refMap[p.id] = p.referencia; });
+      const mapR = (r) => ({ ref: refMap[r.pedido_id] || "#" + r.pedido_id, saida: r.data_saida, fechamento: r.data_fechamento, enviada: r.qtd_enviada, retornada: r.qtd_retornada });
+      const oficIds = filtroOficina ? [Number(filtroOficina)] : [...new Set(rs.map((r) => r.oficina_id))];
+      const grupos = oficIds.map((id) => ({
+        nome: nomeOficina(id),
+        abertas: rs.filter((r) => r.oficina_id === id && !r.data_fechamento).map(mapR),
+        fechadas: rs.filter((r) => r.oficina_id === id && r.data_fechamento).map(mapR),
+      })).filter((g) => g.abertas.length + g.fechadas.length > 0);
+      const tituloOfic = filtroOficina ? nomeOficina(Number(filtroOficina)) : "Todas as oficinas";
+      gerarPdfOficinas({ grupos, titulo: `${tituloOfic} — ${rotuloPeriodo(filtroPeriodo)}` });
+    } finally {
+      setGerandoPdf(false);
+    }
   }
 
   if (carregando) return <div style={{ padding: 28, color: "var(--text-2)" }}>Carregando…</div>;
@@ -118,9 +164,6 @@ export default function ControleOficinas({ session, perfil }) {
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Registre saídas e retornos de peças das oficinas terceirizadas.</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => gerarRelatorio(null)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-            <FileDown size={16} style={{ color: "var(--accent)" }} /> PDF geral
-          </button>
           <button onClick={() => setNovaSaida(true)} style={btnPrimary}><Plus size={16} /> Registrar saída</button>
         </div>
       </div>
@@ -230,51 +273,64 @@ export default function ControleOficinas({ session, perfil }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "36px 0 14px", paddingTop: 24, borderTop: "1px solid var(--border)" }}>
         <span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)" }} />
         <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Fechadas recentemente</span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{fechadasRecentes.length}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{totalFechadas}</span>
       </div>
 
-      {(() => {
-        const idsComRemessa = [...new Set(remessas.map((r) => r.oficina_id))];
-        if (idsComRemessa.length === 0) return null;
-        return (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            <span style={{ fontSize: 12, color: "var(--text-3)" }}>Relatório por oficina:</span>
-            {idsComRemessa.map((id) => (
-              <button key={id} onClick={() => gerarRelatorio(id)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                <FileDown size={13} style={{ color: "var(--accent)" }} /> {nomeOficina(id)}
-              </button>
-            ))}
-          </div>
-        );
-      })()}
-      {fechadasRecentes.length === 0 ? (
-        <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>Nenhuma remessa fechada ainda.</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <span style={{ fontSize: 12, color: "var(--text-3)" }}>Filtrar:</span>
+        <select value={filtroOficina} onChange={(e) => { setFiltroOficina(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={selectPill}>
+          <option value="">Todas as oficinas</option>
+          {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
+        </select>
+        <select value={filtroPeriodo} onChange={(e) => { setFiltroPeriodo(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={selectPill}>
+          <option value="30">Últimos 30 dias</option>
+          <option value="90">Últimos 90 dias</option>
+          <option value="365">Último ano</option>
+          <option value="todos">Todo o período</option>
+        </select>
+        <button onClick={gerarRelatorio} disabled={gerandoPdf} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
+          <FileDown size={14} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "Gerar PDF"}
+        </button>
+      </div>
+
+      {fechadas.length === 0 ? (
+        <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>Nenhuma remessa fechada nesse filtro.</div>
       ) : (
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow-card)" }}>
-          <div style={{ display: "flex", alignItems: "center", padding: "11px 16px", borderBottom: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 10.5, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>
-            <span style={{ flex: 2 }}>Pedido</span>
-            <span style={{ flex: 1.4 }}>Oficina</span>
-            <span style={{ flex: 1 }}>Saída</span>
-            <span style={{ flex: 1 }}>Retorno</span>
-            <span style={{ flex: 0.7, textAlign: "center" }}>Dias</span>
-            <span style={{ flex: 0.7, textAlign: "right" }}>Peças</span>
+        <>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow-card)" }}>
+            <div style={{ display: "flex", alignItems: "center", padding: "11px 16px", borderBottom: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 10.5, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span style={{ flex: 2 }}>Pedido</span>
+              <span style={{ flex: 1.4 }}>Oficina</span>
+              <span style={{ flex: 1 }}>Saída</span>
+              <span style={{ flex: 1 }}>Retorno</span>
+              <span style={{ flex: 0.7, textAlign: "center" }}>Dias</span>
+              <span style={{ flex: 0.7, textAlign: "right" }}>Peças</span>
+            </div>
+            {fechadas.map((r) => {
+              const d = diasEntre(r.data_saida, r.data_fechamento);
+              return (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", padding: "13px 16px", borderTop: "1px solid var(--border)", fontSize: 13 }}>
+                  <span style={{ flex: 2, fontWeight: 600 }}>{refDe(r.pedido_id)}</span>
+                  <span style={{ flex: 1.4, color: "var(--text-2)" }}>{nomeOficina(r.oficina_id)}</span>
+                  <span style={{ flex: 1, color: "var(--text-2)" }}>{fmtData(r.data_saida)}</span>
+                  <span style={{ flex: 1, color: "var(--text-2)" }}>{fmtData(r.data_fechamento)}</span>
+                  <span style={{ flex: 0.7, color: "var(--text-2)", textAlign: "center" }}>{d}</span>
+                  <span style={{ flex: 0.7, color: "var(--text-2)", textAlign: "right", fontWeight: 600 }}>{r.qtd_enviada}</span>
+                </div>
+              );
+            })}
           </div>
-          {fechadasRecentes.map((r) => {
-            const ped = pedidos.find((p) => p.id === r.pedido_id);
-            const d = diasEntre(r.data_saida, r.data_fechamento);
-            return (
-              <div key={r.id} style={{ display: "flex", alignItems: "center", padding: "13px 16px", borderTop: "1px solid var(--border)", fontSize: 13 }}>
-                <span style={{ flex: 2, fontWeight: 600 }}>{ped?.referencia || "#" + r.pedido_id}</span>
-                <span style={{ flex: 1.4, color: "var(--text-2)" }}>{nomeOficina(r.oficina_id)}</span>
-                <span style={{ flex: 1, color: "var(--text-2)" }}>{fmtData(r.data_saida)}</span>
-                <span style={{ flex: 1, color: "var(--text-2)" }}>{fmtData(r.data_fechamento)}</span>
-                <span style={{ flex: 0.7, color: "var(--text-2)", textAlign: "center" }}>{d}</span>
-                <span style={{ flex: 0.7, color: "var(--text-2)", textAlign: "right", fontWeight: 600 }}>{r.qtd_enviada}</span>
-              </div>
-            );
-          })}
-        </div>
+          {fechadas.length < totalFechadas && (
+            <div style={{ textAlign: "center", marginTop: 12 }}>
+              <button onClick={() => setLimiteFechadas((n) => n + LIMITE_FECHADAS)} style={{ fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer" }}>
+                ver mais {Math.min(LIMITE_FECHADAS, totalFechadas - fechadas.length)} (de {totalFechadas}) →
+              </button>
+            </div>
+          )}
+          <p style={{ fontSize: 11.5, color: "var(--text-3)", textAlign: "center", marginTop: 14 }}>
+            O histórico completo de cada pedido fica no <strong>Histórico</strong>. Esta lista mostra as remessas fechadas recentes conforme o filtro.
+          </p>
+        </>
       )}
 
       {novaSaida && <ModalNovaSaida pedidos={pedidos} oficinas={oficinas} movimentos={movimentos} clientes={clientes} session={session} onFechar={() => setNovaSaida(false)} onOk={() => { setNovaSaida(false); carregar(); }} />}
@@ -448,6 +504,7 @@ function ModalRegistrarRetorno({ dados, session, onFechar, onOk }) {
 }
 
 const lbl = { fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5, fontWeight: 500 };
+const selectPill = { padding: "7px 12px", fontSize: 12.5, fontWeight: 600, borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: "pointer" };
 const inp = { width: "100%", padding: "10px 12px", fontSize: 14, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" };
 const btnPrimary = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "none", background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "#fff", boxShadow: "var(--shadow-sm)", cursor: "pointer" };
 const btnGhost = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer" };
