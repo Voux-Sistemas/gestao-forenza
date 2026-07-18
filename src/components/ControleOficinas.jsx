@@ -112,19 +112,25 @@ export default function ControleOficinas({ session, perfil }) {
   const nomeOficina = (id) => oficinas.find((o) => o.id === id)?.nome_empresa || "—";
   const refDe = (id) => pedidos.find((p) => p.id === id)?.referencia || refExtra[id] || "#" + id;
 
+  // O filtro de oficina foca a página inteira (aberto + fechadas + cards).
+  const abertasFiltradas = useMemo(
+    () => (filtroOficina ? abertas.filter((r) => r.oficina_id === Number(filtroOficina)) : abertas),
+    [abertas, filtroOficina]
+  );
+
   // Agrupa abertas por oficina
   const porOficina = useMemo(() => {
     const mapa = {};
-    abertas.forEach((r) => {
+    abertasFiltradas.forEach((r) => {
       if (!mapa[r.oficina_id]) mapa[r.oficina_id] = [];
       mapa[r.oficina_id].push(r);
     });
     return mapa;
-  }, [abertas]);
+  }, [abertasFiltradas]);
 
-  const totalAbertas = abertas.length;
-  const totalPecasFora = abertas.reduce((s, r) => s + (r.qtd_enviada - r.qtd_retornada), 0);
-  const remessasAtrasadas = abertas.filter((r) => diasEntre(r.data_saida, null) > 7).length;
+  const totalAbertas = abertasFiltradas.length;
+  const totalPecasFora = abertasFiltradas.reduce((s, r) => s + (r.qtd_enviada - r.qtd_retornada), 0);
+  const remessasAtrasadas = abertasFiltradas.filter((r) => diasEntre(r.data_saida, null) > 7).length;
 
   // Gera o relatório respeitando o filtro (oficina + período) — busca sob demanda.
   async function gerarRelatorio() {
@@ -168,19 +174,38 @@ export default function ControleOficinas({ session, perfil }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
         <StatCard Icon={ArrowUpRight} label="Remessas em aberto" valor={totalAbertas} cor="var(--warning)" />
         <StatCard Icon={Factory} label="Peças fora da fábrica" valor={totalPecasFora} cor="var(--accent)" />
         <StatCard Icon={AlertTriangle} label="Em atraso (+7 dias)" valor={remessasAtrasadas} cor="var(--danger)" valorCor={remessasAtrasadas > 0 ? "var(--danger)" : undefined} />
       </div>
 
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid var(--border)" }}>
+        <span style={{ fontSize: 12, color: "var(--text-3)" }}>Oficina:</span>
+        <select value={filtroOficina} onChange={(e) => { setFiltroOficina(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={selectPill}>
+          <option value="">Todas as oficinas</option>
+          {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
+        </select>
+        <span style={{ fontSize: 12, color: "var(--text-3)", marginLeft: 4 }}>Período:</span>
+        <select value={filtroPeriodo} onChange={(e) => { setFiltroPeriodo(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={selectPill}>
+          <option value="30">Últimos 30 dias</option>
+          <option value="90">Últimos 90 dias</option>
+          <option value="365">Último ano</option>
+          <option value="todos">Todo o período</option>
+        </select>
+        <button onClick={gerarRelatorio} disabled={gerandoPdf} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
+          <FileDown size={14} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "Gerar PDF"}
+        </button>
+        <span style={{ fontSize: 11, color: "var(--text-3)", flexBasis: "100%" }}>O período afeta as fechadas e o PDF. As em aberto são sempre as atuais da oficina.</span>
+      </div>
+
       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 14px" }}>
         <span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--warning)" }} />
         <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Em aberto</span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{abertas.length}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{totalAbertas}</span>
       </div>
-      {abertas.length === 0 ? (
-        <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>Nenhuma remessa em aberto no momento.</div>
+      {totalAbertas === 0 ? (
+        <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>{filtroOficina ? "Essa oficina não tem remessas em aberto." : "Nenhuma remessa em aberto no momento."}</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 28 }}>
           {Object.keys(porOficina).map((ofId) => (
@@ -270,27 +295,11 @@ export default function ControleOficinas({ session, perfil }) {
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "36px 0 14px", paddingTop: 24, borderTop: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "36px 0 16px", paddingTop: 24, borderTop: "1px solid var(--border)" }}>
         <span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)" }} />
         <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Fechadas recentemente</span>
         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{totalFechadas}</span>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-        <span style={{ fontSize: 12, color: "var(--text-3)" }}>Filtrar:</span>
-        <select value={filtroOficina} onChange={(e) => { setFiltroOficina(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={selectPill}>
-          <option value="">Todas as oficinas</option>
-          {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
-        </select>
-        <select value={filtroPeriodo} onChange={(e) => { setFiltroPeriodo(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={selectPill}>
-          <option value="30">Últimos 30 dias</option>
-          <option value="90">Últimos 90 dias</option>
-          <option value="365">Último ano</option>
-          <option value="todos">Todo o período</option>
-        </select>
-        <button onClick={gerarRelatorio} disabled={gerandoPdf} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
-          <FileDown size={14} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "Gerar PDF"}
-        </button>
+        {filtroOficina && <span style={{ fontSize: 12, color: "var(--text-3)" }}>· {nomeOficina(Number(filtroOficina))}</span>}
       </div>
 
       {fechadas.length === 0 ? (
