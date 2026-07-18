@@ -197,36 +197,36 @@ export default function ControleOficinas({ session, perfil }) {
           {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
         </select>
         <span style={{ fontSize: 12, color: "var(--text-3)", marginLeft: 4 }}>Período:</span>
-        <select value={filtroPeriodo} onChange={(e) => { setFiltroPeriodo(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); if (e.target.value === "custom") setPopPeriodo(true); }} style={selectPill}>
-          <option value="30">Últimos 30 dias</option>
-          <option value="90">Últimos 90 dias</option>
-          <option value="365">Último ano</option>
-          <option value="todos">Todo o período</option>
-          <option value="custom">Personalizado</option>
-        </select>
-        {filtroPeriodo === "custom" && (
-          <div style={{ position: "relative" }}>
-            <button onClick={() => setPopPeriodo((a) => !a)} style={{ ...selectPill, display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <select value={filtroPeriodo} onChange={(e) => { const v = e.target.value; setFiltroPeriodo(v); setLimiteFechadas(LIMITE_FECHADAS); setPopPeriodo(v === "custom"); }} style={selectPill}>
+            <option value="30">Últimos 30 dias</option>
+            <option value="90">Últimos 90 dias</option>
+            <option value="365">Último ano</option>
+            <option value="todos">Todo o período</option>
+            <option value="custom">Personalizado</option>
+          </select>
+          {filtroPeriodo === "custom" && !popPeriodo && (
+            <button onClick={() => setPopPeriodo(true)} style={{ ...selectPill, display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Calendar size={13} style={{ color: "var(--accent)" }} />
-              {dataDe || dataAte ? `${dataDe ? fmtData(dataDe) : "início"} – ${dataAte ? fmtData(dataAte) : "hoje"}` : "Escolher datas"}
+              {dataDe || dataAte ? `${dataDe ? fmtData(dataDe) : "início"} – ${dataAte ? fmtData(dataAte) : "hoje"}` : "definir datas"}
             </button>
-            {popPeriodo && (
-              <>
-                <div onClick={() => setPopPeriodo(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
-                <div style={{ position: "absolute", top: 40, left: 0, zIndex: 41, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-card)", padding: 14, width: 230 }}>
-                  <label style={{ fontSize: 11, color: "var(--text-2)", display: "block", marginBottom: 4 }}>De</label>
-                  <input type="date" value={dataDe} onChange={(e) => { setDataDe(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={{ ...inp, marginBottom: 10 }} />
-                  <label style={{ fontSize: 11, color: "var(--text-2)", display: "block", marginBottom: 4 }}>Até</label>
-                  <input type="date" value={dataAte} onChange={(e) => { setDataAte(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={{ ...inp, marginBottom: 12 }} />
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => { setDataDe(""); setDataAte(""); }} style={{ ...btnGhost, flex: 1, padding: "7px 10px" }}>Limpar</button>
-                    <button onClick={() => setPopPeriodo(false)} style={{ ...btnPrimary, flex: 1, padding: "7px 10px" }}>Aplicar</button>
-                  </div>
+          )}
+          {filtroPeriodo === "custom" && popPeriodo && (
+            <>
+              <div onClick={() => setPopPeriodo(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+              <div style={{ position: "absolute", top: 42, left: 0, zIndex: 41, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-card)", padding: 14, width: 230 }}>
+                <label style={{ fontSize: 11, color: "var(--text-2)", display: "block", marginBottom: 4 }}>De</label>
+                <input type="date" value={dataDe} onChange={(e) => { setDataDe(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={{ ...inp, marginBottom: 10 }} />
+                <label style={{ fontSize: 11, color: "var(--text-2)", display: "block", marginBottom: 4 }}>Até</label>
+                <input type="date" value={dataAte} onChange={(e) => { setDataAte(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={{ ...inp, marginBottom: 12 }} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setDataDe(""); setDataAte(""); }} style={{ ...btnGhost, flex: 1, padding: "7px 10px" }}>Limpar</button>
+                  <button onClick={() => setPopPeriodo(false)} style={{ ...btnPrimary, flex: 1, padding: "7px 10px" }}>Aplicar</button>
                 </div>
-              </>
-            )}
-          </div>
-        )}
+              </div>
+            </>
+          )}
+        </div>
         <button onClick={gerarRelatorio} disabled={gerandoPdf} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
           <FileDown size={14} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "Gerar PDF"}
         </button>
