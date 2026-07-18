@@ -30,16 +30,20 @@ function fmtData(d) {
   return p[2] + "/" + p[1] + "/" + p[0];
 }
 
-// Início do período (YYYY-MM-DD) para o filtro; null = sem limite ("Tudo").
-function periodoInicio(p) {
-  if (p === "todos") return null;
+// Intervalo (início/fim, YYYY-MM-DD) do período. null = sem limite.
+function periodoRange(p, de, ate) {
+  if (p === "custom") return { inicio: de || null, fim: ate || null };
+  if (p === "todos") return { inicio: null, fim: null };
   const d = new Date();
   if (p === "30") d.setDate(d.getDate() - 30);
   else if (p === "90") d.setDate(d.getDate() - 90);
   else if (p === "365") d.setFullYear(d.getFullYear() - 1);
-  return d.toISOString().slice(0, 10);
+  return { inicio: d.toISOString().slice(0, 10), fim: null };
 }
-const rotuloPeriodo = (p) => ({ "30": "Últimos 30 dias", "90": "Últimos 90 dias", "365": "Último ano", "todos": "Todo o período" }[p] || "");
+const rotuloPeriodo = (p, de, ate) => {
+  if (p === "custom") return `${de ? fmtData(de) : "início"} a ${ate ? fmtData(ate) : "hoje"}`;
+  return { "30": "Últimos 30 dias", "90": "Últimos 90 dias", "365": "Último ano", "todos": "Todo o período" }[p] || "";
+};
 const LIMITE_FECHADAS = 30;
 
 export default function ControleOficinas({ session, perfil }) {
@@ -53,6 +57,8 @@ export default function ControleOficinas({ session, perfil }) {
   const [refExtra, setRefExtra] = useState({});        // referências de pedidos arquivados (das fechadas)
   const [filtroOficina, setFiltroOficina] = useState("");
   const [filtroPeriodo, setFiltroPeriodo] = useState("90");
+  const [dataDe, setDataDe] = useState("");
+  const [dataAte, setDataAte] = useState("");
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [clientes, setClientes] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -85,8 +91,9 @@ export default function ControleOficinas({ session, perfil }) {
       .not("data_fechamento", "is", null)
       .order("data_fechamento", { ascending: false });
     if (filtroOficina) q = q.eq("oficina_id", Number(filtroOficina));
-    const inicio = periodoInicio(filtroPeriodo);
+    const { inicio, fim } = periodoRange(filtroPeriodo, dataDe, dataAte);
     if (inicio) q = q.gte("data_fechamento", inicio);
+    if (fim) q = q.lte("data_fechamento", fim);
     const { data, count } = await q.limit(limiteFechadas);
     setFechadas(data || []);
     setTotalFechadas(count || 0);
@@ -96,7 +103,7 @@ export default function ControleOficinas({ session, perfil }) {
       const { data: peds } = await supabase.from("pedidos").select("id, referencia").in("id", faltam);
       setRefExtra((prev) => { const n = { ...prev }; (peds || []).forEach((p) => { n[p.id] = p.referencia; }); return n; });
     }
-  }, [filtroOficina, filtroPeriodo, limiteFechadas]);
+  }, [filtroOficina, filtroPeriodo, dataDe, dataAte, limiteFechadas]);
 
   useEffect(() => { carregar(); }, [carregar]);
   useEffect(() => { if (!carregando) carregarFechadas(); }, [carregarFechadas, carregando]);
@@ -140,8 +147,9 @@ export default function ControleOficinas({ session, perfil }) {
     try {
       let q = supabase.from("remessas_oficina").select("*").order("data_saida", { ascending: false });
       if (filtroOficina) q = q.eq("oficina_id", Number(filtroOficina));
-      const inicio = periodoInicio(filtroPeriodo);
+      const { inicio, fim } = periodoRange(filtroPeriodo, dataDe, dataAte);
       if (inicio) q = q.gte("data_saida", inicio);
+      if (fim) q = q.lte("data_saida", fim);
       const { data: rs } = await q;
       if (!rs || rs.length === 0) { window.alert("Não há remessas no filtro selecionado."); return; }
       const ids = [...new Set(rs.map((r) => r.pedido_id))];
@@ -155,7 +163,7 @@ export default function ControleOficinas({ session, perfil }) {
         fechadas: rs.filter((r) => r.oficina_id === id && r.data_fechamento).map(mapR),
       })).filter((g) => g.abertas.length + g.fechadas.length > 0);
       const tituloOfic = filtroOficina ? nomeOficina(Number(filtroOficina)) : "Todas as oficinas";
-      gerarPdfOficinas({ grupos, titulo: `${tituloOfic} — ${rotuloPeriodo(filtroPeriodo)}` });
+      gerarPdfOficinas({ grupos, titulo: `${tituloOfic} — ${rotuloPeriodo(filtroPeriodo, dataDe, dataAte)}` });
     } finally {
       setGerandoPdf(false);
     }
@@ -193,7 +201,15 @@ export default function ControleOficinas({ session, perfil }) {
           <option value="90">Últimos 90 dias</option>
           <option value="365">Último ano</option>
           <option value="todos">Todo o período</option>
+          <option value="custom">Personalizado</option>
         </select>
+        {filtroPeriodo === "custom" && (
+          <>
+            <input type="date" value={dataDe} onChange={(e) => { setDataDe(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} aria-label="Data inicial" style={{ ...selectPill, padding: "6px 10px" }} />
+            <span style={{ fontSize: 12, color: "var(--text-3)" }}>até</span>
+            <input type="date" value={dataAte} onChange={(e) => { setDataAte(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} aria-label="Data final" style={{ ...selectPill, padding: "6px 10px" }} />
+          </>
+        )}
         <button onClick={gerarRelatorio} disabled={gerandoPdf} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
           <FileDown size={14} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "Gerar PDF"}
         </button>
