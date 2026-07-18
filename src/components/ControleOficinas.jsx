@@ -133,6 +133,7 @@ export default function ControleOficinas({ session, perfil }) {
   const [aviso, setAviso] = useState(null);
   const [expandida, setExpandida] = useState(null); // id da remessa expandida
   const [fechadasAberto, setFechadasAberto] = useState(true);
+  const [emAbertoAberto, setEmAbertoAberto] = useState(true);
 
   const carregar = useCallback(async () => {
     const [p, o, c, rAb] = await Promise.all([
@@ -297,12 +298,13 @@ export default function ControleOficinas({ session, perfil }) {
         </button>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 14px" }}>
+      <button onClick={() => setEmAbertoAberto((a) => !a)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", margin: "0 0 14px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+        {emAbertoAberto ? <ChevronDown size={15} style={{ color: "var(--text-3)" }} /> : <ChevronRight size={15} style={{ color: "var(--text-3)" }} />}
         <span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--warning)" }} />
         <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Em aberto</span>
         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{totalAbertas}</span>
-      </div>
-      {totalAbertas === 0 ? (
+      </button>
+      {emAbertoAberto && (totalAbertas === 0 ? (
         <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>{filtroOficina ? "Essa oficina não tem remessas em aberto." : "Nenhuma remessa em aberto no momento."}</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 8 }}>
@@ -391,7 +393,7 @@ export default function ControleOficinas({ session, perfil }) {
             </div>
           ))}
         </div>
-      )}
+      ))}
 
       <button onClick={() => setFechadasAberto((a) => !a)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", margin: "22px 0 14px", paddingTop: 18, borderTop: "1px solid var(--border)", background: "none", border: "none", borderTopColor: "var(--border)", cursor: "pointer", textAlign: "left" }}>
         {fechadasAberto ? <ChevronDown size={15} style={{ color: "var(--text-3)" }} /> : <ChevronRight size={15} style={{ color: "var(--text-3)" }} />}
