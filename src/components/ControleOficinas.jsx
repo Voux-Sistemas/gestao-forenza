@@ -60,6 +60,7 @@ export default function ControleOficinas({ session, perfil }) {
   const [retornar, setRetornar] = useState(null); // remessa selecionada
   const [aviso, setAviso] = useState(null);
   const [expandida, setExpandida] = useState(null); // id da remessa expandida
+  const [fechadasAberto, setFechadasAberto] = useState(true);
 
   const carregar = useCallback(async () => {
     const [p, o, c, rAb] = await Promise.all([
@@ -164,7 +165,7 @@ export default function ControleOficinas({ session, perfil }) {
 
   return (
     <div className="fade-in" style={{ padding: "24px 26px", maxWidth: 1280, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Controle de oficinas</h2>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 3 }}>Registre saídas e retornos de peças das oficinas terceirizadas.</div>
@@ -174,13 +175,13 @@ export default function ControleOficinas({ session, perfil }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
         <StatCard Icon={ArrowUpRight} label="Remessas em aberto" valor={totalAbertas} cor="var(--warning)" />
         <StatCard Icon={Factory} label="Peças fora da fábrica" valor={totalPecasFora} cor="var(--accent)" />
         <StatCard Icon={AlertTriangle} label="Em atraso (+7 dias)" valor={remessasAtrasadas} cor="var(--danger)" valorCor={remessasAtrasadas > 0 ? "var(--danger)" : undefined} />
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
         <span style={{ fontSize: 12, color: "var(--text-3)" }}>Oficina:</span>
         <select value={filtroOficina} onChange={(e) => { setFiltroOficina(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={selectPill}>
           <option value="">Todas as oficinas</option>
@@ -196,7 +197,6 @@ export default function ControleOficinas({ session, perfil }) {
         <button onClick={gerarRelatorio} disabled={gerandoPdf} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
           <FileDown size={14} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "Gerar PDF"}
         </button>
-        <span style={{ fontSize: 11, color: "var(--text-3)", flexBasis: "100%" }}>O período afeta as fechadas e o PDF. As em aberto são sempre as atuais da oficina.</span>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 14px" }}>
@@ -207,7 +207,7 @@ export default function ControleOficinas({ session, perfil }) {
       {totalAbertas === 0 ? (
         <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>{filtroOficina ? "Essa oficina não tem remessas em aberto." : "Nenhuma remessa em aberto no momento."}</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 28 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 8 }}>
           {Object.keys(porOficina).map((ofId) => (
             <div key={ofId} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 13, padding: 14, boxShadow: "var(--shadow-sm)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
@@ -295,14 +295,15 @@ export default function ControleOficinas({ session, perfil }) {
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "36px 0 16px", paddingTop: 24, borderTop: "1px solid var(--border)" }}>
+      <button onClick={() => setFechadasAberto((a) => !a)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", margin: "22px 0 14px", paddingTop: 18, borderTop: "1px solid var(--border)", background: "none", border: "none", borderTopColor: "var(--border)", cursor: "pointer", textAlign: "left" }}>
+        {fechadasAberto ? <ChevronDown size={15} style={{ color: "var(--text-3)" }} /> : <ChevronRight size={15} style={{ color: "var(--text-3)" }} />}
         <span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)" }} />
         <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--text)" }}>Fechadas recentemente</span>
         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{totalFechadas}</span>
         {filtroOficina && <span style={{ fontSize: 12, color: "var(--text-3)" }}>· {nomeOficina(Number(filtroOficina))}</span>}
-      </div>
+      </button>
 
-      {fechadas.length === 0 ? (
+      {fechadasAberto && (fechadas.length === 0 ? (
         <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>Nenhuma remessa fechada nesse filtro.</div>
       ) : (
         <>
@@ -337,10 +338,10 @@ export default function ControleOficinas({ session, perfil }) {
             </div>
           )}
           <p style={{ fontSize: 11.5, color: "var(--text-3)", textAlign: "center", marginTop: 14 }}>
-            O histórico completo de cada pedido fica no <strong>Histórico</strong>. Esta lista mostra as remessas fechadas recentes conforme o filtro.
+            O histórico completo de cada pedido fica no <strong>Histórico</strong>.
           </p>
         </>
-      )}
+      ))}
 
       {novaSaida && <ModalNovaSaida pedidos={pedidos} oficinas={oficinas} movimentos={movimentos} clientes={clientes} session={session} onFechar={() => setNovaSaida(false)} onOk={() => { setNovaSaida(false); carregar(); }} />}
       {retornar && <ModalRegistrarRetorno dados={retornar} session={session} onFechar={() => setRetornar(null)} onOk={(info) => { setRetornar(null); carregar(); setAviso(avisoDeMovimento(info)); }} />}
