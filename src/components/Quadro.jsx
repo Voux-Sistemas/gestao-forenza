@@ -620,8 +620,8 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   );
 
   return (
-    <Overlay onFechar={onFechar} rodape={rodape} bgRodape="var(--surface-2)">
-      <div style={{ margin: "-22px -22px 16px", padding: "18px 22px 0", background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
+    <Overlay onFechar={onFechar} rodape={rodape} bgRodape="var(--accent-bg)" bgCorpo="var(--surface-2)">
+      <div style={{ margin: "-22px -22px 16px", padding: "18px 22px 0", background: "var(--accent-bg)", borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, paddingRight: 30 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -646,7 +646,7 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
 
       {aba === "etapa" ? (
         <>
-          <div style={{ marginBottom: 16 }}>
+          <div style={cardBloco}>
             <label style={{ fontSize: 12, color: "var(--text-2)", display: "block", marginBottom: 5 }}>Oficina responsável</label>
             <select value={oficinaId} onChange={(e) => mudarOficina(e.target.value)} disabled={!podeEditar} style={inpMini}>
               <option value="">Selecionar…</option>
@@ -659,41 +659,45 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
           {local === "Aviação" && <PainelAviamento pedido={pedido} podeEditar={podeEditar} />}
           {local === "Oficina" && <PainelOficina pedido={pedido} remessas={remessas} movimentos={movimentos} oficinas={oficinas} />}
           {podeEditar ? (
-            <>
-              {local === "Oficina" && remessasAbertas.length > 0 && (
-                <>
-                  <label style={lbl}>Abater de qual remessa</label>
-                  <select value={remessaId} onChange={(e) => setRemessaId(e.target.value)} style={inp}>
-                    <option value="">Selecionar…</option>
-                    {remessasAbertas.map((r) => {
-                      const ofic = (oficinas || []).find((o) => o.id === r.oficina_id);
-                      const restante = r.qtd_enviada - r.qtd_retornada;
-                      return <option key={r.id} value={r.id}>{(ofic?.nome_empresa || "—")} · saiu {fmtDataResumo(r.data_saida)} · faltam {restante} de {r.qtd_enviada}</option>;
-                    })}
-                  </select>
-                </>
-              )}
-              {podeEncerrar && (
-                <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
-                  <input type="checkbox" checked={encerrar} onChange={(e) => setEncerrar(e.target.checked)} style={{ marginTop: 2 }} />
-                  <span>Encerrar a remessa mesmo assim — as <strong>{restanteRemessa - qNum}</strong> peça(s) que não voltaram vão para <strong style={{ color: "var(--danger)" }}>perda</strong>.</span>
-                </label>
-              )}
-              {fechaRemessa && (
-                <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 9, border: "1px solid var(--border)" }}>
-                  <label style={{ ...lbl, marginTop: 0, display: "flex", alignItems: "center", gap: 6 }}>Motivo do fechamento da remessa <span style={{ color: "var(--danger)" }}>*</span></label>
-                  <textarea value={motivoFechamento} onChange={(e) => setMotivoFechamento(e.target.value)} rows={2} placeholder="Ex.: retorno completo e conferido; 2 peças com defeito; etc." style={{ ...inp, resize: "vertical" }} />
-                  <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>{faltantes > 0 ? `${faltantes} peça(s) irão para perda ao encerrar — ` : "Este retorno completa a remessa — "}o motivo é obrigatório.</div>
-                </div>
-              )}
-            </>
+            local === "Oficina" && (remessasAbertas.length > 0 || podeEncerrar || fechaRemessa) ? (
+              <div style={cardBloco}>
+                {remessasAbertas.length > 0 && (
+                  <>
+                    <label style={{ ...lbl, marginTop: 0 }}>Abater de qual remessa</label>
+                    <select value={remessaId} onChange={(e) => setRemessaId(e.target.value)} style={inp}>
+                      <option value="">Selecionar…</option>
+                      {remessasAbertas.map((r) => {
+                        const ofic = (oficinas || []).find((o) => o.id === r.oficina_id);
+                        const restante = r.qtd_enviada - r.qtd_retornada;
+                        return <option key={r.id} value={r.id}>{(ofic?.nome_empresa || "—")} · saiu {fmtDataResumo(r.data_saida)} · faltam {restante} de {r.qtd_enviada}</option>;
+                      })}
+                    </select>
+                  </>
+                )}
+                {podeEncerrar && (
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
+                    <input type="checkbox" checked={encerrar} onChange={(e) => setEncerrar(e.target.checked)} style={{ marginTop: 2 }} />
+                    <span>Encerrar a remessa mesmo assim — as <strong>{restanteRemessa - qNum}</strong> peça(s) que não voltaram vão para <strong style={{ color: "var(--danger)" }}>perda</strong>.</span>
+                  </label>
+                )}
+                {fechaRemessa && (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                    <label style={{ ...lbl, marginTop: 0, display: "flex", alignItems: "center", gap: 6 }}>Motivo do fechamento da remessa <span style={{ color: "var(--danger)" }}>*</span></label>
+                    <textarea value={motivoFechamento} onChange={(e) => setMotivoFechamento(e.target.value)} rows={2} placeholder="Ex.: retorno completo e conferido; 2 peças com defeito; etc." style={{ ...inp, resize: "vertical" }} />
+                    <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>{faltantes > 0 ? `${faltantes} peça(s) irão para perda ao encerrar — ` : "Este retorno completa a remessa — "}o motivo é obrigatório.</div>
+                  </div>
+                )}
+              </div>
+            ) : null
           ) : (
-            <p style={{ fontSize: 13, color: "var(--text-2)", margin: "4px 0 0", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>Você tem acesso de visualização. Mover peças e editar processos é só para chefe de setor.</p>
+            <div style={cardBloco}>
+              <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>Você tem acesso de visualização. Mover peças e editar processos é só para chefe de setor.</p>
+            </div>
           )}
         </>
       ) : (
         <>
-          <div style={{ padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
+          <div style={{ ...cardBloco, marginBottom: 10 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px" }}>Detalhes do pedido</span>
               {podeAdministrar && (
@@ -983,7 +987,7 @@ function PainelOficina({ pedido, remessas, movimentos, oficinas }) {
     );
   }
   return (
-    <div style={{ marginTop: 14 }}>
+    <div style={{ ...cardBloco, padding: remessasPedido.length ? "13px 14px" : "13px 14px" }}>
       {remessasPedido.map((r) => {
         const aberta = !r.data_fechamento;
         const restante = (r.qtd_enviada || 0) - (r.qtd_retornada || 0);
@@ -1300,7 +1304,7 @@ function PainelAviamento({ pedido, podeEditar }) {
   }
 
   return (
-    <div style={{ marginTop: 4 }}>
+    <div style={cardBloco}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px" }}>Ficha de aviamentos</span>
         <span style={{ fontSize: 12, fontWeight: 700, color: preenchidos ? "var(--accent)" : "var(--text-3)" }}>{preenchidos} item(ns)</span>
@@ -1368,7 +1372,7 @@ function PainelAmostra({ pedido, podeEditar }) {
   const urlAnexo = anexo ? supabase.storage.from("anexos").getPublicUrl(anexo).data.publicUrl : null;
 
   return (
-    <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+    <div style={cardBloco}>
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Amostra</div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1476,7 +1480,7 @@ function PainelCorte({ pedido, onBloqueioChange, podeEditar }) {
   const pendentes = PROCESSOS_CORTE.filter((n) => processos[n].qtd < pedido.total).map((n) => `${n} (faltam ${pedido.total - processos[n].qtd})`);
 
   return (
-    <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+    <div style={cardBloco}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 9, padding: "8px 12px", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 120 }}>
           <span style={{ fontSize: 11.5, color: "var(--text-3)", whiteSpace: "nowrap" }}>Tam.</span>
@@ -1553,7 +1557,7 @@ function PainelAcabamento({ pedido, onBloqueioChange, podeEditar }) {
   const pendentes = PROCESSOS_ACABAMENTO.filter((n) => processos[n].qtd < pedido.total).map((n) => `${n} (faltam ${pedido.total - processos[n].qtd})`);
 
   return (
-    <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+    <div style={cardBloco}>
       <Rastreio ordem={PROCESSOS_ACABAMENTO} processos={processos} totalPecas={pedido.total} gradePedido={gradePorTamanho(pedido.grade)} podeEditar={podeEditar} onQtd={mudarQtd} onQtdTam={mudarQtdTam} onSalvarQtd={salvarQtd} onTudo={alternarTudo} onObs={mudarObs} onSalvarObs={salvarObs} titulo="Rastreio do acabamento" />
       {pendentes.length > 0 && (
         <div style={{ marginTop: 10, fontSize: 12, color: "var(--danger)", padding: "8px 10px", background: "var(--danger-bg)", borderRadius: 8 }}>
@@ -1670,6 +1674,7 @@ function Rastreio({ ordem, processos, totalPecas, gradePedido, podeEditar, onQtd
 
 const lblMini = { fontSize: 11, color: "var(--text-3)", marginBottom: 3 };
 const inpMini = { width: "100%", padding: "7px 9px", fontSize: 13, borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" };
+const cardBloco = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11, padding: "13px 14px", marginBottom: 12 };
 
 function fmtDataResumo(d) {
   if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
