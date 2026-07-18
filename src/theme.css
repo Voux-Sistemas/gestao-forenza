@@ -3,6 +3,7 @@
   --border:#E4E4DF;--border-strong:#D3D3CC;
   --text:#23231F;--text-2:#6C6C65;--text-3:#9A9A91;
   --accent:#3C8F2E;--accent-2:#54AC3C;--accent-bg:#E9F4E4;--brand:#4BA02D;
+  --zona-grad:linear-gradient(135deg,#DCEFD4 0%,#B9DCAC 100%);--zona-borda:#A9D199;
   --success:#178A5A;--success-bg:#E6F4EC;
   --warning:#B07407;--warning-bg:#FAF0DC;
   --danger:#CB3A3A;--danger-bg:#FBE8E8;
@@ -20,6 +21,7 @@ html[data-theme="dark"]{
   --border:#34343A;--border-strong:#46464D;
   --text:#ECECEA;--text-2:#A2A29B;--text-3:#74746D;
   --accent:#5FBF45;--accent-2:#76CB5C;--accent-bg:#162913;--brand:#5FBE3A;
+  --zona-grad:linear-gradient(135deg,#1B3016 0%,#223F1B 100%);--zona-borda:#33502A;
   --success:#43B080;--success-bg:#15291F;
   --warning:#D49A40;--warning-bg:#2B2310;
   --danger:#E26565;--danger-bg:#2E1818;
