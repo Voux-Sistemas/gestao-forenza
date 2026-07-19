@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient.js";
 import { Search, Eye, Trash2, Archive, Package } from "lucide-react";
-import Overlay from "./Gaveta.jsx";
+import Overlay, { Bloco } from "./Gaveta.jsx";
 import { calcularSaldos, rotuloLocal } from "../etapas.js";
 import GradeTabela, { gradePorTamanho, TAMANHOS_GRADE } from "./GradeTabela.jsx";
 import { ITENS_AVIAMENTO, itemPreenchido } from "../aviamentos.js";
@@ -271,18 +271,15 @@ function DetalhePedido({ pedido, nomeCliente, onFechar }) {
   };
 
   return (
-    <Overlay onFechar={onFechar} largura={560}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, paddingRight: 30 }}>
-        <div>
-          <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>{pedido.referencia}</h3>
-          <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>{nomeCliente} · {(pedido.total || 0).toLocaleString("pt-BR")} peças · arquivado em {fmtData(pedido.arquivado_em)}</p>
-        </div>
-        <button onClick={baixarDossie} disabled={gerando || movs === null} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600, borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: gerando ? "wait" : "pointer" }}>
-          <FileText size={14} /> {gerando ? "Gerando…" : "PDF completo"}
+    <Overlay onFechar={onFechar} largura={560}
+      titulo={pedido.referencia}
+      subtitulo={`${nomeCliente} · ${(pedido.total || 0).toLocaleString("pt-BR")} peças · arquivado em ${fmtData(pedido.arquivado_em)}`}
+      acaoTopo={
+        <button onClick={baixarDossie} disabled={gerando || movs === null} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", fontSize: 12.5, fontWeight: 600, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: gerando ? "wait" : "pointer" }}>
+          <FileText size={14} style={{ color: "var(--accent)" }} /> {gerando ? "…" : "PDF completo"}
         </button>
-      </div>
-
-      <div style={{ padding: "12px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10, marginTop: 16 }}>
+      }>
+      <Bloco>
         <GradeTabela grade={pedido.grade} margem="0 0 10px" />
         {info("Marca", pedido.marca)}
         {info("ID de corte", pedido.corte_id)}
@@ -294,11 +291,12 @@ function DetalhePedido({ pedido, nomeCliente, onFechar }) {
         {info("Volume", pedido.volume)}
         {info("Prazo", pedido.prazo ? fmtData(pedido.prazo) : null)}
         {pedido.observacoes && <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "8px 0 0", whiteSpace: "pre-wrap" }}>{pedido.observacoes}</p>}
-      </div>
+      </Bloco>
 
+      <Bloco>
       {temCls && (
         <>
-          {secTit("Grade de qualidade")}
+          {secTit("Classificação por tamanho")}
           <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 9 }}>
             <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11.5 }}>
               <thead><tr style={{ background: "var(--surface-2)" }}>
@@ -372,6 +370,7 @@ function DetalhePedido({ pedido, nomeCliente, onFechar }) {
           {(m.criado_em || m.data) && <span style={{ marginLeft: "auto", color: "var(--text-3)", fontSize: 11.5, whiteSpace: "nowrap" }}>{fmtDT(m.criado_em || m.data)}</span>}
         </div>
       ))}
+      </Bloco>
     </Overlay>
   );
 }

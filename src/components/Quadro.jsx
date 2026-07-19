@@ -11,7 +11,7 @@ import { ITENS_AVIAMENTO, LARGURAS_ELASTICO, TIPOS_ZIPER, TAMANHOS_ZIPER, TAMANH
 import GradeEditor, { limparGrade } from "./GradeEditor.jsx";
 
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
-import Overlay from "./Gaveta.jsx";
+import Overlay, { Bloco } from "./Gaveta.jsx";
 import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal } from "../etapas.js";
 
 const ICONES_COLUNA = {
@@ -411,7 +411,7 @@ export default function Quadro({ session, perfil }) {
       {mover && <ModalMover dados={mover} oficinas={oficinas} remessas={remessas} movimentos={movimentos} session={session} podeEditar={podeEditar} ehMaster={ehMaster} podeAdministrar={podeVerTudo} onFechar={() => setMover(null)} onOk={(info) => { setMover(null); carregar(); setAviso(avisoDeMovimento(info)); }} />}
       <Toast aviso={aviso} onFechar={() => setAviso(null)} />
       {feedAberto && !podeVerTudo && perfil?.setor && (
-        <Overlay onFechar={() => setFeedAberto(false)} largura={430}>
+        <Overlay onFechar={() => setFeedAberto(false)} largura={430} titulo="Atividade do setor" bgCorpo="var(--surface)">
           <HistoricoDoDia setor={perfil.setor} movimentos={movimentos} pedidos={pedidos} />
         </Overlay>
       )}
@@ -766,15 +766,21 @@ function ModalEditarGrade({ pedido, onFechar, onOk }) {
   }
 
   return (
-    <Overlay onFechar={onFechar} largura={700} zIndex={115}>
-      <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>Tamanhos — {pedido.referencia}</h3>
-      <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "0 0 14px" }}>O total do pedido passa a ser a soma dos tamanhos.</p>
-      <GradeEditor valor={gradeVar} onChange={setGradeVar} />
-      {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "10px 0 0" }}>{erro}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar tamanhos"}</button>
-      </div>
+    <Overlay onFechar={onFechar} largura={700} zIndex={115}
+      titulo={`Tamanhos — ${pedido.referencia}`}
+      subtitulo="O total do pedido passa a ser a soma dos tamanhos."
+      rodape={
+        <>
+          {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px" }}>{erro}</p>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+            <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar tamanhos"}</button>
+          </div>
+        </>
+      }>
+      <Bloco>
+        <GradeEditor valor={gradeVar} onChange={setGradeVar} />
+      </Bloco>
     </Overlay>
   );
 }
@@ -824,7 +830,7 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
   }
 
   return (
-    <Overlay onFechar={onFechar} rodape={
+    <Overlay onFechar={onFechar} titulo="Novo pedido" rodape={
       <>
         {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px" }}>{erro}</p>}
         <div style={{ display: "flex", gap: 8 }}>
@@ -833,7 +839,7 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
         </div>
       </>
     }>
-      <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Novo pedido</h3>
+      <Bloco>
       <label style={lbl}>Cliente</label>
       <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inp}>
         <option value="">Selecionar…</option>
@@ -872,6 +878,7 @@ function ModalNovo({ clientes, oficinas, onFechar, onOk }) {
         <option value="">Selecionar…</option>
         {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
       </select>
+      </Bloco>
     </Overlay>
   );
 }
@@ -1700,15 +1707,15 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
   }, [solicitacaoId]);
 
   return (
-    <Overlay onFechar={onFechar} largura={520} zIndex={110}>
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Ficha e histórico da pilotagem</h3>
-        {descricao && <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{descricao}</p>}
+    <Overlay onFechar={onFechar} largura={520} zIndex={110}
+      titulo="Ficha e histórico da pilotagem"
+      subtitulo={descricao || undefined}
+      rodape={<button onClick={onFechar} style={{ ...btnGhost, width: "100%" }}>Fechar</button>}>
         {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> : (
           <>
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 5 }}>Ficha técnica</div>
+            <Bloco titulo="Ficha técnica">
               {ficha && Object.values(ficha).some((v) => v) ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {[["Referência", ficha.referencia], ["Marca", ficha.marca], ["Descrição do produto", ficha.descricao], ["Data de recebimento", fmtDataResumo(ficha.data_recebimento)], ["Prazo da peça piloto", fmtDataResumo(ficha.prazo_piloto)], ["Produto acabado", ficha.produto_acabado], ["Mão de obra", ficha.mao_de_obra]].filter(([, v]) => v).map(([rot, val]) => (
                     <div key={rot} style={{ display: "flex", gap: 8 }}>
                       <span style={{ fontSize: 12, color: "var(--text-3)", minWidth: 150 }}>{rot}</span>
@@ -1717,12 +1724,11 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 13, color: "var(--text-3)", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8 }}>— sem ficha técnica —</div>
+                <div style={{ fontSize: 13, color: "var(--text-3)" }}>— sem ficha técnica —</div>
               )}
-            </div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>Histórico</div>
-              {comentarios.length === 0 ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Sem registros.</p> : (
+            </Bloco>
+            <Bloco titulo="Histórico">
+              {comentarios.length === 0 ? <p style={{ fontSize: 13, color: "var(--text-3)", margin: 0 }}>Sem registros.</p> : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {comentarios.map((c) => {
                     const ehFabrica = c.autor === "fabrica";
@@ -1739,11 +1745,9 @@ function ResumoPilotagem({ solicitacaoId, onFechar }) {
                   })}
                 </div>
               )}
-            </div>
+            </Bloco>
           </>
         )}
-        <button onClick={onFechar} style={{ ...btnGhost, width: "100%", marginTop: 20 }}>Fechar</button>
-      
     </Overlay>
   );
 }

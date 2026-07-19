@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import Overlay from "./Gaveta.jsx";
+import Overlay, { Bloco } from "./Gaveta.jsx";
 import { comprimirImagem } from "../comprimirImagem.js";
 import { Plus, ImagePlus, X, Trash2, Inbox, ArrowRight, MessageCircle } from "lucide-react";
 import { linkWhatsApp } from "../whatsapp.js";
@@ -257,52 +257,55 @@ function ModalNova({ clientes, onFechar, onOk }) {
   }
 
   return (
-    <Overlay onFechar={onFechar}>
-      <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Nova solicitação</h3>
-      <label style={lbl}>Cliente</label>
-      <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inp}>
-        <option value="">Selecionar…</option>
-        {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-      </select>
-      <label style={{ ...lbl, marginTop: 14 }}>Descrição</label>
-      <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="O que o cliente quer produzir…" style={{ ...inp, resize: "vertical" }} />
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <div style={{ flex: 1 }}><label style={lbl}>Quantidade estimada</label><input type="number" min="0" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} style={inp} /></div>
-        <div style={{ flex: 1 }}><label style={lbl}>Prazo desejado</label><input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} style={inp} /></div>
-      </div>
-
-      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", margin: "22px 0 12px", paddingTop: 16, borderTop: "1px solid var(--border)" }}>Ficha técnica</div>
-      <div style={{ display: "flex", gap: 10 }}>
-        <div style={{ flex: 1 }}><label style={lbl}>Referência</label><input value={ficha.referencia} onChange={setF("referencia")} placeholder="código/nome" style={inp} /></div>
-        <div style={{ flex: 1 }}><label style={lbl}>Marca</label><input value={ficha.marca} onChange={setF("marca")} style={inp} /></div>
-      </div>
-      <label style={{ ...lbl, marginTop: 14 }}>Produto acabado</label>
-      <input value={ficha.produto_acabado} onChange={setF("produto_acabado")} placeholder="ex: camiseta gola redonda" style={inp} />
-      <label style={{ ...lbl, marginTop: 14 }}>Mão de obra</label>
-      <input value={ficha.mao_de_obra} onChange={setF("mao_de_obra")} placeholder="ex: costura, estampa…" style={inp} />
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <div style={{ flex: 1 }}><label style={lbl}>Data de recebimento</label><input type="date" value={ficha.data_recebimento} onChange={setF("data_recebimento")} style={inp} /></div>
-        <div style={{ flex: 1 }}><label style={lbl}>Prazo da peça piloto</label><input type="date" value={ficha.prazo_piloto} onChange={setF("prazo_piloto")} style={inp} /></div>
-      </div>
-
-      <label style={{ ...lbl, marginTop: 18 }}>Foto de referência (opcional)</label>
-      {preview ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <img src={preview} alt="Prévia" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />
-          <button onClick={removerImagem} style={btnMini}><X size={13} /> Remover</button>
+    <Overlay onFechar={onFechar} titulo="Nova solicitação" rodape={
+      <>
+        {erro && <p style={{ ...erroTxt, margin: "0 0 10px" }}>{erro}</p>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+          <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Criar"}</button>
         </div>
-      ) : (
-        <label style={{ ...btnGhost, display: "inline-flex", cursor: "pointer" }}>
-          <ImagePlus size={15} /> <span style={{ marginLeft: 6 }}>Escolher imagem</span>
-          <input type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
-        </label>
-      )}
+      </>
+    }>
+      <Bloco>
+        <label style={lbl}>Cliente</label>
+        <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} style={inp}>
+          <option value="">Selecionar…</option>
+          {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+        </select>
+        <label style={{ ...lbl, marginTop: 14 }}>Descrição</label>
+        <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="O que o cliente quer produzir…" style={{ ...inp, resize: "vertical" }} />
+        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+          <div style={{ flex: 1 }}><label style={lbl}>Quantidade estimada</label><input type="number" min="0" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} style={inp} /></div>
+          <div style={{ flex: 1 }}><label style={lbl}>Prazo desejado</label><input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} style={inp} /></div>
+        </div>
+      </Bloco>
 
-      {erro && <p style={erroTxt}>{erro}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Criar"}</button>
-      </div>
+      <Bloco titulo="Ficha técnica">
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}><label style={lbl}>Referência</label><input value={ficha.referencia} onChange={setF("referencia")} placeholder="código/nome" style={inp} /></div>
+          <div style={{ flex: 1 }}><label style={lbl}>Marca</label><input value={ficha.marca} onChange={setF("marca")} style={inp} /></div>
+        </div>
+        <label style={{ ...lbl, marginTop: 14 }}>Produto acabado</label>
+        <input value={ficha.produto_acabado} onChange={setF("produto_acabado")} placeholder="ex: camiseta gola redonda" style={inp} />
+        <label style={{ ...lbl, marginTop: 14 }}>Mão de obra</label>
+        <input value={ficha.mao_de_obra} onChange={setF("mao_de_obra")} placeholder="ex: costura, estampa…" style={inp} />
+        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+          <div style={{ flex: 1 }}><label style={lbl}>Data de recebimento</label><input type="date" value={ficha.data_recebimento} onChange={setF("data_recebimento")} style={inp} /></div>
+          <div style={{ flex: 1 }}><label style={lbl}>Prazo da peça piloto</label><input type="date" value={ficha.prazo_piloto} onChange={setF("prazo_piloto")} style={inp} /></div>
+        </div>
+        <label style={{ ...lbl, marginTop: 18 }}>Foto de referência (opcional)</label>
+        {preview ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src={preview} alt="Prévia" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />
+            <button onClick={removerImagem} style={btnMini}><X size={13} /> Remover</button>
+          </div>
+        ) : (
+          <label style={{ ...btnGhost, display: "inline-flex", cursor: "pointer" }}>
+            <ImagePlus size={15} /> <span style={{ marginLeft: 6 }}>Escolher imagem</span>
+            <input type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
+          </label>
+        )}
+      </Bloco>
     </Overlay>
   );
 }
@@ -332,17 +335,21 @@ function ModalAcao({ dados, onFechar, onOk }) {
   }
 
   return (
-    <Overlay onFechar={onFechar}>
-      <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 6px" }}>{config.titulo}</h3>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>{config.texto}</p>
+    <Overlay onFechar={onFechar} titulo={config.titulo} subtitulo={config.texto} rodape={
+      <>
+        {erro && <p style={{ ...erroTxt, margin: "0 0 10px" }}>{erro}</p>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+          <button onClick={confirmar} disabled={salvando} style={{ ...(tipo === "recusar" ? btnDanger : btnPrimary), flex: 1 }}>{salvando ? "Salvando…" : config.botao}</button>
+        </div>
+      </>
+    }>
       {config.pedeObs && (
-        <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} autoFocus placeholder="Escreva aqui…" style={{ ...inp, resize: "vertical" }} />
+        <Bloco>
+          <label style={lbl}>{tipo === "recusar" ? "Motivo da recusa" : "Mensagem"}</label>
+          <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} autoFocus placeholder="Escreva aqui…" style={{ ...inp, resize: "vertical" }} />
+        </Bloco>
       )}
-      {erro && <p style={erroTxt}>{erro}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={confirmar} disabled={salvando} style={{ ...(tipo === "recusar" ? btnDanger : btnPrimary), flex: 1 }}>{salvando ? "Salvando…" : config.botao}</button>
-      </div>
     </Overlay>
   );
 }
@@ -398,43 +405,22 @@ function ConversaFabrica({ solicitacao, cliente, onFechar, onMudou }) {
   }
 
   return (
-    <Overlay onFechar={onFechar} largura={520} zIndex={105}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>Conversa com o cliente</div>
-          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
-          <button onClick={() => {
-            const msg = `Olá${cliente ? ", " + cliente.nome : ""}! Deixei uma mensagem para você na sua solicitação aqui na Forenza. Dê uma olhada no portal quando puder. 🙂`;
-            const url = linkWhatsApp(cliente?.whatsapp, msg);
-            if (!url) return window.alert("Este cliente não tem WhatsApp cadastrado (ou o número está incompleto).\n\nAdicione o número com DDD em Cadastros → Clientes.");
-            window.open(url, "_blank", "noopener");
-          }} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 10, padding: "6px 13px", borderRadius: 99, border: "1px solid var(--success)", background: "var(--success-bg)", color: "var(--success)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-            <MessageCircle size={13} /> Avisar no WhatsApp
-          </button>
-        </div>
-        <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
-          {sol.observacao_fabrica && (
-            <div style={{ fontSize: 13, color: "var(--text)", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8, marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", marginBottom: 3 }}>Você pediu</div>
-              {sol.observacao_fabrica}
-            </div>
-          )}
-          {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> :
-            (comentarios.length === 0 && !sol.observacao_fabrica) ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Nenhuma mensagem ainda. Escreva abaixo para falar com o cliente.</p> : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {comentarios.map((c) => {
-                  const ehFabrica = c.autor === "fabrica";
-                  return (
-                    <div key={c.id} style={{ alignSelf: ehFabrica ? "flex-end" : "flex-start", maxWidth: "85%", padding: "8px 12px", borderRadius: 10, background: ehFabrica ? "var(--accent-bg)" : "var(--surface-2)" }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)", marginBottom: 2 }}>{ehFabrica ? "Você" : "Cliente"}</div>
-                      {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
-                      {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", cursor: "pointer" }} /></a>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-        </div>
-        <div style={{ borderTop: "1px solid var(--border)", padding: "14px 20px" }}>
+    <Overlay onFechar={onFechar} largura={520} zIndex={105}
+      titulo="Conversa com o cliente"
+      subtitulo={sol.descricao}
+      bgCorpo="var(--surface)"
+      acaoTopo={
+        <button onClick={() => {
+          const msg = `Olá${cliente ? ", " + cliente.nome : ""}! Deixei uma mensagem para você na sua solicitação aqui na Forenza. Dê uma olhada no portal quando puder. 🙂`;
+          const url = linkWhatsApp(cliente?.whatsapp, msg);
+          if (!url) return window.alert("Este cliente não tem WhatsApp cadastrado (ou o número está incompleto).\n\nAdicione o número com DDD em Cadastros → Clientes.");
+          window.open(url, "_blank", "noopener");
+        }} style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid var(--success)", background: "var(--surface)", color: "var(--success)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+          <MessageCircle size={13} /> WhatsApp
+        </button>
+      }
+      rodape={
+        <>
           {imgFile && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "var(--text-2)" }}>
               <img src={URL.createObjectURL(imgFile)} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
@@ -450,8 +436,29 @@ function ConversaFabrica({ solicitacao, cliente, onFechar, onMudou }) {
             <input value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviar(); }} placeholder="Escreva sua mensagem…" style={{ ...inp, flex: 1 }} />
             <button onClick={enviar} disabled={enviando} style={btnPrimary}>Enviar</button>
           </div>
+        </>
+      }>
+      {sol.observacao_fabrica && (
+        <div style={{ fontSize: 13, color: "var(--text)", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8, marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", marginBottom: 3 }}>Você pediu</div>
+          {sol.observacao_fabrica}
         </div>
-      
+      )}
+      {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> :
+        (comentarios.length === 0 && !sol.observacao_fabrica) ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Nenhuma mensagem ainda. Escreva abaixo para falar com o cliente.</p> : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {comentarios.map((c) => {
+              const ehFabrica = c.autor === "fabrica";
+              return (
+                <div key={c.id} style={{ alignSelf: ehFabrica ? "flex-end" : "flex-start", maxWidth: "85%", padding: "8px 12px", borderRadius: 10, background: ehFabrica ? "var(--accent-bg)" : "var(--surface-2)", border: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)", marginBottom: 2 }}>{ehFabrica ? "Você" : "Cliente"}</div>
+                  {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
+                  {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", cursor: "pointer" }} /></a>}
+                </div>
+              );
+            })}
+          </div>
+        )}
     </Overlay>
   );
 }

@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config.js";
 import { Plus, Pencil, Eye, Trash2 } from "lucide-react";
 import { PRODUCAO, rotuloLocal } from "../etapas.js";
-import Overlay from "./Gaveta.jsx";
+import Overlay, { Bloco } from "./Gaveta.jsx";
 
 export default function Cadastros() {
   const [aba, setAba] = useState("clientes");
@@ -262,12 +262,25 @@ function DetalheCliente({ registro, editarInicial, onFechar, onSalvo }) {
   }
 
   return (
-    <Overlay onFechar={onFechar}>
-      <div style={headerModal}>
-        <h3 style={tituloModal}>{novo ? "Novo cliente" : registro.nome}</h3>
-        {!novo && !editando && <button onClick={() => setEditando(true)} style={btnMini}><Pencil size={13} /> Editar</button>}
-      </div>
-
+    <Overlay onFechar={onFechar}
+      titulo={novo ? "Novo cliente" : registro.nome}
+      acaoTopo={!novo && !editando && <button onClick={() => setEditando(true)} style={btnMini}><Pencil size={13} /> Editar</button>}
+      rodape={
+        <>
+          {erro && <p style={{ ...erroTxt, margin: "0 0 10px" }}>{erro}</p>}
+          <div style={{ display: "flex", gap: 8 }}>
+            {editando ? (
+              <>
+                <button onClick={novo ? onFechar : () => setEditando(false)} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+                <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar"}</button>
+              </>
+            ) : (
+              <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Fechar</button>
+            )}
+          </div>
+        </>
+      }>
+      <Bloco>
       {editando ? (
         <>
           <label style={lbl}>Nome</label>
@@ -306,19 +319,7 @@ function DetalheCliente({ registro, editarInicial, onFechar, onSalvo }) {
           </div>
         </>
       )}
-
-      {erro && <p style={erroTxt}>{erro}</p>}
-
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        {editando ? (
-          <>
-            <button onClick={novo ? onFechar : () => setEditando(false)} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-            <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar"}</button>
-          </>
-        ) : (
-          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Fechar</button>
-        )}
-      </div>
+      </Bloco>
     </Overlay>
   );
 }
@@ -475,12 +476,25 @@ function DetalheOficina({ registro, editarInicial, onFechar, onSalvo }) {
   }
 
   return (
-    <Overlay onFechar={onFechar}>
-      <div style={headerModal}>
-        <h3 style={tituloModal}>{novo ? "Nova oficina" : registro.nome_empresa}</h3>
-        {!novo && !editando && <button onClick={() => setEditando(true)} style={btnMini}><Pencil size={13} /> Editar</button>}
-      </div>
-
+    <Overlay onFechar={onFechar}
+      titulo={novo ? "Nova oficina" : registro.nome_empresa}
+      acaoTopo={!novo && !editando && <button onClick={() => setEditando(true)} style={btnMini}><Pencil size={13} /> Editar</button>}
+      rodape={
+        <>
+          {erro && <p style={{ ...erroTxt, margin: "0 0 10px" }}>{erro}</p>}
+          <div style={{ display: "flex", gap: 8 }}>
+            {editando ? (
+              <>
+                <button onClick={novo ? onFechar : () => setEditando(false)} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+                <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar"}</button>
+              </>
+            ) : (
+              <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Fechar</button>
+            )}
+          </div>
+        </>
+      }>
+      <Bloco>
       {editando ? (
         <>
           <label style={lbl}>Nome da empresa</label>
@@ -514,25 +528,14 @@ function DetalheOficina({ registro, editarInicial, onFechar, onSalvo }) {
           <Campo rotulo="Maquinário" valor={registro.maquinario} />
           <Campo rotulo="Produtos" valor={registro.produtos} />
           <Campo rotulo="Status" valor={registro.ativo ? "Ativo" : "Inativo"} />
-          <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-            <h4 style={{ fontSize: 13, fontWeight: 600, margin: "0 0 12px" }}>Histórico de remessas</h4>
-            <HistoricoRemessas oficinaId={registro.id} />
-          </div>
         </div>
       )}
-
-      {erro && <p style={erroTxt}>{erro}</p>}
-
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        {editando ? (
-          <>
-            <button onClick={novo ? onFechar : () => setEditando(false)} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-            <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar"}</button>
-          </>
-        ) : (
-          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Fechar</button>
-        )}
-      </div>
+      </Bloco>
+      {!editando && !novo && (
+        <Bloco titulo="Histórico de remessas">
+          <HistoricoRemessas oficinaId={registro.id} />
+        </Bloco>
+      )}
     </Overlay>
   );
 }
@@ -718,8 +721,16 @@ function NovoFuncionario({ onFechar, onSalvo }) {
   }
 
   return (
-    <Overlay onFechar={onFechar}>
-      <h3 style={tituloModal}>Novo funcionário</h3>
+    <Overlay onFechar={onFechar} titulo="Novo funcionário" rodape={
+      <>
+        {erro && <p style={{ ...erroTxt, margin: "0 0 10px" }}>{erro}</p>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+          <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Criando…" : "Criar funcionário"}</button>
+        </div>
+      </>
+    }>
+      <Bloco>
       <label style={lbl}>Nome</label>
       <input value={nome} onChange={(e) => setNome(e.target.value)} autoFocus style={inp} />
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
@@ -740,11 +751,7 @@ function NovoFuncionario({ onFechar, onSalvo }) {
           </select>
         </>
       )}
-      {erro && <p style={erroTxt}>{erro}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Criando…" : "Criar funcionário"}</button>
-      </div>
+      </Bloco>
     </Overlay>
   );
 }
@@ -774,12 +781,24 @@ function EditarFuncionario({ registro, somenteVer, onFechar, onSalvo }) {
   const papelLabel = (PAPEIS_STAFF.find(([id]) => id === papel) || [null, papel])[1];
 
   return (
-    <Overlay onFechar={onFechar}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <h3 style={tituloModal}>{registro.nome || "Funcionário"}</h3>
-        {!editando && <button onClick={() => setEditando(true)} style={btnMini}><Pencil size={13} /> Editar</button>}
-      </div>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Usuário: {usuario}</p>
+    <Overlay onFechar={onFechar}
+      titulo={registro.nome || "Funcionário"}
+      subtitulo={`Usuário: ${usuario}`}
+      acaoTopo={!editando && <button onClick={() => setEditando(true)} style={btnMini}><Pencil size={13} /> Editar</button>}
+      rodape={
+        editando ? (
+          <>
+            {erro && <p style={{ ...erroTxt, margin: "0 0 10px" }}>{erro}</p>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={somenteVer ? () => setEditando(false) : onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+              <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar"}</button>
+            </div>
+          </>
+        ) : (
+          <button onClick={onFechar} style={{ ...btnGhost, width: "100%" }}>Fechar</button>
+        )
+      }>
+      <Bloco>
       {editando ? (
         <>
           <label style={lbl}>Nome</label>
@@ -797,11 +816,6 @@ function EditarFuncionario({ registro, somenteVer, onFechar, onSalvo }) {
               </select>
             </>
           )}
-          {erro && <p style={erroTxt}>{erro}</p>}
-          <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-            <button onClick={somenteVer ? () => setEditando(false) : onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-            <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Salvar"}</button>
-          </div>
         </>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -811,6 +825,7 @@ function EditarFuncionario({ registro, somenteVer, onFechar, onSalvo }) {
           <Campo rotulo="Status" valor={registro.ativo !== false ? "Ativo" : "Inativo"} />
         </div>
       )}
+      </Bloco>
     </Overlay>
   );
 }
