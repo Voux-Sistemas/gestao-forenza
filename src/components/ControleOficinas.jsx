@@ -5,7 +5,7 @@ import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
 import { calcularSaldos, rotuloLocal } from "../etapas.js";
 import { gerarPdfOficinas } from "../pdfOficinas.js";
-import Overlay from "./Gaveta.jsx";
+import Overlay, { Bloco } from "./Gaveta.jsx";
 
 const LOCAIS_PRE_OFICINA = ["Entrada", "Corte"];      // de onde podem sair peças pra oficina
 const DESTINOS_POS_OFICINA = ["Acabamento", "Estoque", "Perda"];
@@ -503,46 +503,49 @@ function ModalNovaSaida({ pedidos, oficinas, movimentos, clientes, session, onFe
   }
 
   return (
-    <Overlay onFechar={onFechar}>
-      <h3 style={tituloModal}>Registrar saída para oficina</h3>
-      <label style={lbl}>Pedido</label>
-      <select value={pedidoId} onChange={(e) => setPedidoId(e.target.value)} autoFocus style={inp}>
-        <option value="">Selecionar…</option>
-        {pedidosDisponiveis.map(({ p, saldo }) => {
-          const cli = clientes.find((c) => c.id === p.cliente_id)?.nome || "—";
-          return <option key={p.id} value={p.id}>{p.referencia} — {cli} ({rotuloLocal("Entrada")}: {saldo.Entrada}, Corte: {saldo.Corte})</option>;
-        })}
-      </select>
-
-      <label style={{ ...lbl, marginTop: 12 }}>Saindo de</label>
-      <select value={origem} onChange={(e) => setOrigem(e.target.value)} style={inp}>
-        <option value="">Selecionar…</option>
-        {LOCAIS_PRE_OFICINA.map((l) => <option key={l} value={l}>{rotuloLocal(l)}</option>)}
-      </select>
-      {pedidoSelecionado && origem && <p style={{ fontSize: 11.5, color: "var(--text-3)", margin: "4px 0 0" }}>Disponível em {rotuloLocal(origem)}: <strong>{saldoOrigem}</strong> peça(s)</p>}
-
-      <label style={{ ...lbl, marginTop: 12 }}>Oficina</label>
-      <select value={oficinaId} onChange={(e) => setOficinaId(e.target.value)} style={inp}>
-        <option value="">Selecionar…</option>
-        {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
-      </select>
-
-      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-        <div style={{ flex: 1 }}>
-          <label style={lbl}>Quantidade</label>
-          <input type="number" min="1" max={saldoOrigem || undefined} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
+    <Overlay onFechar={onFechar} titulo="Registrar saída para oficina" rodape={
+      <>
+        {erro && <p style={{ ...erroTxt, margin: "0 0 10px" }}>{erro}</p>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+          <button onClick={confirmar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Registrar saída"}</button>
         </div>
-        <div style={{ flex: 1 }}>
-          <label style={lbl}>Data da saída</label>
-          <input type="date" value={dataSaida} onChange={(e) => setDataSaida(e.target.value)} style={inp} />
-        </div>
-      </div>
+      </>
+    }>
+      <Bloco>
+        <label style={lbl}>Pedido</label>
+        <select value={pedidoId} onChange={(e) => setPedidoId(e.target.value)} autoFocus style={inp}>
+          <option value="">Selecionar…</option>
+          {pedidosDisponiveis.map(({ p, saldo }) => {
+            const cli = clientes.find((c) => c.id === p.cliente_id)?.nome || "—";
+            return <option key={p.id} value={p.id}>{p.referencia} — {cli} ({rotuloLocal("Entrada")}: {saldo.Entrada}, Corte: {saldo.Corte})</option>;
+          })}
+        </select>
 
-      {erro && <p style={erroTxt}>{erro}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={confirmar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Registrar saída"}</button>
-      </div>
+        <label style={{ ...lbl, marginTop: 12 }}>Saindo de</label>
+        <select value={origem} onChange={(e) => setOrigem(e.target.value)} style={inp}>
+          <option value="">Selecionar…</option>
+          {LOCAIS_PRE_OFICINA.map((l) => <option key={l} value={l}>{rotuloLocal(l)}</option>)}
+        </select>
+        {pedidoSelecionado && origem && <p style={{ fontSize: 11.5, color: "var(--text-3)", margin: "4px 0 0" }}>Disponível em {rotuloLocal(origem)}: <strong>{saldoOrigem}</strong> peça(s)</p>}
+
+        <label style={{ ...lbl, marginTop: 12 }}>Oficina</label>
+        <select value={oficinaId} onChange={(e) => setOficinaId(e.target.value)} style={inp}>
+          <option value="">Selecionar…</option>
+          {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
+        </select>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label style={lbl}>Quantidade</label>
+            <input type="number" min="1" max={saldoOrigem || undefined} value={qtd} onChange={(e) => setQtd(e.target.value)} style={inp} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={lbl}>Data da saída</label>
+            <input type="date" value={dataSaida} onChange={(e) => setDataSaida(e.target.value)} style={inp} />
+          </div>
+        </div>
+      </Bloco>
     </Overlay>
   );
 }
@@ -584,35 +587,34 @@ function ModalRegistrarRetorno({ dados, session, onFechar, onOk }) {
   }
 
   return (
-    <Overlay onFechar={onFechar}>
-      <h3 style={tituloModal}>Registrar retorno</h3>
-      <div style={{ padding: "10px 12px", background: "var(--surface-2)", borderRadius: 9, marginBottom: 14 }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{pedido?.referencia || "#" + remessa.pedido_id}</div>
-        <div style={{ fontSize: 11.5, color: "var(--text-2)", marginTop: 2 }}>Saiu {fmtData(remessa.data_saida)} · Enviadas {remessa.qtd_enviada} · Retornaram {remessa.qtd_retornada} · <strong>Faltam {restante}</strong></div>
-      </div>
-
-      <div style={{ display: "flex", gap: 10 }}>
-        <div style={{ flex: 1 }}>
-          <label style={lbl}>Peças retornando</label>
-          <input type="number" min="1" max={restante} value={qtd} onChange={(e) => setQtd(e.target.value)} autoFocus style={inp} />
+    <Overlay onFechar={onFechar} titulo="Registrar retorno" subtitulo={pedido?.referencia || "#" + remessa.pedido_id} rodape={
+      <>
+        {erro && <p style={{ ...erroTxt, margin: "0 0 10px" }}>{erro}</p>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+          <button onClick={confirmar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Registrar retorno"}</button>
         </div>
-        <div style={{ flex: 1 }}>
-          <label style={lbl}>Data do retorno</label>
-          <input type="date" value={dataRetorno} onChange={(e) => setDataRetorno(e.target.value)} style={inp} />
+      </>
+    }>
+      <Bloco>
+        <div style={{ fontSize: 11.5, color: "var(--text-2)", marginBottom: 12 }}>Saiu {fmtData(remessa.data_saida)} · Enviadas {remessa.qtd_enviada} · Retornaram {remessa.qtd_retornada} · <strong>Faltam {restante}</strong></div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={lbl}>Peças retornando</label>
+            <input type="number" min="1" max={restante} value={qtd} onChange={(e) => setQtd(e.target.value)} autoFocus style={inp} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={lbl}>Data do retorno</label>
+            <input type="date" value={dataRetorno} onChange={(e) => setDataRetorno(e.target.value)} style={inp} />
+          </div>
         </div>
-      </div>
 
-      <label style={{ ...lbl, marginTop: 12 }}>Destino na fábrica</label>
-      <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
-        <option value="">Selecionar…</option>
-        {DESTINOS_POS_OFICINA.map((l) => <option key={l} value={l}>{rotuloLocal(l)}</option>)}
-      </select>
-
-      {erro && <p style={erroTxt}>{erro}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={confirmar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Registrar retorno"}</button>
-      </div>
+        <label style={{ ...lbl, marginTop: 12 }}>Destino na fábrica</label>
+        <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
+          <option value="">Selecionar…</option>
+          {DESTINOS_POS_OFICINA.map((l) => <option key={l} value={l}>{rotuloLocal(l)}</option>)}
+        </select>
+      </Bloco>
     </Overlay>
   );
 }

@@ -6,7 +6,7 @@ import { calcularSaldos as saldos } from "../etapas.js";
 import { arquivarSeConcluido } from "../arquivamento.js";
 import GradeTabela, { normalizarGrade, gradePorTamanho, totalGrade, TAMANHOS_GRADE } from "./GradeTabela.jsx";
 import { gerarPdfEtapa } from "../pdfEtapa.js";
-import Overlay from "./Gaveta.jsx";
+import Overlay, { Bloco } from "./Gaveta.jsx";
 
 export default function Estoque({ session, perfil }) {
   const [aba, setAba] = useState("espera");
@@ -290,87 +290,89 @@ function ModalInspecao({ dados, session, pdfId, onPdf, onFechar, onOk }) {
   const inpCelI = { width: "100%", boxSizing: "border-box", border: "none", background: "transparent", textAlign: "center", fontSize: 12.5, padding: "6px 4px", color: "var(--text)", fontFamily: "inherit", outline: "none" };
 
   return (
-    <Overlay onFechar={onFechar}>
-      <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Inspecionar — {pe.referencia}</h3>
-      <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 12px" }}>{disponivel} peças aguardando classificação — informe os tamanhos de cada qualidade.</p>
-      {onPdf && (
-        <button onClick={() => onPdf(pe, disponivel)} disabled={pdfId === pe.id} style={{ ...btnGhost, marginBottom: 14 }}>
-          <FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "Baixar PDF"}
+    <Overlay onFechar={onFechar}
+      titulo={`Inspecionar — ${pe.referencia}`}
+      subtitulo={`${disponivel} peças aguardando classificação`}
+      acaoTopo={onPdf && (
+        <button onClick={() => onPdf(pe, disponivel)} disabled={pdfId === pe.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer", fontSize: 12.5, fontWeight: 600 }}>
+          <FileText size={14} style={{ color: "var(--accent)" }} /> {pdfId === pe.id ? "…" : "PDF"}
         </button>
       )}
-
-      <label style={lbl}>Número da nota fiscal <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
-      <input value={notaFiscal} onChange={(e) => setNotaFiscal(e.target.value)} placeholder="Ex.: 12345" style={{ ...inp, marginBottom: 16 }} />
-
-      {gradeVisivel && (
+      rodape={
         <>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Grade do pedido</div>
-          <GradeTabela grade={pe.grade} margem="0 0 18px" />
+          {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 8px" }}>{erro}</p>}
+          <div style={{ fontSize: 12, color: restante < 0 ? "var(--danger)" : "var(--text-3)", marginBottom: 10 }}>
+            {soma} de {disponivel} classificadas · {restante >= 0 ? `${restante} ficam em espera` : "passou do disponível"}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+            <button onClick={confirmar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Confirmar"}</button>
+          </div>
         </>
-      )}
+      }>
+      <Bloco>
+        <label style={lbl}>Número da nota fiscal <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(opcional)</span></label>
+        <input value={notaFiscal} onChange={(e) => setNotaFiscal(e.target.value)} placeholder="Ex.: 12345" style={{ ...inp, marginBottom: gradeVisivel ? 16 : 0 }} />
+        {gradeVisivel && (
+          <>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Grade do pedido</div>
+            <GradeTabela grade={pe.grade} margem="0" />
+          </>
+        )}
+      </Bloco>
 
-      {temGrade ? (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Enviar para 1ª / 2ª qualidade</div>
-          <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 9 }}>
-            <table style={{ borderCollapse: "collapse", width: "100%" }}>
-              <thead>
-                <tr>
-                  <th style={{ ...thI, textAlign: "left", minWidth: 96 }}>QUALIDADE</th>
-                  {tamanhos.map((t) => <th key={t} style={thI}>{t}</th>)}
-                  <th style={{ ...thI, background: "var(--surface-3)", color: "var(--text-2)" }}>TOTAL</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ ...celI, textAlign: "left", fontWeight: 700, color: "var(--success)" }}>1ª qualidade</td>
-                  {tamanhos.map((t) => <td key={t} style={celInputI}><input type="number" min="0" value={g1[t] ?? "0"} onChange={(e) => setSize(setG1)(t, e.target.value)} style={{ ...inpCelI, color: "var(--success)", fontWeight: 600 }} /></td>)}
-                  <td style={{ ...celI, background: "var(--surface-2)", fontWeight: 800, color: "var(--success)" }}>{n1}</td>
-                </tr>
-                <tr>
-                  <td style={{ ...celI, textAlign: "left", fontWeight: 700, color: "var(--orange)" }}>2ª qualidade</td>
-                  {tamanhos.map((t) => <td key={t} style={celInputI}><input type="number" min="0" value={g2[t] ?? "0"} onChange={(e) => setSize(setG2)(t, e.target.value)} style={{ ...inpCelI, color: "var(--orange)", fontWeight: 600 }} /></td>)}
-                  <td style={{ ...celI, background: "var(--surface-2)", fontWeight: 800, color: "var(--orange)" }}>{n2}</td>
-                </tr>
-                <tr>
-                  <td style={{ ...celI, textAlign: "left", fontWeight: 700, background: "var(--surface-2)", color: "var(--text-2)" }}>TOTAL</td>
-                  {tamanhos.map((t) => { const soma = (parseInt(g1[t], 10) || 0) + (parseInt(g2[t], 10) || 0); return <td key={t} style={{ ...celI, background: "var(--surface-2)", fontWeight: 700, color: soma ? "var(--accent)" : "var(--text-3)" }}>{soma || "·"}</td>; })}
-                  <td style={{ ...celI, background: "var(--accent-bg)", fontWeight: 800, color: "var(--accent)" }}>{n1 + n2}</td>
-                </tr>
-              </tbody>
-            </table>
+      <Bloco>
+        {temGrade ? (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Enviar para 1ª / 2ª qualidade</div>
+            <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 9 }}>
+              <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...thI, textAlign: "left", minWidth: 96 }}>QUALIDADE</th>
+                    {tamanhos.map((t) => <th key={t} style={thI}>{t}</th>)}
+                    <th style={{ ...thI, background: "var(--surface-3)", color: "var(--text-2)" }}>TOTAL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ ...celI, textAlign: "left", fontWeight: 700, color: "var(--success)" }}>1ª qualidade</td>
+                    {tamanhos.map((t) => <td key={t} style={celInputI}><input type="number" min="0" value={g1[t] ?? "0"} onChange={(e) => setSize(setG1)(t, e.target.value)} style={{ ...inpCelI, color: "var(--success)", fontWeight: 600 }} /></td>)}
+                    <td style={{ ...celI, background: "var(--surface-2)", fontWeight: 800, color: "var(--success)" }}>{n1}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...celI, textAlign: "left", fontWeight: 700, color: "var(--orange)" }}>2ª qualidade</td>
+                    {tamanhos.map((t) => <td key={t} style={celInputI}><input type="number" min="0" value={g2[t] ?? "0"} onChange={(e) => setSize(setG2)(t, e.target.value)} style={{ ...inpCelI, color: "var(--orange)", fontWeight: 600 }} /></td>)}
+                    <td style={{ ...celI, background: "var(--surface-2)", fontWeight: 800, color: "var(--orange)" }}>{n2}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ ...celI, textAlign: "left", fontWeight: 700, background: "var(--surface-2)", color: "var(--text-2)" }}>TOTAL</td>
+                    {tamanhos.map((t) => { const soma = (parseInt(g1[t], 10) || 0) + (parseInt(g2[t], 10) || 0); return <td key={t} style={{ ...celI, background: "var(--surface-2)", fontWeight: 700, color: soma ? "var(--accent)" : "var(--text-3)" }}>{soma || "·"}</td>; })}
+                    <td style={{ ...celI, background: "var(--accent-bg)", fontWeight: 800, color: "var(--accent)" }}>{n1 + n2}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: 10 }}>
-          <div style={{ flex: 1 }}>
-            <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)", display: "inline-block", marginRight: 6 }} />1ª qualidade</label>
-            <input type="number" min="0" max={disponivel} value={q1} onChange={(e) => setQ1(e.target.value)} autoFocus style={inp} />
+        ) : (
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--success)", display: "inline-block", marginRight: 6 }} />1ª qualidade</label>
+              <input type="number" min="0" max={disponivel} value={q1} onChange={(e) => setQ1(e.target.value)} autoFocus style={inp} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--orange)", display: "inline-block", marginRight: 6 }} />2ª qualidade</label>
+              <input type="number" min="0" max={disponivel} value={q2} onChange={(e) => setQ2(e.target.value)} style={inp} />
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={lbl}><span style={{ width: 8, height: 8, borderRadius: 99, background: "var(--orange)", display: "inline-block", marginRight: 6 }} />2ª qualidade</label>
-            <input type="number" min="0" max={disponivel} value={q2} onChange={(e) => setQ2(e.target.value)} style={inp} />
+        )}
+        {soma > 0 && (
+          <div style={{ display: "flex", height: 8, borderRadius: 99, overflow: "hidden", background: "var(--surface-3)", marginTop: 12 }}>
+            {n1 > 0 && <div style={{ width: `${p1}%`, background: "var(--success)" }} />}
+            {n2 > 0 && <div style={{ width: `${100 - p1}%`, background: "var(--orange)" }} />}
           </div>
-        </div>
-      )}
-
-      {soma > 0 && (
-        <div style={{ display: "flex", height: 8, borderRadius: 99, overflow: "hidden", background: "var(--surface-3)", marginTop: 4 }}>
-          {n1 > 0 && <div style={{ width: `${p1}%`, background: "var(--success)" }} />}
-          {n2 > 0 && <div style={{ width: `${100 - p1}%`, background: "var(--orange)" }} />}
-        </div>
-      )}
-
-      <div style={{ fontSize: 12, color: restante < 0 ? "var(--danger)" : "var(--text-2)", marginTop: 10 }}>
-        {soma} de {disponivel} classificadas · {restante >= 0 ? `${restante} ficam em espera` : "passou do disponível"}
-      </div>
-
-      {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "12px 0 0" }}>{erro}</p>}
-
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-        <button onClick={confirmar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Salvando…" : "Confirmar"}</button>
-      </div>
+        )}
+      </Bloco>
     </Overlay>
   );
 }
@@ -455,7 +457,21 @@ function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, session, on
   const inpCel = { width: "100%", border: "none", background: "transparent", textAlign: "center", fontSize: 12.5, padding: "6px 2px", color: "var(--text)", fontFamily: "inherit", outline: "none" };
 
   return (
-    <Overlay onFechar={onFechar} largura={720} rodape={
+    <Overlay onFechar={onFechar} largura={720}
+      titulo={pe.referencia}
+      subtitulo={
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, color: "var(--text-2)" }}>{nomeCliente(pe.cliente_id)}</span>
+          {pe.marca && <span style={tag}>{pe.marca}</span>}
+          {pe.nota_fiscal && <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-2)", background: "var(--surface)", borderRadius: 99, padding: "2px 8px" }}>NF {pe.nota_fiscal}</span>}
+        </div>
+      }
+      acaoTopo={
+        <button onClick={onPdf} disabled={pdfId === pe.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer", fontSize: 12.5, fontWeight: 600 }}>
+          <FileText size={14} style={{ color: "var(--accent)" }} /> {pdfId === pe.id ? "…" : "PDF"}
+        </button>
+      }
+      rodape={
       baixaAberta ? (
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setBaixaAberta(false)} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
@@ -472,21 +488,7 @@ function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, session, on
         </div>
       )
     }>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 4, paddingRight: 32 }}>
-        <div>
-          <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 2px" }}>{pe.referencia}</h3>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, color: "var(--text-2)" }}>{nomeCliente(pe.cliente_id)}</span>
-            {pe.marca && <span style={tag}>{pe.marca}</span>}
-            {pe.nota_fiscal && <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-2)", background: "var(--surface-2)", borderRadius: 99, padding: "2px 8px" }}>NF {pe.nota_fiscal}</span>}
-          </div>
-        </div>
-        <button onClick={onPdf} disabled={pdfId === pe.id} style={{ ...btnGhost, flexShrink: 0 }}>
-          <FileText size={14} /> {pdfId === pe.id ? "Gerando…" : "PDF do pedido"}
-        </button>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, margin: "16px 0" }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <div style={{ flex: 1, padding: "9px 12px", borderRadius: 9, background: "var(--success-bg)" }}>
           <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".4px", color: "var(--success)" }}>1ª QUALIDADE</div>
           <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.2, color: d1 > 0 ? "var(--success)" : "var(--text-3)" }}>{d1}</div>
@@ -517,9 +519,10 @@ function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, session, on
         </div>
       )}
 
-      {cls && <TabelaClassificacao cls={cls} />}
+      {cls && <Bloco><TabelaClassificacao cls={cls} /></Bloco>}
 
-      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".4px", margin: "14px 0 8px" }}>Grade de faturamento</div>
+      <Bloco>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".4px", margin: "0 0 8px" }}>Grade de faturamento</div>
       <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 10 }}>
         <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 640 }}>
           <thead>
@@ -566,6 +569,7 @@ function ModalDetalhes({ pe, s, cls, nomeCliente, podeBaixar, pdfId, session, on
       <textarea value={obs} onChange={(e) => { setSalvo(false); setObs(e.target.value); }} rows={3} placeholder="ex: 1 pç p/ showroom, falta 2 pçs da oficina…" style={{ ...inp, resize: "vertical" }} />
 
       {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "10px 0 0" }}>{erro}</p>}
+      </Bloco>
     </Overlay>
   );
 }
@@ -585,7 +589,7 @@ function TabelaClassificacao({ cls }) {
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Grade de Qualidade</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 8 }}>Classificação por tamanho</div>
       <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 9 }}>
         <table style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead>
