@@ -70,22 +70,36 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   };
 
   // Título de seção: caixa verde-clara com texto centralizado verticalmente. Avança y.
+  let secaoN = 0;
   const tituloSecao = (texto, sufixo) => {
-    const t = texto.toUpperCase();
-    const boxH = 7;
+    secaoN += 1;
+    const num = String(secaoN).padStart(2, "0");
+    const boxSize = 6.5;
     const boxTop = y;
-    doc.setFont("helvetica", "bold").setFontSize(9);
-    const wtxt = doc.getTextWidth(t);
-    // Caixa
-    doc.setFillColor(225, 240, 233).roundedRect(mx, boxTop, wtxt + 10, boxH, 1.5, 1.5, "F");
-    // Texto centralizado na vertical da caixa (baseline ≈ topo + altura*0.68)
-    doc.setTextColor(...VERDE_ESCURO);
-    doc.text(t, mx + 5, boxTop + boxH * 0.68);
+    const base = boxTop + boxSize * 0.72;   // baseline do texto
+    const meio = boxTop + boxSize / 2;      // centro vertical (para a régua)
+    // Quadradinho do número (contorno escuro, sem preenchimento)
+    doc.setDrawColor(...TINTA).setLineWidth(0.4).roundedRect(mx, boxTop, boxSize, boxSize, 1.3, 1.3, "S");
+    doc.setFont("helvetica", "bold").setFontSize(8.5).setTextColor(...TINTA);
+    doc.text(num, mx + boxSize / 2, base, { align: "center" });
+    // Título (escuro, caixa normal)
+    const titleX = mx + boxSize + 3.5;
+    doc.setFont("helvetica", "bold").setFontSize(10.5).setTextColor(...TINTA);
+    doc.text(texto, titleX, base);
+    const titleW = doc.getTextWidth(texto);
+    // Sufixo à direita (ex.: "5 de 8 concluídos")
+    let fimRegua = larg - mx;
     if (sufixo) {
       doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
-      doc.text(sufixo, larg - mx, boxTop + boxH * 0.68, { align: "right" });
+      doc.text(sufixo, larg - mx, base, { align: "right" });
+      fimRegua = larg - mx - doc.getTextWidth(sufixo) - 4;
     }
-    y = boxTop + boxH + 6;
+    // Régua fina entre o título e o sufixo/margem
+    const inicioRegua = titleX + titleW + 4;
+    if (fimRegua > inicioRegua) {
+      doc.setDrawColor(226, 229, 223).setLineWidth(0.3).line(inicioRegua, meio, fimRegua, meio);
+    }
+    y = boxTop + boxSize + 6;
   };
 
   // ── Faixa de cor no topo (degradê simulado com blocos) ──

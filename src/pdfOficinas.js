@@ -62,15 +62,30 @@ export function gerarPdfOficinas({ grupos, titulo }) {
     y += header ? 6 : 6.5;
   };
 
+  let secaoN = 0;
   grupos.forEach((g) => {
     const totalFora = g.abertas.reduce((s, r) => s + (r.enviada - r.retornada), 0);
     quebra(30);
-    // Título da oficina
-    doc.setFillColor(237, 247, 242).roundedRect(mx, y - 4, larg - mx * 2, 9, 2, 2, "F");
-    doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(...VERDE_ESCURO);
-    doc.text(g.nome, mx + 4, y + 2);
+    // Título da oficina — numerado, estilo neutro (sem faixa verde)
+    secaoN += 1;
+    const num = String(secaoN).padStart(2, "0");
+    const boxSize = 7;
+    const boxTop = y - 4;
+    const base = boxTop + boxSize * 0.72;
+    const meio = boxTop + boxSize / 2;
+    doc.setDrawColor(...TINTA).setLineWidth(0.4).roundedRect(mx, boxTop, boxSize, boxSize, 1.3, 1.3, "S");
+    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...TINTA);
+    doc.text(num, mx + boxSize / 2, base, { align: "center" });
+    const titleX = mx + boxSize + 3.5;
+    doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(...TINTA);
+    doc.text(g.nome, titleX, base);
+    const titleW = doc.getTextWidth(g.nome);
+    const suf = `${g.abertas.length} em aberto · ${totalFora} peça(s) fora · ${g.fechadas.length} fechada(s)`;
     doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...CINZA);
-    doc.text(`${g.abertas.length} em aberto · ${totalFora} peça(s) fora · ${g.fechadas.length} fechada(s)`, larg - mx - 4, y + 2, { align: "right" });
+    doc.text(suf, larg - mx, base, { align: "right" });
+    const inicioRegua = titleX + titleW + 4;
+    const fimRegua = larg - mx - doc.getTextWidth(suf) - 4;
+    if (fimRegua > inicioRegua) doc.setDrawColor(226, 229, 223).setLineWidth(0.3).line(inicioRegua, meio, fimRegua, meio);
     y += 13;
 
     // Em aberto
