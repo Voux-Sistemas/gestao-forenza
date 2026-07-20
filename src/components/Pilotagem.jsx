@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient.js";
-import Gaveta from "./Gaveta.jsx";
+import Gaveta, { Bloco } from "./Gaveta.jsx";
 import { comprimirImagem } from "../comprimirImagem.js";
 import GradeEditor, { limparGrade } from "./GradeEditor.jsx";
 import { totalGrade } from "./GradeTabela.jsx";
@@ -107,87 +107,82 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
   }
 
   return (
-    <Gaveta onFechar={onFechar} largura={640} zIndex={105}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", gap: 12 }}>
-            {sol.imagem_url && <img src={sol.imagem_url} alt="Referência" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />}
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 600 }}>Pilotagem — {nomeCliente}</div>
-              <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ padding: "18px 20px", overflowY: "auto", flex: 1 }}>
-          <div style={{ marginBottom: 22 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--text-2)" }}>Ficha técnica</label>
-              {!aprovada && (
-                <button onClick={salvarFicha} disabled={salvandoFicha} style={btnMini}>
-                  {salvandoFicha ? "Salvando…" : fichaSalva ? "Salvo ✓" : "Salvar ficha"}
-                </button>
-              )}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "flex", gap: 10 }}>
-                <div style={{ flex: 1 }}><div style={lblF}>Referência</div><input value={ficha.referencia} onChange={setF("referencia")} disabled={aprovada} style={inp} /></div>
-                <div style={{ flex: 1 }}><div style={lblF}>Marca</div><input value={ficha.marca} onChange={setF("marca")} disabled={aprovada} style={inp} /></div>
-              </div>
-              <div><div style={lblF}>Descrição do produto</div><input value={ficha.descricao} onChange={setF("descricao")} disabled={aprovada} style={inp} /></div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <div style={{ flex: 1 }}><div style={lblF}>Data de recebimento</div><input type="date" value={ficha.data_recebimento} onChange={setF("data_recebimento")} disabled={aprovada} style={inp} /></div>
-                <div style={{ flex: 1 }}><div style={lblF}>Prazo da peça piloto</div><input type="date" value={ficha.prazo_piloto} onChange={setF("prazo_piloto")} disabled={aprovada} style={inp} /></div>
-              </div>
-              <div><div style={lblF}>Produto acabado</div><input value={ficha.produto_acabado} onChange={setF("produto_acabado")} disabled={aprovada} style={inp} /></div>
-              <div><div style={lblF}>Mão de obra</div><input value={ficha.mao_de_obra} onChange={setF("mao_de_obra")} disabled={aprovada} style={inp} /></div>
-            </div>
-            {aprovada && <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 8 }}>Solicitação aprovada — ficha em modo leitura.</p>}
-          </div>
-
+    <Gaveta onFechar={onFechar} largura={640} zIndex={105}
+      titulo={
+        <div style={{ display: "flex", gap: 12 }}>
+          {sol.imagem_url && <img src={sol.imagem_url} alt="Referência" style={{ width: 46, height: 46, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />}
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--text-2)", display: "block", marginBottom: 10 }}>Histórico de pilotagem</label>
-            {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> :
-              comentarios.length === 0 ? <p style={{ fontSize: 13, color: "var(--text-3)", margin: "0 0 12px" }}>Nenhum registro ainda. Escreva o primeiro abaixo.</p> : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-                  {comentarios.map((c) => {
-                    const ehFabrica = c.autor === "fabrica";
-                    return (
-                      <div key={c.id} style={{ borderLeft: `3px solid ${ehFabrica ? "var(--accent)" : "var(--success)"}`, padding: "8px 12px", background: "var(--surface-2)", borderRadius: 8 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)" }}>{ehFabrica ? "Fábrica" : "Cliente"}</span>
-                          <span style={{ fontSize: 11, color: "var(--text-3)" }}>{dataHora(c.criado_em)}</span>
-                        </div>
-                        {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
-                        {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", cursor: "pointer" }} /></a>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            {imgComent && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "var(--text-2)" }}>
-                <img src={URL.createObjectURL(imgComent)} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
-                <span style={{ flex: 1 }}>{imgComent.name}</span>
-                <button onClick={() => setImgComent(null)} style={{ ...btnGhost, padding: "4px 8px" }}>Remover</button>
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 8 }}>
-              <label style={{ ...btnGhost, cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "8px 12px" }}>
-                <ImagePlus size={16} />
-                <input type="file" accept="image/*" onChange={(e) => setImgComent(e.target.files[0] || null)} style={{ display: "none" }} />
-              </label>
-              <input value={novoComent} onChange={(e) => setNovoComent(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviarComentario(); }} placeholder="Escrever no histórico (ex: piloto enviado, ajuste pedido…)" style={{ ...inp, flex: 1 }} />
-              <button onClick={enviarComentario} disabled={enviando} style={btnPrimary}><Send size={15} /></button>
-            </div>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>Pilotagem — {nomeCliente}</div>
+            <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
           </div>
         </div>
-
-        <div style={{ display: "flex", gap: 8, padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
+      }
+      rodape={
+        <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Fechar</button>
           <button onClick={aprovarDireto} disabled={gerando} style={{ ...btnSuccess, flex: 1 }}>{gerando ? "Gerando pedido…" : "Aprovar piloto → gerar pedido"}</button>
         </div>
-      
+      }>
+      <Bloco>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--text-2)" }}>Ficha técnica</label>
+          {!aprovada && (
+            <button onClick={salvarFicha} disabled={salvandoFicha} style={btnMini}>
+              {salvandoFicha ? "Salvando…" : fichaSalva ? "Salvo ✓" : "Salvar ficha"}
+            </button>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}><div style={lblF}>Referência</div><input value={ficha.referencia} onChange={setF("referencia")} disabled={aprovada} style={inp} /></div>
+            <div style={{ flex: 1 }}><div style={lblF}>Marca</div><input value={ficha.marca} onChange={setF("marca")} disabled={aprovada} style={inp} /></div>
+          </div>
+          <div><div style={lblF}>Descrição do produto</div><input value={ficha.descricao} onChange={setF("descricao")} disabled={aprovada} style={inp} /></div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}><div style={lblF}>Data de recebimento</div><input type="date" value={ficha.data_recebimento} onChange={setF("data_recebimento")} disabled={aprovada} style={inp} /></div>
+            <div style={{ flex: 1 }}><div style={lblF}>Prazo da peça piloto</div><input type="date" value={ficha.prazo_piloto} onChange={setF("prazo_piloto")} disabled={aprovada} style={inp} /></div>
+          </div>
+          <div><div style={lblF}>Produto acabado</div><input value={ficha.produto_acabado} onChange={setF("produto_acabado")} disabled={aprovada} style={inp} /></div>
+          <div><div style={lblF}>Mão de obra</div><input value={ficha.mao_de_obra} onChange={setF("mao_de_obra")} disabled={aprovada} style={inp} /></div>
+        </div>
+        {aprovada && <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 8 }}>Solicitação aprovada — ficha em modo leitura.</p>}
+      </Bloco>
 
+      <Bloco titulo="Histórico de pilotagem">
+        {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> :
+          comentarios.length === 0 ? <p style={{ fontSize: 13, color: "var(--text-3)", margin: "0 0 12px" }}>Nenhum registro ainda. Escreva o primeiro abaixo.</p> : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+              {comentarios.map((c) => {
+                const ehFabrica = c.autor === "fabrica";
+                return (
+                  <div key={c.id} style={{ borderLeft: `3px solid ${ehFabrica ? "var(--accent)" : "var(--success)"}`, padding: "8px 12px", background: "var(--surface-2)", borderRadius: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: ehFabrica ? "var(--accent)" : "var(--success)" }}>{ehFabrica ? "Fábrica" : "Cliente"}</span>
+                      <span style={{ fontSize: 11, color: "var(--text-3)" }}>{dataHora(c.criado_em)}</span>
+                    </div>
+                    {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
+                    {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", cursor: "pointer" }} /></a>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        {imgComent && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "var(--text-2)" }}>
+            <img src={URL.createObjectURL(imgComent)} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
+            <span style={{ flex: 1 }}>{imgComent.name}</span>
+            <button onClick={() => setImgComent(null)} style={{ ...btnGhost, padding: "4px 8px" }}>Remover</button>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          <label style={{ ...btnGhost, cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "8px 12px" }}>
+            <ImagePlus size={16} />
+            <input type="file" accept="image/*" onChange={(e) => setImgComent(e.target.files[0] || null)} style={{ display: "none" }} />
+          </label>
+          <input value={novoComent} onChange={(e) => setNovoComent(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviarComentario(); }} placeholder="Escrever no histórico (ex: piloto enviado, ajuste pedido…)" style={{ ...inp, flex: 1 }} />
+          <button onClick={enviarComentario} disabled={enviando} style={btnPrimary}><Send size={15} /></button>
+        </div>
+      </Bloco>
     </Gaveta>
   );
 }
@@ -229,9 +224,19 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
   }
 
   return (
-    <Gaveta onFechar={onFechar} largura={680} zIndex={110}>
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Aprovar e gerar pedido</h3>
-        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Confirme os dados do pedido que vai entrar na produção.</p>
+    <Gaveta onFechar={onFechar} largura={680} zIndex={110}
+      titulo="Aprovar e gerar pedido"
+      subtitulo="Confirme os dados do pedido que vai entrar na produção."
+      rodape={
+        <>
+          {erro && <p style={{ ...erroTxt, margin: "0 0 10px" }}>{erro}</p>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+            <button onClick={confirmar} disabled={salvando} style={{ ...btnSuccess, flex: 1 }}>{salvando ? "Gerando…" : "Gerar pedido"}</button>
+          </div>
+        </>
+      }>
+      <Bloco>
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1 }}><label style={lbl}>Referência</label><input value={referencia} onChange={(e) => setReferencia(e.target.value)} autoFocus style={inp} /></div>
           <div style={{ flex: 1 }}><label style={lbl}>Marca</label><input value={marca} onChange={(e) => setMarca(e.target.value)} style={inp} /></div>
@@ -253,12 +258,7 @@ function ModalAprovar({ sol, oficinas, onFechar, onAprovado }) {
           <option value="">Selecionar…</option>
           {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
         </select>
-        {erro && <p style={erroTxt}>{erro}</p>}
-        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-          <button onClick={confirmar} disabled={salvando} style={{ ...btnSuccess, flex: 1 }}>{salvando ? "Gerando…" : "Gerar pedido"}</button>
-        </div>
-      
+      </Bloco>
     </Gaveta>
   );
 }

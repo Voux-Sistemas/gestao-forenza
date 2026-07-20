@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 import { PRODUCAO, CORES_ETAPA, calcularSaldos as saldos, somaProducao, rotuloLocal } from "../etapas.js";
-import Gaveta from "./Gaveta.jsx";
+import Gaveta, { Bloco } from "./Gaveta.jsx";
 
 function diasAte(prazo) {
   if (!prazo) return null;
@@ -311,48 +311,51 @@ function ModalDetalhes({ item, nomeCliente, oficinas, movimentos, onFechar, onAb
   const procAcab = Array.isArray(pe.processos_acabamento) ? pe.processos_acabamento : [];
 
   return (
-    <Gaveta onFechar={onFechar} largura={640} zIndex={105}>
-
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6, paddingRight: 30 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-              <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{nomeCliente(pe.cliente_id)}</h3>
-              {pe.marca && <span style={pillMarca}>{pe.marca}</span>}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 3 }}>{pe.referencia} · {pe.total} peça{pe.total === 1 ? "" : "s"}</div>
-          </div>
-          <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <span style={pillAtraso}>{textoDias(dias)}</span>
-            {pe.prazo && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>Prazo: {fmtDataBR(pe.prazo)}</div>}
-          </div>
+    <Gaveta onFechar={onFechar} largura={640} zIndex={105}
+      titulo={
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 17, fontWeight: 700 }}>{nomeCliente(pe.cliente_id)}</span>
+          {pe.marca && <span style={pillMarca}>{pe.marca}</span>}
         </div>
-
+      }
+      subtitulo={`${pe.referencia} · ${pe.total} peça${pe.total === 1 ? "" : "s"}`}
+      acaoTopo={
+        <div style={{ textAlign: "right" }}>
+          <span style={pillAtraso}>{textoDias(dias)}</span>
+          {pe.prazo && <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>Prazo: {fmtDataBR(pe.prazo)}</div>}
+        </div>
+      }
+      rodape={
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onFechar} style={{ ...btnGhostAcao, flex: 1 }}>Fechar</button>
+          <button onClick={onAbrirQuadro} style={{ ...btnGhostAcao, flex: 1 }}>
+            <ExternalLink size={14} /> Abrir no Quadro
+          </button>
+        </div>
+      }>
         {motivo && (
-          <div style={{ padding: "10px 12px", background: "var(--danger-bg)", borderRadius: 8, margin: "14px 0", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ padding: "10px 12px", background: "var(--danger-bg)", borderRadius: 8, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
             <AlertCircle size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
             <div style={{ fontSize: 12, color: "var(--danger)" }}><strong style={{ fontWeight: 600 }}>{motivo}</strong></div>
           </div>
         )}
 
-        <div style={{ marginTop: 18 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Progresso das peças</div>
+        <Bloco titulo="Progresso das peças">
           <BarraProgresso s={s} total={pe.total} feitas={pe.total - somaProducao(s)} />
-        </div>
+        </Bloco>
 
         {(pe.tamanho || pe.tecido) && (
-          <div style={{ marginTop: 18, padding: "12px 14px", background: "var(--surface-2)", borderRadius: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Ficha</div>
+          <Bloco titulo="Ficha">
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, fontSize: 12 }}>
               {pe.tamanho && <div><span style={{ color: "var(--text-3)" }}>Tamanho:</span> <strong>{pe.tamanho}</strong></div>}
               {pe.tecido && <div><span style={{ color: "var(--text-3)" }}>Tecido:</span> <strong>{pe.tecido}</strong></div>}
               {pe.descanso_tecido && <div style={{ color: "var(--danger)" }}>⚠ Tecido em descanso</div>}
             </div>
-          </div>
+          </Bloco>
         )}
 
         {(procCorte.length > 0 || procAcab.length > 0) && (
-          <div style={{ marginTop: 18 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Processos</div>
+          <Bloco titulo="Processos">
             {procCorte.length > 0 && (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 6 }}>Corte</div>
@@ -377,12 +380,11 @@ function ModalDetalhes({ item, nomeCliente, oficinas, movimentos, onFechar, onAb
                 </div>
               </div>
             )}
-          </div>
+          </Bloco>
         )}
 
         {movsPedido.length > 0 && (
-          <div style={{ marginTop: 18 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Movimentações ({movsPedido.length})</div>
+          <Bloco titulo={`Movimentações (${movsPedido.length})`}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", padding: "2px 4px" }}>
               {movsPedido.map((m) => (
                 <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "var(--surface-2)", borderRadius: 7, fontSize: 12 }}>
@@ -397,16 +399,8 @@ function ModalDetalhes({ item, nomeCliente, oficinas, movimentos, onFechar, onAb
                 </div>
               ))}
             </div>
-          </div>
+          </Bloco>
         )}
-
-        <div style={{ display: "flex", gap: 8, marginTop: 22, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-          <button onClick={onFechar} style={{ ...btnGhostAcao, flex: 1 }}>Fechar</button>
-          <button onClick={onAbrirQuadro} style={{ ...btnGhostAcao, flex: 1 }}>
-            <ExternalLink size={14} /> Abrir no Quadro
-          </button>
-        </div>
-      
     </Gaveta>
   );
 }
