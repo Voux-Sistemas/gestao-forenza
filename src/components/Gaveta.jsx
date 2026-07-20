@@ -18,7 +18,7 @@ import { X } from "lucide-react";
 //   largura   – largura máxima em px (padrão 480)
 //   zIndex    – para empilhar gavetas (padrão 100)
 //   bgCorpo/bgRodape/bordaRodape – sobrescrevem a casca padrão, se preciso
-export default function Gaveta({ children, onFechar, rodape, largura = 480, zIndex = 100, titulo, subtitulo, acaoTopo, bgRodape, bgCorpo, bordaRodape }) {
+export default function Gaveta({ children, onFechar, rodape, largura = 480, zIndex = 100, titulo, subtitulo, acaoTopo, bgRodape, bgCorpo, bordaRodape, ocultarFechar = false }) {
   // Trava a rolagem da página enquanto a gaveta está aberta.
   useEffect(() => {
     const anterior = document.body.style.overflow;
@@ -58,7 +58,7 @@ export default function Gaveta({ children, onFechar, rodape, largura = 480, zInd
               {botaoFechar}
             </div>
           </div>
-        ) : (
+        ) : ocultarFechar ? null : (
           <div style={{ position: "absolute", top: 14, right: 16, zIndex: 1 }}>{botaoFechar}</div>
         )}
         <div style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain", padding: 22, background: corpoBg }}>

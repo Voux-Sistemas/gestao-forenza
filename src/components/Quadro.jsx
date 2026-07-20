@@ -621,26 +621,29 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   );
 
   return (
-    <Overlay onFechar={onFechar} rodape={rodape} bgRodape="var(--zona-grad)" bgCorpo="var(--surface-2)" bordaRodape="var(--zona-borda)">
+    <Overlay onFechar={onFechar} rodape={rodape} bgRodape="var(--zona-grad)" bgCorpo="var(--surface-2)" bordaRodape="var(--zona-borda)" ocultarFechar>
       <div style={{ margin: "-22px -22px 16px", padding: "18px 22px 0", background: "var(--zona-grad)", borderBottom: "1px solid var(--zona-borda)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, paddingRight: 34 }}>
-          <div style={{ display: "flex", gap: 11, minWidth: 0 }}>
-            <MarcaForenza size={34} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0 }}>
+            <MarcaForenza size={36} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{cliente}</h3>
-                <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".3px", padding: "2px 9px", borderRadius: 99, background: "var(--surface)", color: "var(--accent)", border: "1px solid var(--zona-borda)" }}>{rotuloLocal(local)}</span>
-              </div>
-              <p style={{ fontSize: 12.5, color: "var(--text-2)", margin: "3px 0 0" }}>Ref {pedido.referencia} · {saldo} peças</p>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".09em", textTransform: "uppercase", color: "var(--accent)" }}>{rotuloLocal(local)}</div>
+              <h3 style={{ fontSize: 18, fontWeight: 600, margin: "1px 0 0", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cliente}</h3>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            {pedido.corte_id && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".3px", padding: "5px 10px", borderRadius: 8, background: "var(--surface)", color: "var(--text-2)", border: "1px solid var(--zona-borda)" }}>{pedido.corte_id}</span>}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
             <button type="button" onClick={baixarPdf} disabled={gerandoPdf}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid var(--zona-borda)", background: "var(--surface)", color: "var(--text-2)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", borderRadius: 9, border: "1px solid var(--zona-borda)", background: "var(--surface)", color: "var(--text-2)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
               <FileDown size={15} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "PDF"}
             </button>
+            <button type="button" onClick={onFechar} aria-label="Fechar"
+              style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", color: "var(--text-2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <X size={17} />
+            </button>
           </div>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 11 }}>
+          {["Ref " + pedido.referencia, pedido.corte_id, saldo + " peças"].filter(Boolean).join("  ·  ")}
         </div>
 
         <div style={{ display: "flex", gap: 20, marginTop: 14 }}>
