@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Factory, ArrowUpRight, ArrowDownLeft, Calendar, AlertTriangle, X, Plus, ChevronDown, ChevronRight, FileDown } from "lucide-react";
+import { Factory, ArrowUpRight, ArrowDownLeft, Calendar, AlertTriangle, X, Plus, ChevronDown, ChevronRight, FileDown, Inbox } from "lucide-react";
 import { supabase } from "../supabaseClient.js";
 import StatCard from "./StatCard.jsx";
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
@@ -206,6 +206,7 @@ export default function ControleOficinas({ session, perfil }) {
   const totalAbertas = abertasFiltradas.length;
   const totalPecasFora = abertasFiltradas.reduce((s, r) => s + (r.qtd_enviada - r.qtd_retornada), 0);
   const remessasAtrasadas = abertasFiltradas.filter((r) => diasEntre(r.data_saida, null) > 7).length;
+  const oficinasComAberta = new Set(abertasFiltradas.map((r) => r.oficina_id)).size;
 
   // Gera o relatório respeitando o filtro (oficina + período) — busca sob demanda.
   async function gerarRelatorio() {
@@ -250,22 +251,25 @@ export default function ControleOficinas({ session, perfil }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
-        <StatCard Icon={ArrowUpRight} label="Remessas em aberto" valor={totalAbertas} cor="var(--warning)" />
-        <StatCard Icon={Factory} label="Peças fora da fábrica" valor={totalPecasFora} cor="var(--accent)" />
-        <StatCard Icon={AlertTriangle} label="Em atraso (+7 dias)" valor={remessasAtrasadas} cor="var(--danger)" valorCor={remessasAtrasadas > 0 ? "var(--danger)" : undefined} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 22 }}>
+        <StatCard Icon={ArrowUpRight} label="Remessas em aberto" valor={totalAbertas} cor="var(--warning)" corBg="var(--warning-bg)"
+          sub={totalAbertas === 0 ? "nenhuma no momento" : `em ${oficinasComAberta} oficina${oficinasComAberta === 1 ? "" : "s"}`} />
+        <StatCard Icon={Factory} label="Peças fora da fábrica" valor={totalPecasFora} cor="var(--accent)" corBg="var(--accent-bg)"
+          sub={totalPecasFora === 0 ? "nada fora" : "aguardando retorno"} />
+        <StatCard Icon={AlertTriangle} label="Em atraso (+7 dias)" valor={remessasAtrasadas} cor="var(--danger)" corBg="var(--danger-bg)" valorCor={remessasAtrasadas > 0 ? "var(--danger)" : undefined}
+          sub={remessasAtrasadas === 0 ? "tudo no prazo" : `precisa${remessasAtrasadas === 1 ? "" : "m"} de atenção`} subCor={remessasAtrasadas > 0 ? "var(--danger)" : undefined} />
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12, marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+      <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap", marginBottom: 26 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, color: "var(--text-3)", minWidth: 58 }}>Oficina:</span>
+          <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>Oficina</span>
           <select value={filtroOficina} onChange={(e) => { setFiltroOficina(e.target.value); setLimiteFechadas(LIMITE_FECHADAS); }} style={selectPill}>
             <option value="">Todas as oficinas</option>
             {oficinas.map((o) => <option key={o.id} value={o.id}>{o.nome_empresa}</option>)}
           </select>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, color: "var(--text-3)", minWidth: 58 }}>Período:</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>Período</span>
           <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 8 }}>
             <select value={filtroPeriodo} onChange={(e) => { const v = e.target.value; setFiltroPeriodo(v); setLimiteFechadas(LIMITE_FECHADAS); setPopPeriodo(v === "custom"); }} style={selectPill}>
               <option value="30">Últimos 30 dias</option>
@@ -297,8 +301,8 @@ export default function ControleOficinas({ session, perfil }) {
             )}
           </div>
         </div>
-        <button onClick={gerarRelatorio} disabled={gerandoPdf} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: 66, padding: "7px 13px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
-          <FileDown size={14} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "Gerar PDF"}
+        <button onClick={gerarRelatorio} disabled={gerandoPdf} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 13, fontWeight: 600 }}>
+          <FileDown size={15} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "Gerar PDF"}
         </button>
       </div>
 
@@ -309,7 +313,10 @@ export default function ControleOficinas({ session, perfil }) {
         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", background: "var(--surface-2)", padding: "1px 8px", borderRadius: 99 }}>{totalAbertas}</span>
       </button>
       {emAbertoAberto && (totalAbertas === 0 ? (
-        <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>{filtroOficina ? "Essa oficina não tem remessas em aberto." : "Nenhuma remessa em aberto no momento."}</div>
+        <div style={{ padding: "30px 20px", background: "var(--surface)", border: "1px dashed var(--border)", borderRadius: 14, textAlign: "center", marginBottom: 8 }}>
+          <Inbox size={26} style={{ color: "var(--text-3)", opacity: 0.6 }} />
+          <div style={{ fontSize: 13, color: "var(--text-3)", marginTop: 8 }}>{filtroOficina ? "Essa oficina não tem remessas em aberto." : "Nenhuma remessa em aberto no momento."}</div>
+        </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 8 }}>
           {Object.keys(porOficina).map((ofId) => (
@@ -411,7 +418,7 @@ export default function ControleOficinas({ session, perfil }) {
         <div style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text-3)", fontSize: 13 }}>Nenhuma remessa fechada nesse filtro.</div>
       ) : (
         <>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow-card)" }}>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", boxShadow: "var(--shadow-card)" }}>
             <div style={{ display: "flex", alignItems: "center", padding: "11px 16px", borderBottom: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 10.5, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>
               <span style={{ flex: 2 }}>Pedido</span>
               <span style={{ flex: 1.4 }}>Oficina</span>
