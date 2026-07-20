@@ -4,7 +4,7 @@ import { comprimirImagem } from "../comprimirImagem.js";
 import { Plus, ImagePlus, X } from "lucide-react";
 import { PRODUCAO, calcularSaldos } from "../etapas.js";
 import { gradePorTamanho } from "./GradeTabela.jsx";
-import Gaveta from "./Gaveta.jsx";
+import Gaveta, { Bloco } from "./Gaveta.jsx";
 
 const STATUS_SOL = {
   em_triagem:      { label: "Em análise",            cor: "var(--accent)",  bg: "var(--accent-bg)" },
@@ -240,18 +240,28 @@ function ModalNova({ clienteId, onFechar, onOk }) {
   }
 
   return (
-    <Gaveta onFechar={onFechar} largura={460}>
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Nova solicitação</h3>
-        <p style={{ fontSize: 13, color: "var(--text-2)", margin: "0 0 16px" }}>Preencha o máximo que puder. A fábrica completa o que faltar.</p>
-
+    <Gaveta onFechar={onFechar} largura={460}
+      titulo="Nova solicitação"
+      subtitulo="Preencha o máximo que puder. A fábrica completa o que faltar."
+      rodape={
+        <>
+          {erro && <p style={{ ...erroTxt, margin: "0 0 10px" }}>{erro}</p>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
+            <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Enviando…" : "Enviar"}</button>
+          </div>
+        </>
+      }>
+      <Bloco>
         <label style={lbl}>Descrição do que você precisa</label>
         <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="O que você quer produzir…" style={{ ...inp, resize: "vertical" }} />
         <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
           <div style={{ flex: 1 }}><label style={lbl}>Quantidade</label><input type="number" min="0" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} style={inp} /></div>
           <div style={{ flex: 1 }}><label style={lbl}>Prazo desejado</label><input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} style={inp} /></div>
         </div>
+      </Bloco>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: ".4px", margin: "22px 0 12px", paddingTop: 16, borderTop: "1px solid var(--border)" }}>Ficha técnica</div>
+      <Bloco titulo="Ficha técnica">
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1 }}><label style={lbl}>Referência</label><input value={ficha.referencia} onChange={setF("referencia")} placeholder="código/nome" style={inp} /></div>
           <div style={{ flex: 1 }}><label style={lbl}>Marca</label><input value={ficha.marca} onChange={setF("marca")} style={inp} /></div>
@@ -264,7 +274,6 @@ function ModalNova({ clienteId, onFechar, onOk }) {
           <div style={{ flex: 1 }}><label style={lbl}>Data de recebimento</label><input type="date" value={ficha.data_recebimento} onChange={setF("data_recebimento")} style={inp} /></div>
           <div style={{ flex: 1 }}><label style={lbl}>Prazo da peça piloto</label><input type="date" value={ficha.prazo_piloto} onChange={setF("prazo_piloto")} style={inp} /></div>
         </div>
-
         <label style={{ ...lbl, marginTop: 18 }}>Foto de referência (opcional)</label>
         {preview ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -277,11 +286,7 @@ function ModalNova({ clienteId, onFechar, onOk }) {
             <input type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
           </label>
         )}
-        {erro && <p style={erroTxt}>{erro}</p>}
-        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-          <button onClick={onFechar} style={{ ...btnGhost, flex: 1 }}>Cancelar</button>
-          <button onClick={salvar} disabled={salvando} style={{ ...btnPrimary, flex: 1 }}>{salvando ? "Enviando…" : "Enviar"}</button>
-        </div>
+      </Bloco>
     </Gaveta>
   );
 }
@@ -326,35 +331,12 @@ function ModalConversa({ solicitacao, onFechar }) {
   }
 
   return (
-    <Gaveta onFechar={onFechar} largura={520} zIndex={105}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>Sua solicitação</div>
-          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
-        </div>
-        <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
-          {sol.observacao_fabrica && (
-            <div style={{ fontSize: 13, color: "var(--text)", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8, marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", marginBottom: 3 }}>Fábrica</div>
-              {sol.observacao_fabrica}
-            </div>
-          )}
-          {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> :
-            (comentarios.length === 0 && !sol.observacao_fabrica) ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Nenhuma mensagem ainda. Escreva abaixo para falar com a fábrica.</p> : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {comentarios.map((c) => {
-                  const ehCliente = c.autor === "cliente";
-                  return (
-                    <div key={c.id} style={{ alignSelf: ehCliente ? "flex-end" : "flex-start", maxWidth: "85%", padding: "8px 12px", borderRadius: 10, background: ehCliente ? "var(--accent-bg)" : "var(--surface-2)" }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: ehCliente ? "var(--accent)" : "var(--text-2)", marginBottom: 2 }}>{ehCliente ? "Você" : "Fábrica"}</div>
-                      {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
-                      {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", cursor: "pointer" }} /></a>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-        </div>
-        <div style={{ borderTop: "1px solid var(--border)", padding: "14px 20px" }}>
+    <Gaveta onFechar={onFechar} largura={520} zIndex={105}
+      titulo="Sua solicitação"
+      subtitulo={sol.descricao}
+      bgCorpo="var(--surface)"
+      rodape={
+        <>
           {imgFile && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "var(--text-2)" }}>
               <img src={URL.createObjectURL(imgFile)} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
@@ -370,8 +352,29 @@ function ModalConversa({ solicitacao, onFechar }) {
             <input value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enviar(); }} placeholder="Escreva sua resposta…" style={{ ...inp, flex: 1 }} />
             <button onClick={enviar} disabled={enviando} style={btnPrimary}>Enviar</button>
           </div>
+        </>
+      }>
+      {sol.observacao_fabrica && (
+        <div style={{ fontSize: 13, color: "var(--text)", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 8, marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", marginBottom: 3 }}>Fábrica</div>
+          {sol.observacao_fabrica}
         </div>
-      
+      )}
+      {carregando ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Carregando…</p> :
+        (comentarios.length === 0 && !sol.observacao_fabrica) ? <p style={{ fontSize: 13, color: "var(--text-3)" }}>Nenhuma mensagem ainda. Escreva abaixo para falar com a fábrica.</p> : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {comentarios.map((c) => {
+              const ehCliente = c.autor === "cliente";
+              return (
+                <div key={c.id} style={{ alignSelf: ehCliente ? "flex-end" : "flex-start", maxWidth: "85%", padding: "8px 12px", borderRadius: 10, background: ehCliente ? "var(--accent-bg)" : "var(--surface-2)", border: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: ehCliente ? "var(--accent)" : "var(--text-2)", marginBottom: 2 }}>{ehCliente ? "Você" : "Fábrica"}</div>
+                  {c.texto && <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{c.texto}</div>}
+                  {c.imagem_url && <a href={c.imagem_url} target="_blank" rel="noreferrer"><img src={c.imagem_url} alt="anexo" style={{ marginTop: 6, maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", cursor: "pointer" }} /></a>}
+                </div>
+              );
+            })}
+          </div>
+        )}
     </Gaveta>
   );
 }
