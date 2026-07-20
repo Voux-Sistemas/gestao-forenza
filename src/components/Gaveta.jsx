@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { MarcaForenza } from "./Logo.jsx";
 
 // Gaveta lateral padrão do sistema — substitui os modais centralizados.
 // Renderiza via portal no <body>, por isso nunca fica presa atrás do cabeçalho.
@@ -39,8 +40,8 @@ export default function Gaveta({ children, onFechar, rodape, largura = 480, zInd
   const rodapeBorda = bordaRodape ?? (temTitulo ? "var(--zona-borda)" : "var(--border)");
 
   const botaoFechar = (
-    <button onClick={onFechar} aria-label="Fechar" style={{ flexShrink: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: 6, cursor: "pointer", color: "var(--text-3)", display: "flex", alignItems: "center" }}>
-      <X size={15} />
+    <button onClick={onFechar} aria-label="Fechar" style={{ flexShrink: 0, width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", cursor: "pointer", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <X size={17} />
     </button>
   );
 
@@ -49,9 +50,12 @@ export default function Gaveta({ children, onFechar, rodape, largura = 480, zInd
       <div onClick={(e) => e.stopPropagation()} className="drawer-in" style={{ position: "relative", width: `min(${largura}px, 100%)`, height: "100%", background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "var(--shadow-lg)", display: "flex", flexDirection: "column" }}>
         {temTitulo ? (
           <div style={{ flexShrink: 0, padding: "16px 22px", background: "var(--zona-grad)", borderBottom: "1px solid var(--zona-borda)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-            <div style={{ minWidth: 0 }}>
-              {typeof titulo === "string" ? <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{titulo}</h3> : titulo}
-              {subtitulo && <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{subtitulo}</div>}
+            <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0, flex: 1 }}>
+              <MarcaForenza size={34} />
+              <div style={{ minWidth: 0 }}>
+                {typeof titulo === "string" ? <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{titulo}</h3> : titulo}
+                {subtitulo && <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{subtitulo}</div>}
+              </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
               {acaoTopo}
