@@ -245,7 +245,7 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
           celula(x, y, cw, q || "·", { corTexto: q ? TINTA : [190, 190, 185], bold: !!q });
           x += cw;
         });
-        celula(x, y, colTotal, totalLinha(l), { fill: [250, 250, 248], corTexto: VERDE_ESCURO });
+        celula(x, y, colTotal, totalLinha(l), { fill: [242, 248, 239], corTexto: VERDE_ESCURO });
         y += hLinha;
       });
 
@@ -326,78 +326,100 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     if (!lista || lista.length === 0) return;
     quebraSePreciso(14);
     const concluidos = lista.filter((p) => p.qtd >= pedido.total).length;
-    tituloSecao(titulo, `${concluidos} de ${lista.length} concluídos`);
-    y += 3; // respiro entre o título e o primeiro processo
+    const somaFeitas = lista.reduce((s, p) => s + Math.min(p.qtd, pedido.total), 0);
+    const pctPecas = pedido.total ? Math.round((somaFeitas / (pedido.total * lista.length)) * 100) : 0;
+    tituloSecao(titulo, `${concluidos} de ${lista.length} · ${pctPecas}% das peças`);
+    y += 2;
 
-    const cx = mx + 3; // centro das bolinhas (eixo da trilha)
-    let topoAnterior = 0;
-    lista.forEach(({ nome, qtd: feitas, grade, obs }, idx) => {
-      const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, larg - mx * 2 - 14) : [];
-      const temGrade = grade && Object.entries(grade).some(([, q]) => (parseInt(q, 10) || 0) > 0);
-      const alturaItem = 6 + 7 + (temGrade ? 8 : 0) + obsLinhas.length * 4 + 5;
-      const yAntesQuebra = y;
-      quebraSePreciso(alturaItem);
-      if (y < yAntesQuebra) topoAnterior = 0; // quebrou de página: não liga a trilha entre páginas
-
+    lista.forEach(({ nome, qtd: feitas, grade, obs, feito_em }) => {
       const completo = feitas >= pedido.total;
       const parcial = feitas > 0 && !completo;
       const cor = completo ? VERDE : parcial ? AMBAR : [190, 190, 185];
-      const topo = y - 1.6;
+      const temGrade = parcial && grade && Object.entries(grade).some(([, q]) => (parseInt(q, 10) || 0) > 0);
+      const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, larg - mx * 2 - 14) : [];
+      const alturaItem = (parcial ? 12 : 8) + (temGrade ? 8 : 0) + obsLinhas.length * 4 + 4;
+      quebraSePreciso(alturaItem);
 
-      if (idx > 0 && topoAnterior > 0 && topo - topoAnterior < 40 && topo > topoAnterior) {
-        doc.setDrawColor(215).setLineWidth(0.5).line(cx, topoAnterior + 2.2, cx, topo - 2.2);
-      }
+      const cx = mx + 3;
+      const marcaY = y + 1.2;
 
+      // marcador de status
       if (completo) {
-        doc.setFillColor(...VERDE).circle(cx, topo, 2.2, "F");
+        doc.setFillColor(...VERDE).circle(cx, marcaY, 2.2, "F");
         doc.setDrawColor(255).setLineWidth(0.5);
-        doc.line(cx - 1, topo, cx - 0.2, topo + 0.9); doc.line(cx - 0.2, topo + 0.9, cx + 1.1, topo - 0.8);
+        doc.line(cx - 1, marcaY, cx - 0.2, marcaY + 0.9); doc.line(cx - 0.2, marcaY + 0.9, cx + 1.1, marcaY - 0.8);
       } else if (parcial) {
-        doc.setFillColor(...AMBAR).circle(cx, topo, 2.2, "F");
-        doc.setFillColor(255).circle(cx, topo, 0.8, "F");
+        doc.setDrawColor(...AMBAR).setLineWidth(0.7).circle(cx, marcaY, 2.2, "S");
       } else {
-        doc.setFillColor(255).setDrawColor(...cor).setLineWidth(0.5).circle(cx, topo, 2.2, "FD");
+        doc.setDrawColor(200).setLineWidth(0.5).circle(cx, marcaY, 2.2, "S");
       }
 
+      // nome
       doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(...(completo || parcial ? TINTA : CINZA));
-      doc.text(nome, cx + 6, y);
-      doc.setFont("helvetica", "bold").setTextColor(...(completo ? VERDE_ESCURO : parcial ? AMBAR : CINZA));
-      doc.text(`${feitas}/${pedido.total}`, larg - mx, y, { align: "right" });
+      doc.text(nome, cx + 6, y + 2);
 
-      const pct = Math.max(0, Math.min(1, feitas / (pedido.total || 1)));
-      const barX = cx + 6, barW = larg - mx - barX - 20, barY = y + 1.8;
-      doc.setFillColor(235, 235, 231).roundedRect(barX, barY, barW, 1.4, 0.7, 0.7, "F");
-      if (pct > 0) { doc.setFillColor(...cor).roundedRect(barX, barY, barW * pct, 1.4, 0.7, 0.7, "F"); }
-      y += 7;
-
-      if (temGrade) {
-        const ordenados = Object.entries(grade)
-          .filter(([, q]) => (parseInt(q, 10) || 0) > 0)
-          .sort(([a], [b]) => {
-            const ia = TAMANHOS_GRADE.indexOf(a), ib = TAMANHOS_GRADE.indexOf(b);
-            return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      if (parcial) {
+        // contagem + selo de %
+        const pct = Math.max(0, Math.min(1, feitas / (pedido.total || 1)));
+        const pctTxt = `${Math.round(pct * 100)}%`;
+        doc.setFont("helvetica", "bold").setFontSize(7.5);
+        const badgeW = doc.getTextWidth(pctTxt) + 6;
+        const badgeX = larg - mx - badgeW;
+        doc.setFillColor(251, 241, 223).roundedRect(badgeX, y - 1.6, badgeW, 5, 1, 1, "F");
+        doc.setTextColor(...AMBAR).text(pctTxt, badgeX + 3, y + 1.8);
+        doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...AMBAR);
+        doc.text(`${feitas}/${pedido.total}`, badgeX - 4, y + 2, { align: "right" });
+        y += 5;
+        // barra arredondada
+        const barX = cx + 6, barW = larg - mx - barX, barY = y;
+        doc.setFillColor(240, 242, 238).roundedRect(barX, barY, barW, 2, 1, 1, "F");
+        if (pct > 0) doc.setFillColor(...cor).roundedRect(barX, barY, barW * pct, 2, 1, 1, "F");
+        y += 5;
+        // chips de tamanho (contorno leve)
+        if (temGrade) {
+          const ordenados = Object.entries(grade)
+            .filter(([, q]) => (parseInt(q, 10) || 0) > 0)
+            .sort(([a], [b]) => {
+              const ia = TAMANHOS_GRADE.indexOf(a), ib = TAMANHOS_GRADE.indexOf(b);
+              return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+            });
+          const chipH = 5;
+          let chipX = cx + 6;
+          y += 1;
+          ordenados.forEach(([t, q]) => {
+            doc.setFont("helvetica", "bold").setFontSize(7.5);
+            const label = `${t}  ${q}`;
+            const wChip = doc.getTextWidth(label) + 8;
+            if (chipX + wChip > larg - mx) { chipX = cx + 6; y += chipH + 2; }
+            doc.setFillColor(255, 255, 255).setDrawColor(230, 233, 227).setLineWidth(0.3).roundedRect(chipX, y, wChip, chipH, 1.2, 1.2, "FD");
+            doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...TINTA).text(String(t), chipX + 3, y + 3.4);
+            const wT = doc.getTextWidth(String(t));
+            doc.setFont("helvetica", "normal").setTextColor(...CINZA).text(String(q), chipX + 3 + wT + 2, y + 3.4);
+            chipX += wChip + 3;
           });
-        const chipH = 5;
-        let chipX = cx + 6;
-        ordenados.forEach(([t, q]) => {
-          doc.setFont("helvetica", "bold").setFontSize(7.5);
-          const label = `${t}  ${q}`;
-          const wChip = doc.getTextWidth(label) + 8;
-          if (chipX + wChip > larg - mx) { chipX = cx + 6; y += chipH + 2; }
-          doc.setFillColor(242, 241, 236).setDrawColor(226, 224, 216).setLineWidth(0.2).roundedRect(chipX, y, wChip, chipH, 1, 1, "FD");
-          doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...TINTA).text(String(t), chipX + 3, y + 3.4);
-          const wT = doc.getTextWidth(String(t));
-          doc.setFont("helvetica", "normal").setTextColor(...CINZA).text(String(q), chipX + 3 + wT + 2, y + 3.4);
-          chipX += wChip + 3;
-        });
-        y += chipH + 3;
+          y += chipH + 2;
+        }
+      } else {
+        // compacto (concluído em verde, não iniciado em cinza) — sem barra
+        const xr = larg - mx;
+        doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...(completo ? VERDE_ESCURO : CINZA));
+        doc.text(`${feitas}/${pedido.total}`, xr, y + 2, { align: "right" });
+        if (completo && feito_em) {
+          const wTot = doc.getTextWidth(`${feitas}/${pedido.total}`);
+          doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
+          doc.text(String(feito_em), xr - wTot - 4, y + 2, { align: "right" });
+        }
+        y += 6;
       }
+
       if (obsLinhas.length) {
         doc.setFont("helvetica", "italic").setFontSize(8.5).setTextColor(...CINZA);
-        doc.text(obsLinhas, cx + 6, y);
-        y += obsLinhas.length * 4;
+        doc.text(obsLinhas, cx + 6, y + 1);
+        y += obsLinhas.length * 4 + 1;
       }
-      topoAnterior = topo;
+
+      // separador fino entre processos
+      doc.setDrawColor(240, 242, 238).setLineWidth(0.3).line(mx, y + 1.5, larg - mx, y + 1.5);
       y += 5;
     });
     y += 2;
