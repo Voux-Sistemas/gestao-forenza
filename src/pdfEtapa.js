@@ -79,7 +79,7 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     const base = boxTop + boxSize * 0.72;   // baseline do texto
     const meio = boxTop + boxSize / 2;      // centro vertical (para a régua)
     // Quadradinho do número (contorno escuro, sem preenchimento)
-    doc.setDrawColor(...TINTA).setLineWidth(0.4).roundedRect(mx, boxTop, boxSize, boxSize, 1.3, 1.3, "S");
+    doc.setDrawColor(...TINTA).setLineWidth(0.4).roundedRect(mx, boxTop, boxSize, boxSize, 2, 2, "S");
     doc.setFont("helvetica", "bold").setFontSize(8.5).setTextColor(...TINTA);
     doc.text(num, mx + boxSize / 2, base, { align: "center" });
     // Título (escuro, caixa normal)
@@ -102,73 +102,77 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     y = boxTop + boxSize + 6;
   };
 
-  // ── Faixa de cor no topo (degradê simulado com blocos) ──
-  const faixaH = 4;
+  // ══════════════════ CAPA (faixa colorida) ══════════════════
+  const coverH = 60;
+  const CAPA_A = [18, 48, 27], CAPA_B = [30, 74, 42];   // degradê verde profundo
+  const CLARO = [159, 196, 168], FAINT = [120, 158, 128];
+  const ANEL = [111, 208, 138], ANEL_TRACK = [42, 84, 55];
   const passos = 60;
   for (let i = 0; i < passos; i++) {
     const t = i / (passos - 1);
-    // interpola VERDE_ESCURO → VERDE
-    const r = Math.round(VERDE_ESCURO[0] + (VERDE[0] - VERDE_ESCURO[0]) * t);
-    const g = Math.round(VERDE_ESCURO[1] + (VERDE[1] - VERDE_ESCURO[1]) * t);
-    const b = Math.round(VERDE_ESCURO[2] + (VERDE[2] - VERDE_ESCURO[2]) * t);
-    doc.setFillColor(r, g, b).rect((larg * i) / passos, 0, larg / passos + 0.5, faixaH, "F");
+    const r = Math.round(CAPA_A[0] + (CAPA_B[0] - CAPA_A[0]) * t);
+    const g = Math.round(CAPA_A[1] + (CAPA_B[1] - CAPA_A[1]) * t);
+    const b = Math.round(CAPA_A[2] + (CAPA_B[2] - CAPA_A[2]) * t);
+    doc.setFillColor(r, g, b).rect((larg * i) / passos, 0, larg / passos + 0.5, coverH, "F");
   }
-  y = 20;
 
-  // ── Cabeçalho: marca vetorial + selo do setor ──
-  doc.setDrawColor(...TINTA).setLineWidth(1.5).circle(mx + 5.5, y, 5.5, "S");
-  doc.setFillColor(...VERDE).circle(mx + 5.5, y, 2.4, "F");
-  doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(...TINTA);
-  doc.text("F O R E N Z A", mx + 15, y - 0.5);
-  doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
-  doc.text("GESTÃO DE PRODUÇÃO", mx + 15.5, y + 4.5);
+  // ── masthead ──
+  const yM = 15;
+  doc.setDrawColor(255).setLineWidth(1.3).circle(mx + 5, yM, 5, "S");
+  doc.setFillColor(...ANEL).circle(mx + 5, yM, 2.2, "F");
+  doc.setFont("helvetica", "bold").setFontSize(13.5).setTextColor(255);
+  doc.setCharSpace(1.6); doc.text("FORENZA", mx + 13.5, yM - 0.8); doc.setCharSpace(0);
+  doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...CLARO);
+  doc.setCharSpace(0.5); doc.text("GESTÃO DE PRODUÇÃO", mx + 14, yM + 3.8); doc.setCharSpace(0);
+  doc.setFont("helvetica", "bold").setFontSize(8.5).setTextColor(...CLARO);
+  doc.setCharSpace(0.7); doc.text(dossie ? "DOSSIÊ DO PEDIDO" : "ROMANEIO DE PRODUÇÃO", larg - mx, yM - 1, { align: "right" }); doc.setCharSpace(0);
+  doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...FAINT);
+  doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 4, { align: "right" });
+  if (totalPartes > 1) { doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...ANEL); doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, yM + 8.5, { align: "right" }); }
 
-  // Selo do setor (canto direito) + emissão — cor por setor
-  const corSetor = dossie ? VERDE_ESCURO : corDoSetor(local);
-  const selo = (dossie ? "Dossiê" : rotuloLocal(local)).toUpperCase();
-  doc.setFont("helvetica", "bold").setFontSize(9);
-  const wSelo = doc.getTextWidth(selo) + 12;
-  doc.setFillColor(...corSetor).roundedRect(larg - mx - wSelo, y - 4.5, wSelo, 7.5, 2, 2, "F");
-  doc.setTextColor(255).text(selo, larg - mx - wSelo / 2, y + 0.4, { align: "center" });
-  doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
-  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, y + 7, { align: "right" });
-  if (totalPartes > 1) {
-    doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...AMBAR);
-    doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, y + 11.5, { align: "right" });
-  }
-  y += 15;
-
-  // ── Título com linha grossa ──
-  doc.setFont("helvetica", "bold").setFontSize(18).setTextColor(...TINTA);
-  doc.text(dossie ? "Dossiê do pedido" : "Romaneio de produção", mx, y);
-  y += 3;
-  doc.setDrawColor(...TINTA).setLineWidth(0.8).line(mx, y, larg - mx, y);
-  y += 10;
-
-  // ── Bloco de destaque da quantidade ──
-  doc.setFillColor(237, 247, 242).roundedRect(mx, y, larg - mx * 2, 20, 3, 3, "F");
-  doc.setFont("helvetica", "bold").setFontSize(24).setTextColor(...VERDE_ESCURO);
-  const qtdNum = String(dossie ? pedido.total : qtd);
-  const largNum = doc.getTextWidth(qtdNum);
-  doc.text(qtdNum, mx + 8, y + 13.5);
-  doc.setFont("helvetica", "normal").setFontSize(11).setTextColor(90);
-  doc.text(dossie ? "peças · pedido finalizado" : `peças em ${rotuloLocal(local).toLowerCase()}`, mx + 12 + largNum, y + 13.5);
-  if (dossie) {
-    if (pedido.arquivado_em) {
-      doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
-      doc.text("ARQUIVADO EM", larg - mx - 8, y + 8, { align: "right" });
-      doc.setFont("helvetica", "bold").setFontSize(13).setTextColor(...TINTA);
-      doc.text(fmtData(pedido.arquivado_em) || "—", larg - mx - 8, y + 15, { align: "right" });
+  // ── resumo à direita: anel de progresso + total ──
+  let concl = 0, totProc = 0;
+  [processos, processosAcabamento].forEach((l) => { if (l && l.length) { totProc += l.length; concl += l.filter((p) => p.qtd >= pedido.total).length; } });
+  const temProg = totProc > 0;
+  const pctProg = temProg ? concl / totProc : 0;
+  const anelCx = larg - mx - 9, anelCy = 43, anelR = 9;
+  if (temProg) {
+    doc.setDrawColor(...ANEL_TRACK).setLineWidth(2.4).circle(anelCx, anelCy, anelR, "S");
+    doc.setDrawColor(...ANEL).setLineWidth(2.4); doc.setLineCap("round");
+    const segs = Math.max(1, Math.round(48 * pctProg));
+    for (let i = 0; i < segs; i++) {
+      const a0 = -Math.PI / 2 + 2 * Math.PI * pctProg * (i / segs);
+      const a1 = -Math.PI / 2 + 2 * Math.PI * pctProg * ((i + 1) / segs);
+      doc.line(anelCx + anelR * Math.cos(a0), anelCy + anelR * Math.sin(a0), anelCx + anelR * Math.cos(a1), anelCy + anelR * Math.sin(a1));
     }
-  } else {
-    doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
-    doc.text("PEDIDO COMPLETO", larg - mx - 8, y + 8, { align: "right" });
-    doc.setFont("helvetica", "bold").setFontSize(13).setTextColor(...TINTA);
-    doc.text(`${pedido.total} peças`, larg - mx - 8, y + 15, { align: "right" });
+    doc.setLineCap("butt");
+    doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(255);
+    doc.text(`${Math.round(pctProg * 100)}%`, anelCx, anelCy + 0.3, { align: "center" });
+    doc.setFont("helvetica", "normal").setFontSize(6).setTextColor(...CLARO);
+    doc.text(`${concl}/${totProc}`, anelCx, anelCy + 4.3, { align: "center" });
   }
-  y += 30;
+  const totalX = temProg ? anelCx - anelR - 7 : larg - mx;
+  doc.setFont("helvetica", "bold").setFontSize(23).setTextColor(255);
+  doc.text(String(dossie ? pedido.total : qtd), totalX, 41, { align: "right" });
+  doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CLARO);
+  doc.text("peças no total", totalX, 46.5, { align: "right" });
 
-  // ── Informações em duas colunas ──
+  // ── hero (identidade) ──
+  const eyebrow = (dossie ? "DOSSIÊ" : rotuloLocal(local)).toUpperCase();
+  doc.setFont("helvetica", "bold").setFontSize(8);
+  const wEye = doc.getTextWidth(eyebrow) + 9;
+  doc.setFillColor(...AMBAR).roundedRect(mx, 30, wEye, 6.5, 2.5, 2.5, "F");
+  doc.setTextColor(28, 22, 6).setCharSpace(0.4); doc.text(eyebrow, mx + 4.5, 34.4); doc.setCharSpace(0);
+  doc.setFont("helvetica", "bold").setFontSize(23).setTextColor(255);
+  const heroLarg = totalX - mx - 8;
+  doc.text(doc.splitTextToSize(String(cliente || pedido.referencia || "—"), heroLarg > 40 ? heroLarg : 90)[0] || "—", mx, 47);
+  const heroMeta = [pedido.referencia ? `Ref ${pedido.referencia}` : null, pedido.corte_id].filter(Boolean).join("   ·   ");
+  doc.setFont("helvetica", "normal").setFontSize(10.5).setTextColor(...CLARO);
+  doc.text(heroMeta, mx, 54);
+
+  y = coverH + 12;
+
+  // ── Informações em três colunas ──
   const campos = [
     ["Referência", pedido.referencia],
     ["ID de corte", pedido.corte_id],
@@ -178,22 +182,26 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     ["Oficina responsável", oficina],
     ["Criado em", fmtData(pedido.created_at)],
     ["Prazo de entrega", fmtData(pedido.prazo)],
+    ["Arquivado em", dossie ? fmtData(pedido.arquivado_em) : null],
     ["Cor", pedido.cor],
     ["Peso", pedido.peso],
     ["Volume", pedido.volume],
   ].filter(([, v]) => v);
-  const colLarg = (larg - mx * 2 - 10) / 2;
+  const gapCol = 8;
+  const colLarg = (larg - mx * 2 - gapCol * 2) / 3;
   campos.forEach(([rotulo, valor], i) => {
-    const col = i % 2;
-    const x = mx + col * (colLarg + 10);
-    if (col === 0) quebraSePreciso(8);
-    doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
-    doc.text(String(rotulo).toUpperCase(), x, y);
+    const col = i % 3;
+    const x = mx + col * (colLarg + gapCol);
+    if (col === 0) quebraSePreciso(12);
+    doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...CINZA);
+    doc.setCharSpace(0.3); doc.text(String(rotulo).toUpperCase(), x, y); doc.setCharSpace(0);
     doc.setFont("helvetica", "bold").setFontSize(10.5).setTextColor(...TINTA);
-    doc.text(doc.splitTextToSize(String(valor), colLarg)[0] || "", x, y + 4.5);
-    if (col === 1 || i === campos.length - 1) y += 11;
+    doc.text(doc.splitTextToSize(String(valor), colLarg)[0] || "", x, y + 4.8);
+    if (col === 2 || i === campos.length - 1) y += 12;
   });
-  y += 3;
+  y += 1;
+  doc.setDrawColor(235, 238, 232).setLineWidth(0.3).line(mx, y, larg - mx, y);
+  y += 9;
 
   // ── Grade de tamanhos (variante × tamanho, igual ao sistema) ──
   const linhasGrade = normalizarGrade(pedido.grade);
@@ -329,7 +337,27 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     const somaFeitas = lista.reduce((s, p) => s + Math.min(p.qtd, pedido.total), 0);
     const pctPecas = pedido.total ? Math.round((somaFeitas / (pedido.total * lista.length)) * 100) : 0;
     tituloSecao(titulo, `${concluidos} de ${lista.length} · ${pctPecas}% das peças`);
-    y += 2;
+    y += 1;
+
+    // Resumo em 3 contadores (concluídos · em andamento · pendentes)
+    const nAndam = lista.filter((p) => p.qtd > 0 && p.qtd < pedido.total).length;
+    const nPend = lista.filter((p) => !p.qtd || p.qtd <= 0).length;
+    quebraSePreciso(16);
+    const gapC = 6, cW = (larg - mx * 2 - gapC * 2) / 3;
+    const contadores = [
+      [concluidos, "concluídos", VERDE, [231, 238, 226]],
+      [nAndam, "em andamento", AMBAR, [240, 231, 212]],
+      [nPend, "pendentes", [150, 158, 148], [230, 233, 228]],
+    ];
+    contadores.forEach(([num, rot, corNum, corBorda], i) => {
+      const x = mx + i * (cW + gapC);
+      doc.setFillColor(255, 255, 255).setDrawColor(...corBorda).setLineWidth(0.4).roundedRect(x, y, cW, 13, 3, 3, "FD");
+      doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(...corNum);
+      doc.text(String(num), x + 6, y + 8);
+      doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
+      doc.text(rot, x + 6 + doc.getTextWidth(String(num)) + 3, y + 8);
+    });
+    y += 19;
 
     lista.forEach(({ nome, qtd: feitas, grade, obs, feito_em }) => {
       const completo = feitas >= pedido.total;
@@ -391,7 +419,7 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
             const label = `${t}  ${q}`;
             const wChip = doc.getTextWidth(label) + 8;
             if (chipX + wChip > larg - mx) { chipX = cx + 6; y += chipH + 2; }
-            doc.setFillColor(255, 255, 255).setDrawColor(230, 233, 227).setLineWidth(0.3).roundedRect(chipX, y, wChip, chipH, 1.2, 1.2, "FD");
+            doc.setFillColor(255, 255, 255).setDrawColor(230, 233, 227).setLineWidth(0.3).roundedRect(chipX, y, wChip, chipH, 2, 2, "FD");
             doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...TINTA).text(String(t), chipX + 3, y + 3.4);
             const wT = doc.getTextWidth(String(t));
             doc.setFont("helvetica", "normal").setTextColor(...CINZA).text(String(q), chipX + 3 + wT + 2, y + 3.4);
