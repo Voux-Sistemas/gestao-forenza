@@ -182,19 +182,23 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   const wRotKpi = doc.getTextWidth(kpiRot) + kpiCS * (kpiRot.length - 1);
   const padCard = 5.5, anelR = 4.3;
   const cardH = 12;
-  const cardW = padCard + wRotKpi + 4 + wNum + (temProg ? 3.5 + 0.3 + 3.5 + anelR * 2 : 0) + padCard;
+  const cardW = padCard + wRotKpi + 3.5 + 0.3 + 3.5 + wNum + (temProg ? 3.5 + 0.3 + 3.5 + anelR * 2 : 0) + padCard;
   const cardX = larg - mx - cardW;
   const cardY = coverH - 6 - cardH;
-  const baseCard = cardY + 8;   // linha de base única do conteúdo
-  doc.setFillColor(...CARD_BG).setDrawColor(...CARD_BORDA).setLineWidth(0.35).roundedRect(cardX, cardY, cardW, cardH, 3.5, 3.5, "FD");
+  doc.setFillColor(...CARD_BG).setDrawColor(...CARD_BORDA).setLineWidth(0.35).roundedRect(cardX, cardY, cardW, cardH, cardH / 2, cardH / 2, "FD");
+  // rótulo — baseline própria para ficar centralizado na vertical (cap 6.5pt ≈ 1.65mm)
   doc.setFont("helvetica", "bold").setFontSize(6.5).setTextColor(...CLARO);
-  doc.setCharSpace(kpiCS); doc.text(kpiRot, cardX + padCard, baseCard); doc.setCharSpace(0);
+  doc.setCharSpace(kpiCS); doc.text(kpiRot, cardX + padCard, cardY + cardH / 2 + 0.85); doc.setCharSpace(0);
+  // divisória fina
+  const div1X = cardX + padCard + wRotKpi + 3.5;
+  doc.setDrawColor(...CARD_DIV).setLineWidth(0.3).line(div1X, cardY + 3, div1X, cardY + cardH - 3);
+  // número — baseline própria (cap 15pt ≈ 3.8mm)
   doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(255);
-  doc.text(numTxt, cardX + padCard + wRotKpi + 4, baseCard);
+  doc.text(numTxt, div1X + 0.3 + 3.5, cardY + cardH / 2 + 1.9);
   if (temProg) {
-    const divX = cardX + padCard + wRotKpi + 4 + wNum + 3.5;
-    doc.setDrawColor(...CARD_DIV).setLineWidth(0.3).line(divX, cardY + 2.8, divX, cardY + cardH - 2.8);
-    const aCx = divX + 3.5 + anelR, aCy = cardY + cardH / 2;
+    const div2X = div1X + 0.3 + 3.5 + wNum + 3.5;
+    doc.setDrawColor(...CARD_DIV).setLineWidth(0.3).line(div2X, cardY + 3, div2X, cardY + cardH - 3);
+    const aCx = div2X + 0.3 + 3.5 + anelR, aCy = cardY + cardH / 2;
     doc.setDrawColor(52, 86, 62).setLineWidth(1.4).circle(aCx, aCy, anelR, "S");
     doc.setDrawColor(...ANEL).setLineWidth(1.4); doc.setLineCap("round");
     const segs = Math.max(1, Math.round(48 * pctProg));
