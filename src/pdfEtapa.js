@@ -104,38 +104,51 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
 
   // ══════════════════ CAPA (faixa colorida, compacta) ══════════════════
   const coverH = 50;
-  const CAPA_A = [20, 52, 30], CAPA_B = [33, 78, 46];   // degradê verde profundo
+  const CAPA_A = [22, 55, 32], CAPA_B = [29, 69, 41];   // degradê suave (baixo contraste evita faixas)
   const CLARO = [163, 199, 172], FAINT = [124, 160, 132];
   const ANEL = [116, 210, 143], ANEL_TRACK = [44, 86, 57];
-  const passos = 60;
+  const passos = 240;
+  const passoL = larg / passos;
   for (let i = 0; i < passos; i++) {
     const t = i / (passos - 1);
-    const r = Math.round(CAPA_A[0] + (CAPA_B[0] - CAPA_A[0]) * t);
-    const g = Math.round(CAPA_A[1] + (CAPA_B[1] - CAPA_A[1]) * t);
-    const b = Math.round(CAPA_A[2] + (CAPA_B[2] - CAPA_A[2]) * t);
-    doc.setFillColor(r, g, b).rect((larg * i) / passos, 0, larg / passos + 0.5, coverH, "F");
+    const r = CAPA_A[0] + (CAPA_B[0] - CAPA_A[0]) * t;
+    const g = CAPA_A[1] + (CAPA_B[1] - CAPA_A[1]) * t;
+    const b = CAPA_A[2] + (CAPA_B[2] - CAPA_A[2]) * t;
+    doc.setFillColor(Math.round(r), Math.round(g), Math.round(b));
+    doc.rect(i * passoL - 0.3, 0, passoL + 0.9, coverH, "F");   // sobreposição elimina emendas
   }
 
-  // ── masthead ──
-  const yM = 12.5;
+  // ── masthead (esquerda) ──
+  const yM = 13;
   doc.setDrawColor(255).setLineWidth(1.1).circle(mx + 4.3, yM, 4.3, "S");
   doc.setFillColor(...ANEL).circle(mx + 4.3, yM, 1.9, "F");
   doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(255);
-  doc.setCharSpace(1.4); doc.text("FORENZA", mx + 11.5, yM - 0.6); doc.setCharSpace(0);
+  doc.setCharSpace(1.4); doc.text("FORENZA", mx + 11.5, yM - 0.4); doc.setCharSpace(0);
   doc.setFont("helvetica", "normal").setFontSize(6.5).setTextColor(...CLARO);
-  doc.setCharSpace(0.4); doc.text("GESTÃO DE PRODUÇÃO", mx + 12, yM + 3.3); doc.setCharSpace(0);
-  doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...CLARO);
-  doc.setCharSpace(0.6); doc.text(dossie ? "DOSSIÊ DO PEDIDO" : "ROMANEIO DE PRODUÇÃO", larg - mx, yM - 1, { align: "right" }); doc.setCharSpace(0);
-  doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...FAINT);
-  doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 3.6, { align: "right" });
-  if (totalPartes > 1) { doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...ANEL); doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, yM + 7.6, { align: "right" }); }
+  doc.setCharSpace(0.4); doc.text("GESTÃO DE PRODUÇÃO", mx + 12, yM + 3.6); doc.setCharSpace(0);
 
-  // ── resumo à direita: anel de progresso + total ──
+  // ── bloco do documento (direita): título, emissão e selo da etapa ──
+  doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...CLARO);
+  doc.setCharSpace(0.6); doc.text(dossie ? "DOSSIÊ DO PEDIDO" : "ROMANEIO DE PRODUÇÃO", larg - mx, yM - 1.4, { align: "right" }); doc.setCharSpace(0);
+  doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...FAINT);
+  doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 2.6, { align: "right" });
+
+  // selo da etapa, alinhado à direita logo abaixo
+  const eyebrow = (dossie ? "DOSSIÊ" : rotuloLocal(local)).toUpperCase();
+  doc.setFont("helvetica", "bold").setFontSize(7.5).setCharSpace(0.5);
+  const wEye = doc.getTextWidth(eyebrow) + 11;
+  const eyeX = larg - mx - wEye, eyeY = yM + 5.4, eyeH = 6;
+  doc.setFillColor(...AMBAR).roundedRect(eyeX, eyeY, wEye, eyeH, 3, 3, "F");
+  doc.setTextColor(32, 25, 7).text(eyebrow, eyeX + wEye / 2, eyeY + eyeH * 0.68, { align: "center" });
+  doc.setCharSpace(0);
+  if (totalPartes > 1) { doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...ANEL); doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, eyeY + eyeH + 4.5, { align: "right" }); }
+
+  // ── resumo (direita, parte de baixo): total + anel de progresso ──
   let concl = 0, totProc = 0;
   [processos, processosAcabamento].forEach((l) => { if (l && l.length) { totProc += l.length; concl += l.filter((p) => p.qtd >= pedido.total).length; } });
   const temProg = totProc > 0;
   const pctProg = temProg ? concl / totProc : 0;
-  const anelCx = larg - mx - 7.5, anelCy = 34, anelR = 7.3;
+  const anelCx = larg - mx - 7.3, anelCy = 37.5, anelR = 7.3;
   if (temProg) {
     doc.setDrawColor(...ANEL_TRACK).setLineWidth(2).circle(anelCx, anelCy, anelR, "S");
     doc.setDrawColor(...ANEL).setLineWidth(2); doc.setLineCap("round");
@@ -153,22 +166,25 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   }
   const totalX = temProg ? anelCx - anelR - 6 : larg - mx;
   doc.setFont("helvetica", "bold").setFontSize(17).setTextColor(255);
-  doc.text(String(dossie ? pedido.total : qtd), totalX, 33, { align: "right" });
+  doc.text(String(dossie ? pedido.total : qtd), totalX, 36.5, { align: "right" });
   doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...CLARO);
-  doc.text("peças no total", totalX, 38, { align: "right" });
+  doc.text("peças no total", totalX, 41.5, { align: "right" });
 
-  // ── hero (identidade) ──
-  const eyebrow = (dossie ? "DOSSIÊ" : rotuloLocal(local)).toUpperCase();
-  doc.setFont("helvetica", "bold").setFontSize(7.5);
-  const wEye = doc.getTextWidth(eyebrow) + 8;
-  doc.setFillColor(...AMBAR).roundedRect(mx, 23, wEye, 5.6, 2.6, 2.6, "F");
-  doc.setTextColor(30, 24, 7).setCharSpace(0.4); doc.text(eyebrow, mx + 4, 26.7); doc.setCharSpace(0);
+  // ── hero (esquerda): cliente + meta com rótulos ──
   doc.setFont("helvetica", "bold").setFontSize(17).setTextColor(255);
-  const heroLarg = totalX - mx - 8;
-  doc.text(doc.splitTextToSize(String(cliente || pedido.referencia || "—"), heroLarg > 40 ? heroLarg : 90)[0] || "—", mx, 38.5);
-  const heroMeta = [pedido.referencia ? `Ref ${pedido.referencia}` : null, pedido.corte_id].filter(Boolean).join("   ·   ");
-  doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(...CLARO);
-  doc.text(heroMeta, mx, 44.5);
+  const heroLarg = totalX - mx - 10;
+  doc.text(doc.splitTextToSize(String(cliente || pedido.referencia || "—"), heroLarg > 40 ? heroLarg : 90)[0] || "—", mx, 36.5);
+  let metaX = mx;
+  [["REFERÊNCIA", pedido.referencia], ["ID DO CORTE", pedido.corte_id]].filter(([, v]) => v).forEach(([rot, val]) => {
+    doc.setFont("helvetica", "bold").setFontSize(6.3).setTextColor(...FAINT).setCharSpace(0.35);
+    doc.text(rot, metaX, 43.5);
+    const wRot = doc.getTextWidth(rot) + rot.length * 0.35;
+    doc.setCharSpace(0);
+    doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(255);
+    const vx = metaX + wRot + 2.5;
+    doc.text(String(val), vx, 43.5);
+    metaX = vx + doc.getTextWidth(String(val)) + 7;
+  });
 
   y = coverH + 11;
 
@@ -385,6 +401,7 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     });
     y += 19;
 
+    let marcaAnterior = 0;
     lista.forEach(({ nome, qtd: feitas, grade, obs, feito_em }) => {
       const completo = feitas >= pedido.total;
       const parcial = feitas > 0 && !completo;
@@ -392,10 +409,19 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       const temGrade = parcial && grade && Object.entries(grade).some(([, q]) => (parseInt(q, 10) || 0) > 0);
       const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, larg - mx * 2 - 14) : [];
       const alturaItem = (parcial ? 12 : 8) + (temGrade ? 8 : 0) + obsLinhas.length * 4 + 4;
+      const yAntes = y;
       quebraSePreciso(alturaItem);
+      if (y < yAntes) marcaAnterior = 0; // trocou de página: não liga a trilha
 
       const cx = mx + 3;
       const marcaY = y + 1.2;
+
+      // trilha de ligação entre os marcadores
+      if (marcaAnterior > 0 && marcaY - marcaAnterior > 4.8 && marcaY - marcaAnterior < 70) {
+        doc.setDrawColor(222, 226, 219).setLineWidth(0.5);
+        doc.line(cx, marcaAnterior + 2.4, cx, marcaY - 2.4);
+      }
+      marcaAnterior = marcaY;
 
       // marcador de status
       if (completo) {
