@@ -74,39 +74,39 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   const tituloSecao = (texto, sufixo) => {
     secaoN += 1;
     const num = String(secaoN).padStart(2, "0");
-    const boxSize = 6.5;
+    const boxSize = 6;
     const boxTop = y;
-    const base = boxTop + boxSize * 0.72;   // baseline do texto
-    const meio = boxTop + boxSize / 2;      // centro vertical (para a régua)
-    // Quadradinho do número (contorno escuro, sem preenchimento)
-    doc.setDrawColor(...TINTA).setLineWidth(0.4).roundedRect(mx, boxTop, boxSize, boxSize, 2, 2, "S");
-    doc.setFont("helvetica", "bold").setFontSize(8.5).setTextColor(...TINTA);
+    const base = boxTop + boxSize * 0.73;
+    const meio = boxTop + boxSize / 2;
+    // Quadradinho suave verde-claro com o número em verde (harmoniza com a marca)
+    doc.setFillColor(233, 244, 228).roundedRect(mx, boxTop, boxSize, boxSize, 2, 2, "F");
+    doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...VERDE_ESCURO);
     doc.text(num, mx + boxSize / 2, base, { align: "center" });
-    // Título (escuro, caixa normal)
-    const titleX = mx + boxSize + 3.5;
-    doc.setFont("helvetica", "bold").setFontSize(10.5).setTextColor(...TINTA);
+    // Título
+    const titleX = mx + boxSize + 4;
+    doc.setFont("helvetica", "bold").setFontSize(11).setTextColor(...TINTA);
     doc.text(texto, titleX, base);
     const titleW = doc.getTextWidth(texto);
-    // Sufixo à direita (ex.: "5 de 8 concluídos")
+    // Sufixo à direita
     let fimRegua = larg - mx;
     if (sufixo) {
       doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
       doc.text(sufixo, larg - mx, base, { align: "right" });
-      fimRegua = larg - mx - doc.getTextWidth(sufixo) - 4;
+      fimRegua = larg - mx - doc.getTextWidth(sufixo) - 5;
     }
-    // Régua fina entre o título e o sufixo/margem
-    const inicioRegua = titleX + titleW + 4;
+    // Régua fina e clara
+    const inicioRegua = titleX + titleW + 5;
     if (fimRegua > inicioRegua) {
-      doc.setDrawColor(226, 229, 223).setLineWidth(0.3).line(inicioRegua, meio, fimRegua, meio);
+      doc.setDrawColor(232, 235, 229).setLineWidth(0.3).line(inicioRegua, meio, fimRegua, meio);
     }
-    y = boxTop + boxSize + 6;
+    y = boxTop + boxSize + 7;
   };
 
-  // ══════════════════ CAPA (faixa colorida) ══════════════════
-  const coverH = 60;
-  const CAPA_A = [18, 48, 27], CAPA_B = [30, 74, 42];   // degradê verde profundo
-  const CLARO = [159, 196, 168], FAINT = [120, 158, 128];
-  const ANEL = [111, 208, 138], ANEL_TRACK = [42, 84, 55];
+  // ══════════════════ CAPA (faixa colorida, compacta) ══════════════════
+  const coverH = 50;
+  const CAPA_A = [20, 52, 30], CAPA_B = [33, 78, 46];   // degradê verde profundo
+  const CLARO = [163, 199, 172], FAINT = [124, 160, 132];
+  const ANEL = [116, 210, 143], ANEL_TRACK = [44, 86, 57];
   const passos = 60;
   for (let i = 0; i < passos; i++) {
     const t = i / (passos - 1);
@@ -117,28 +117,28 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   }
 
   // ── masthead ──
-  const yM = 15;
-  doc.setDrawColor(255).setLineWidth(1.3).circle(mx + 5, yM, 5, "S");
-  doc.setFillColor(...ANEL).circle(mx + 5, yM, 2.2, "F");
-  doc.setFont("helvetica", "bold").setFontSize(13.5).setTextColor(255);
-  doc.setCharSpace(1.6); doc.text("FORENZA", mx + 13.5, yM - 0.8); doc.setCharSpace(0);
-  doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...CLARO);
-  doc.setCharSpace(0.5); doc.text("GESTÃO DE PRODUÇÃO", mx + 14, yM + 3.8); doc.setCharSpace(0);
-  doc.setFont("helvetica", "bold").setFontSize(8.5).setTextColor(...CLARO);
-  doc.setCharSpace(0.7); doc.text(dossie ? "DOSSIÊ DO PEDIDO" : "ROMANEIO DE PRODUÇÃO", larg - mx, yM - 1, { align: "right" }); doc.setCharSpace(0);
-  doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...FAINT);
-  doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 4, { align: "right" });
-  if (totalPartes > 1) { doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...ANEL); doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, yM + 8.5, { align: "right" }); }
+  const yM = 12.5;
+  doc.setDrawColor(255).setLineWidth(1.1).circle(mx + 4.3, yM, 4.3, "S");
+  doc.setFillColor(...ANEL).circle(mx + 4.3, yM, 1.9, "F");
+  doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(255);
+  doc.setCharSpace(1.4); doc.text("FORENZA", mx + 11.5, yM - 0.6); doc.setCharSpace(0);
+  doc.setFont("helvetica", "normal").setFontSize(6.5).setTextColor(...CLARO);
+  doc.setCharSpace(0.4); doc.text("GESTÃO DE PRODUÇÃO", mx + 12, yM + 3.3); doc.setCharSpace(0);
+  doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...CLARO);
+  doc.setCharSpace(0.6); doc.text(dossie ? "DOSSIÊ DO PEDIDO" : "ROMANEIO DE PRODUÇÃO", larg - mx, yM - 1, { align: "right" }); doc.setCharSpace(0);
+  doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...FAINT);
+  doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 3.6, { align: "right" });
+  if (totalPartes > 1) { doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...ANEL); doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, yM + 7.6, { align: "right" }); }
 
   // ── resumo à direita: anel de progresso + total ──
   let concl = 0, totProc = 0;
   [processos, processosAcabamento].forEach((l) => { if (l && l.length) { totProc += l.length; concl += l.filter((p) => p.qtd >= pedido.total).length; } });
   const temProg = totProc > 0;
   const pctProg = temProg ? concl / totProc : 0;
-  const anelCx = larg - mx - 9, anelCy = 43, anelR = 9;
+  const anelCx = larg - mx - 7.5, anelCy = 34, anelR = 7.3;
   if (temProg) {
-    doc.setDrawColor(...ANEL_TRACK).setLineWidth(2.4).circle(anelCx, anelCy, anelR, "S");
-    doc.setDrawColor(...ANEL).setLineWidth(2.4); doc.setLineCap("round");
+    doc.setDrawColor(...ANEL_TRACK).setLineWidth(2).circle(anelCx, anelCy, anelR, "S");
+    doc.setDrawColor(...ANEL).setLineWidth(2); doc.setLineCap("round");
     const segs = Math.max(1, Math.round(48 * pctProg));
     for (let i = 0; i < segs; i++) {
       const a0 = -Math.PI / 2 + 2 * Math.PI * pctProg * (i / segs);
@@ -146,31 +146,31 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       doc.line(anelCx + anelR * Math.cos(a0), anelCy + anelR * Math.sin(a0), anelCx + anelR * Math.cos(a1), anelCy + anelR * Math.sin(a1));
     }
     doc.setLineCap("butt");
-    doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(255);
-    doc.text(`${Math.round(pctProg * 100)}%`, anelCx, anelCy + 0.3, { align: "center" });
-    doc.setFont("helvetica", "normal").setFontSize(6).setTextColor(...CLARO);
-    doc.text(`${concl}/${totProc}`, anelCx, anelCy + 4.3, { align: "center" });
+    doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(255);
+    doc.text(`${Math.round(pctProg * 100)}%`, anelCx, anelCy + 0.2, { align: "center" });
+    doc.setFont("helvetica", "normal").setFontSize(5.5).setTextColor(...CLARO);
+    doc.text(`${concl}/${totProc}`, anelCx, anelCy + 3.6, { align: "center" });
   }
-  const totalX = temProg ? anelCx - anelR - 7 : larg - mx;
-  doc.setFont("helvetica", "bold").setFontSize(23).setTextColor(255);
-  doc.text(String(dossie ? pedido.total : qtd), totalX, 41, { align: "right" });
-  doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CLARO);
-  doc.text("peças no total", totalX, 46.5, { align: "right" });
+  const totalX = temProg ? anelCx - anelR - 6 : larg - mx;
+  doc.setFont("helvetica", "bold").setFontSize(17).setTextColor(255);
+  doc.text(String(dossie ? pedido.total : qtd), totalX, 33, { align: "right" });
+  doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...CLARO);
+  doc.text("peças no total", totalX, 38, { align: "right" });
 
   // ── hero (identidade) ──
   const eyebrow = (dossie ? "DOSSIÊ" : rotuloLocal(local)).toUpperCase();
-  doc.setFont("helvetica", "bold").setFontSize(8);
-  const wEye = doc.getTextWidth(eyebrow) + 9;
-  doc.setFillColor(...AMBAR).roundedRect(mx, 30, wEye, 6.5, 2.5, 2.5, "F");
-  doc.setTextColor(28, 22, 6).setCharSpace(0.4); doc.text(eyebrow, mx + 4.5, 34.4); doc.setCharSpace(0);
-  doc.setFont("helvetica", "bold").setFontSize(23).setTextColor(255);
+  doc.setFont("helvetica", "bold").setFontSize(7.5);
+  const wEye = doc.getTextWidth(eyebrow) + 8;
+  doc.setFillColor(...AMBAR).roundedRect(mx, 23, wEye, 5.6, 2.6, 2.6, "F");
+  doc.setTextColor(30, 24, 7).setCharSpace(0.4); doc.text(eyebrow, mx + 4, 26.7); doc.setCharSpace(0);
+  doc.setFont("helvetica", "bold").setFontSize(17).setTextColor(255);
   const heroLarg = totalX - mx - 8;
-  doc.text(doc.splitTextToSize(String(cliente || pedido.referencia || "—"), heroLarg > 40 ? heroLarg : 90)[0] || "—", mx, 47);
+  doc.text(doc.splitTextToSize(String(cliente || pedido.referencia || "—"), heroLarg > 40 ? heroLarg : 90)[0] || "—", mx, 38.5);
   const heroMeta = [pedido.referencia ? `Ref ${pedido.referencia}` : null, pedido.corte_id].filter(Boolean).join("   ·   ");
-  doc.setFont("helvetica", "normal").setFontSize(10.5).setTextColor(...CLARO);
-  doc.text(heroMeta, mx, 54);
+  doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(...CLARO);
+  doc.text(heroMeta, mx, 44.5);
 
-  y = coverH + 12;
+  y = coverH + 11;
 
   // ── Informações em três colunas ──
   const campos = [
@@ -224,28 +224,38 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       const colVar = temVariante ? 34 : 0;
       const colTotal = 20;
       const cw = (larguraTabela - colVar - colTotal) / cols.length;
+      const RAIO = 2.8;
+      const BORDA_T = [231, 234, 228];
 
       const totalTam = (t) => linhasGrade.reduce((a, l) => a + (parseInt(l.qtds[t], 10) || 0), 0);
       const totalLinha = (l) => cols.reduce((a, t) => a + (parseInt(l.qtds[t], 10) || 0), 0);
       const geral = linhasGrade.reduce((a, l) => a + totalLinha(l), 0);
+      const haLinhaTotal = temVariante || linhasGrade.length > 1;
+      const tabTop = y;
 
-      // Helper de célula: reseta cor a cada chamada (evita blocos cinza fantasmas).
-      const celula = (cx, cy, cwid, texto, { header, fill, corTexto, bold, alinhar } = {}) => {
-        if (fill) { doc.setFillColor(...fill); doc.rect(cx, cy, cwid, hLinha, "F"); }
-        doc.setDrawColor(214).setLineWidth(0.25).rect(cx, cy, cwid, hLinha, "S");
+      // Só o texto — a moldura arredondada e as divisórias vêm no fim.
+      const celula = (cx, cy, cwid, texto, { header, corTexto, bold, alinhar } = {}) => {
         doc.setFont("helvetica", bold === false ? "normal" : "bold").setFontSize(header ? 7.5 : 9.5).setTextColor(...(corTexto || TINTA));
-        doc.text(String(texto), alinhar === "left" ? cx + 3 : cx + cwid / 2, cy + 5.3, { align: alinhar === "left" ? "left" : "center" });
+        doc.text(String(texto), alinhar === "left" ? cx + 3.5 : cx + cwid / 2, cy + 5.4, { align: alinhar === "left" ? "left" : "center" });
       };
 
-      // Cabeçalho
+      // Cabeçalho — fundo suave com o topo arredondado
+      doc.setFillColor(246, 248, 244);
+      doc.roundedRect(mx, tabTop, larguraTabela, hLinha, RAIO, RAIO, "F");
+      doc.rect(mx, tabTop + hLinha - RAIO, larguraTabela, RAIO, "F");
       let x = mx;
-      if (temVariante) { celula(x, y, colVar, "VARIANTE", { header: true, fill: [244, 244, 241], corTexto: CINZA, alinhar: "left" }); x += colVar; }
-      cols.forEach((t) => { celula(x, y, cw, t, { header: true, fill: [244, 244, 241], corTexto: CINZA }); x += cw; });
-      celula(x, y, colTotal, "TOTAL", { header: true, fill: [237, 247, 242], corTexto: VERDE_ESCURO });
+      if (temVariante) { celula(x, y, colVar, "VARIANTE", { header: true, corTexto: CINZA, alinhar: "left" }); x += colVar; }
+      cols.forEach((t) => { celula(x, y, cw, t, { header: true, corTexto: CINZA }); x += cw; });
+      celula(x, y, colTotal, "TOTAL", { header: true, corTexto: VERDE_ESCURO });
       y += hLinha;
 
-      // Linhas de variantes
-      linhasGrade.forEach((l) => {
+      const xTotal = mx + colVar + cw * cols.length;
+
+      // Linhas
+      linhasGrade.forEach((l, idx) => {
+        const ultimaSemTotal = !haLinhaTotal && idx === linhasGrade.length - 1;
+        doc.setFillColor(242, 248, 239);
+        doc.rect(xTotal, y, colTotal - 0.4, hLinha - (ultimaSemTotal ? 0.5 : 0), "F");
         x = mx;
         if (temVariante) { celula(x, y, colVar, l.variante || "—", { corTexto: TINTA, alinhar: "left" }); x += colVar; }
         cols.forEach((t) => {
@@ -253,19 +263,35 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
           celula(x, y, cw, q || "·", { corTexto: q ? TINTA : [190, 190, 185], bold: !!q });
           x += cw;
         });
-        celula(x, y, colTotal, totalLinha(l), { fill: [242, 248, 239], corTexto: VERDE_ESCURO });
+        celula(x, y, colTotal, totalLinha(l), { corTexto: VERDE_ESCURO });
         y += hLinha;
       });
 
-      // Linha de total (só se houver variantes ou mais de uma linha) — destaque verde escuro
-      if (temVariante || linhasGrade.length > 1) {
+      // Linha de total — faixa escura com a base arredondada
+      if (haLinhaTotal) {
+        doc.setFillColor(...VERDE_ESCURO);
+        doc.roundedRect(mx, y, larguraTabela, hLinha, RAIO, RAIO, "F");
+        doc.rect(mx, y, larguraTabela, RAIO, "F");
         x = mx;
-        if (temVariante) { celula(x, y, colVar, "TOTAL", { fill: VERDE_ESCURO, corTexto: [255, 255, 255], alinhar: "left" }); x += colVar; }
-        cols.forEach((t) => { celula(x, y, cw, totalTam(t), { fill: VERDE_ESCURO, corTexto: [255, 255, 255] }); x += cw; });
-        celula(x, y, colTotal, geral, { fill: VERDE_ESCURO, corTexto: [255, 255, 255] });
+        if (temVariante) { celula(x, y, colVar, "TOTAL", { corTexto: [255, 255, 255], alinhar: "left" }); x += colVar; }
+        cols.forEach((t) => { celula(x, y, cw, totalTam(t), { corTexto: [255, 255, 255] }); x += cw; });
+        celula(x, y, colTotal, geral, { corTexto: [255, 255, 255] });
         y += hLinha;
       }
-      y += 13;
+
+      // Divisórias finas + moldura arredondada
+      const tabBottom = y;
+      const fimVert = haLinhaTotal ? tabBottom - hLinha : tabBottom;
+      doc.setDrawColor(...BORDA_T).setLineWidth(0.25);
+      if (temVariante) doc.line(mx + colVar, tabTop, mx + colVar, fimVert);
+      cols.forEach((_, i) => { if (i > 0) { const px = mx + colVar + cw * i; doc.line(px, tabTop, px, fimVert); } });
+      doc.line(xTotal, tabTop, xTotal, fimVert);
+      for (let r = 1; r <= linhasGrade.length; r++) {
+        const py = tabTop + hLinha * r;
+        if (py < fimVert - 0.1) doc.line(mx, py, larg - mx, py);
+      }
+      doc.setDrawColor(...BORDA_T).setLineWidth(0.4).roundedRect(mx, tabTop, larguraTabela, tabBottom - tabTop, RAIO, RAIO, "S");
+      y += 12;
     }
   }
 
@@ -622,28 +648,42 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     const colProc = larguraTabela * 0.4;
     const colData = larguraTabela * 0.4;
     const colQtd = larguraTabela - colProc - colData;
-    const cel = (cx, cwid, texto, { fill, corTexto, bold, alinhar } = {}) => {
-      if (fill) { doc.setFillColor(...fill); doc.rect(cx, y, cwid, hLinha, "F"); }
-      doc.setDrawColor(230).setLineWidth(0.2).rect(cx, y, cwid, hLinha, "S");
+    const RAIO_H = 2.8, BORDA_H = [232, 235, 229];
+    const tabTopH = y;
+    const cel = (cx, cwid, texto, { corTexto, bold, alinhar } = {}) => {
       doc.setFont("helvetica", bold ? "bold" : "normal").setFontSize(9).setTextColor(...(corTexto || TINTA));
       const al = alinhar || "center";
-      const tx = al === "left" ? cx + 2.5 : al === "right" ? cx + cwid - 2.5 : cx + cwid / 2;
+      const tx = al === "left" ? cx + 3.5 : al === "right" ? cx + cwid - 3.5 : cx + cwid / 2;
       doc.text(String(texto), tx, y + hLinha * 0.66, { align: al });
     };
+    // Cabeçalho com topo arredondado
+    doc.setFillColor(246, 248, 244);
+    doc.roundedRect(mx, tabTopH, larguraTabela, hLinha, RAIO_H, RAIO_H, "F");
+    doc.rect(mx, tabTopH + hLinha - RAIO_H, larguraTabela, RAIO_H, "F");
     let x = mx;
-    cel(x, colProc, "PROCESSO", { fill: [240, 240, 237], corTexto: CINZA, bold: true, alinhar: "left" }); x += colProc;
-    cel(x, colData, "FINALIZADO EM", { fill: [240, 240, 237], corTexto: CINZA, bold: true }); x += colData;
-    cel(x, colQtd, "PEÇAS", { fill: [240, 240, 237], corTexto: CINZA, bold: true });
+    cel(x, colProc, "PROCESSO", { corTexto: CINZA, bold: true, alinhar: "left" }); x += colProc;
+    cel(x, colData, "FINALIZADO EM", { corTexto: CINZA, bold: true }); x += colData;
+    cel(x, colQtd, "PEÇAS", { corTexto: CINZA, bold: true });
     y += hLinha;
     historico.forEach((n, i) => {
       x = mx;
-      if (i % 2 === 1) { doc.setFillColor(247, 249, 247).rect(mx, y, larguraTabela, hLinha, "F"); }
+      const ultima = i === historico.length - 1;
+      if (i % 2 === 1) { doc.setFillColor(248, 250, 247).rect(mx + 0.4, y, larguraTabela - 0.8, hLinha - (ultima ? 0.5 : 0), "F"); }
       cel(x, colProc, n.nome, { bold: true, alinhar: "left" }); x += colProc;
       cel(x, colData, n.feito_em || "—", { corTexto: [70, 68, 62] }); x += colData;
       cel(x, colQtd, n.qtd != null ? String(n.qtd) : "—", { corTexto: [70, 68, 62] });
       y += hLinha;
     });
-    y += 13;
+    // Divisórias finas + moldura arredondada
+    doc.setDrawColor(...BORDA_H).setLineWidth(0.25);
+    doc.line(mx + colProc, tabTopH, mx + colProc, y);
+    doc.line(mx + colProc + colData, tabTopH, mx + colProc + colData, y);
+    for (let r = 1; r <= historico.length; r++) {
+      const py = tabTopH + hLinha * r;
+      if (py < y - 0.1) doc.line(mx, py, larg - mx, py);
+    }
+    doc.setDrawColor(...BORDA_H).setLineWidth(0.4).roundedRect(mx, tabTopH, larguraTabela, y - tabTopH, RAIO_H, RAIO_H, "S");
+    y += 12;
   }
 
   // ── Linha do tempo: todos os movimentos do pedido, em ordem ──
