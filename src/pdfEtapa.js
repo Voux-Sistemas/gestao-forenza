@@ -133,13 +133,17 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...FAINT);
   doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 2.6, { align: "right" });
 
-  // selo da etapa, alinhado à direita logo abaixo
+  // selo da etapa — largura considera o charSpace (getTextWidth não o inclui)
   const eyebrow = (dossie ? "DOSSIÊ" : rotuloLocal(local)).toUpperCase();
-  doc.setFont("helvetica", "bold").setFontSize(7.5).setCharSpace(0.5);
-  const wEye = doc.getTextWidth(eyebrow) + 11;
-  const eyeX = larg - mx - wEye, eyeY = yM + 5.4, eyeH = 6;
-  doc.setFillColor(...AMBAR).roundedRect(eyeX, eyeY, wEye, eyeH, 3, 3, "F");
-  doc.setTextColor(32, 25, 7).text(eyebrow, eyeX + wEye / 2, eyeY + eyeH * 0.68, { align: "center" });
+  const eyeCS = 0.5;
+  doc.setFont("helvetica", "bold").setFontSize(7.5);
+  const wTxtEye = doc.getTextWidth(eyebrow) + eyeCS * Math.max(0, eyebrow.length - 1);
+  const padEye = 5.5;
+  const wEye = wTxtEye + padEye * 2;
+  const eyeX = larg - mx - wEye, eyeY = yM + 5.6, eyeH = 6.2;
+  doc.setFillColor(...AMBAR).roundedRect(eyeX, eyeY, wEye, eyeH, eyeH / 2, eyeH / 2, "F");
+  doc.setTextColor(32, 25, 7).setCharSpace(eyeCS);
+  doc.text(eyebrow, eyeX + padEye, eyeY + eyeH * 0.665);   // esquerda + padding = centralizado de fato
   doc.setCharSpace(0);
   if (totalPartes > 1) { doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...ANEL); doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, eyeY + eyeH + 4.5, { align: "right" }); }
 
@@ -164,11 +168,14 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     doc.setFont("helvetica", "normal").setFontSize(5.5).setTextColor(...CLARO);
     doc.text(`${concl}/${totProc}`, anelCx, anelCy + 3.6, { align: "center" });
   }
-  const totalX = temProg ? anelCx - anelR - 6 : larg - mx;
+  // número + rótulo centralizado exatamente sob o número
+  const numTxt = String(dossie ? pedido.total : qtd);
+  const totalX = temProg ? anelCx - anelR - 7 : larg - mx;
   doc.setFont("helvetica", "bold").setFontSize(17).setTextColor(255);
-  doc.text(String(dossie ? pedido.total : qtd), totalX, 36.5, { align: "right" });
-  doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...CLARO);
-  doc.text("peças no total", totalX, 41.5, { align: "right" });
+  const wNum = doc.getTextWidth(numTxt);
+  doc.text(numTxt, totalX, 36.5, { align: "right" });
+  doc.setFont("helvetica", "normal").setFontSize(6.8).setTextColor(...CLARO);
+  doc.text("peças no total", totalX - wNum / 2, 41.3, { align: "center" });
 
   // ── hero (esquerda): cliente + meta com rótulos ──
   doc.setFont("helvetica", "bold").setFontSize(17).setTextColor(255);
