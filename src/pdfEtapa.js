@@ -187,10 +187,20 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   const cardX = larg - mx - cardW;
   const cardY = coverH - 6.5 - cardH;   // 6mm de folga do chip acima; base a 6,5mm do fio
   doc.setFillColor(...CARD_BG).setDrawColor(...CARD_BORDA).setLineWidth(0.35).roundedRect(cardX, cardY, cardW, cardH, 4, 4, "FD");
-  doc.setFont("helvetica", "bold").setFontSize(6.5).setTextColor(...CLARO);
-  doc.setCharSpace(kpiCS); doc.text(kpiRot, cardX + padCard, cardY + 6); doc.setCharSpace(0);
-  doc.setFont("helvetica", "bold").setFontSize(19).setTextColor(255);
-  doc.text(numTxt, cardX + padCard, cardY + 15.2);
+  if (temProg) {
+    // com anel: conteúdo à esquerda, divisória, anel à direita
+    doc.setFont("helvetica", "bold").setFontSize(6.5).setTextColor(...CLARO);
+    doc.setCharSpace(kpiCS); doc.text(kpiRot, cardX + padCard, cardY + 6); doc.setCharSpace(0);
+    doc.setFont("helvetica", "bold").setFontSize(19).setTextColor(255);
+    doc.text(numTxt, cardX + padCard, cardY + 15.2);
+  } else {
+    // sem anel: rótulo e número centralizados — bloco simétrico
+    const cxCard = cardX + cardW / 2;
+    doc.setFont("helvetica", "bold").setFontSize(6.5).setTextColor(...CLARO);
+    doc.setCharSpace(kpiCS); doc.text(kpiRot, cxCard - wRotKpi / 2, cardY + 6); doc.setCharSpace(0);
+    doc.setFont("helvetica", "bold").setFontSize(19).setTextColor(255);
+    doc.text(numTxt, cxCard, cardY + 15.2, { align: "center" });
+  }
   if (temProg) {
     const divX = cardX + padCard + wEsq + 4;
     doc.setDrawColor(...CARD_DIV).setLineWidth(0.3).line(divX, cardY + 4, divX, cardY + cardH - 4);
