@@ -148,8 +148,12 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   doc.setFont("helvetica", "normal").setFontSize(6.5).setTextColor(...FAINT);
   doc.setCharSpace(0.4); doc.text("GESTÃO DE PRODUÇÃO", mx + 12, yM + 3.6); doc.setCharSpace(0);
 
+  // título do documento — largura real com charSpace, pra alinhar de fato na margem
+  const docTitulo = dossie ? "DOSSIÊ DO PEDIDO" : "ROMANEIO DE PRODUÇÃO";
+  const docCS = 0.6;
   doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...CLARO);
-  doc.setCharSpace(0.6); doc.text(dossie ? "DOSSIÊ DO PEDIDO" : "ROMANEIO DE PRODUÇÃO", larg - mx, yM - 1.6, { align: "right" }); doc.setCharSpace(0);
+  const wDocTit = doc.getTextWidth(docTitulo) + docCS * Math.max(0, docTitulo.length - 1);
+  doc.setCharSpace(docCS); doc.text(docTitulo, larg - mx - wDocTit, yM - 1.6); doc.setCharSpace(0);
   doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...FAINT);
   doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 2.4, { align: "right" });
 
