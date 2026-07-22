@@ -102,95 +102,105 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     y = boxTop + boxSize + 7;
   };
 
-  // ══════════════════ CAPA (faixa colorida, compacta) ══════════════════
-  const coverH = 50;
-  const CAPA_A = [22, 55, 32], CAPA_B = [29, 69, 41];   // degradê suave (baixo contraste evita faixas)
-  const CLARO = [163, 199, 172], FAINT = [124, 160, 132];
-  const ANEL = [116, 210, 143], ANEL_TRACK = [44, 86, 57];
-  const passos = 240;
-  const passoL = larg / passos;
-  for (let i = 0; i < passos; i++) {
-    const t = i / (passos - 1);
-    const r = CAPA_A[0] + (CAPA_B[0] - CAPA_A[0]) * t;
-    const g = CAPA_A[1] + (CAPA_B[1] - CAPA_A[1]) * t;
-    const b = CAPA_A[2] + (CAPA_B[2] - CAPA_A[2]) * t;
-    doc.setFillColor(Math.round(r), Math.round(g), Math.round(b));
-    doc.rect(i * passoL - 0.3, 0, passoL + 0.9, coverH, "F");   // sobreposição elimina emendas
-  }
+  // ══════════════════ CAPA (verde sólido, grade 2×2) ══════════════════
+  const coverH = 54;
+  const VERDE_CAPA = [23, 56, 33];
+  const CLARO = [167, 204, 174], FAINT = [127, 163, 135];
+  const ANEL = [111, 208, 138];
+  // cores do cartão de KPI: branco 7% / 14% misturado sobre o verde (sem alpha real = sem risco)
+  const CARD_BG = [39, 70, 49], CARD_BORDA = [56, 85, 65], CARD_DIV = [56, 85, 65];
+  const AMBAR_CAPA = [223, 162, 54];
 
-  // ── masthead (esquerda) ──
+  doc.setFillColor(...VERDE_CAPA).rect(0, 0, larg, coverH, "F");
+  // fio de acabamento na base: âmbar à esquerda sobre base verde-escura
+  doc.setFillColor(17, 42, 25).rect(0, coverH - 1.3, larg, 1.3, "F");
+  doc.setFillColor(...AMBAR_CAPA).rect(0, coverH - 1.3, larg * 0.42, 1.3, "F");
+
+  // ── LINHA 1 · marca (esq) ↔ documento (dir) ──
   const yM = 13;
   doc.setDrawColor(255).setLineWidth(1.1).circle(mx + 4.3, yM, 4.3, "S");
   doc.setFillColor(...ANEL).circle(mx + 4.3, yM, 1.9, "F");
   doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(255);
   doc.setCharSpace(1.4); doc.text("FORENZA", mx + 11.5, yM - 0.4); doc.setCharSpace(0);
-  doc.setFont("helvetica", "normal").setFontSize(6.5).setTextColor(...CLARO);
+  doc.setFont("helvetica", "normal").setFontSize(6.5).setTextColor(...FAINT);
   doc.setCharSpace(0.4); doc.text("GESTÃO DE PRODUÇÃO", mx + 12, yM + 3.6); doc.setCharSpace(0);
 
-  // ── bloco do documento (direita): título, emissão e selo da etapa ──
   doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...CLARO);
   doc.setCharSpace(0.6); doc.text(dossie ? "DOSSIÊ DO PEDIDO" : "ROMANEIO DE PRODUÇÃO", larg - mx, yM - 1.4, { align: "right" }); doc.setCharSpace(0);
   doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...FAINT);
   doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 2.6, { align: "right" });
 
-  // selo da etapa — largura considera o charSpace (getTextWidth não o inclui)
+  // chip da etapa (pílula, largura com charSpace incluído)
   const eyebrow = (dossie ? "DOSSIÊ" : rotuloLocal(local)).toUpperCase();
   const eyeCS = 0.5;
   doc.setFont("helvetica", "bold").setFontSize(7.5);
   const wTxtEye = doc.getTextWidth(eyebrow) + eyeCS * Math.max(0, eyebrow.length - 1);
-  const padEye = 5.5;
+  const padEye = 5.5, eyeH = 6.2;
   const wEye = wTxtEye + padEye * 2;
-  const eyeX = larg - mx - wEye, eyeY = yM + 5.6, eyeH = 6.2;
-  doc.setFillColor(...AMBAR).roundedRect(eyeX, eyeY, wEye, eyeH, eyeH / 2, eyeH / 2, "F");
-  doc.setTextColor(32, 25, 7).setCharSpace(eyeCS);
-  doc.text(eyebrow, eyeX + padEye, eyeY + eyeH * 0.665);   // esquerda + padding = centralizado de fato
+  const eyeX = larg - mx - wEye, eyeY = yM + 5.8;
+  doc.setFillColor(...AMBAR_CAPA).roundedRect(eyeX, eyeY, wEye, eyeH, eyeH / 2, eyeH / 2, "F");
+  doc.setTextColor(28, 22, 8).setCharSpace(eyeCS);
+  doc.text(eyebrow, eyeX + padEye, eyeY + eyeH * 0.665);
   doc.setCharSpace(0);
-  if (totalPartes > 1) { doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...ANEL); doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, eyeY + eyeH + 4.5, { align: "right" }); }
+  if (totalPartes > 1) { doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...ANEL); doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, eyeY + eyeH + 4.2, { align: "right" }); }
 
-  // ── resumo (direita, parte de baixo): total + anel de progresso ──
+  // ── LINHA 2 · identidade (esq) ↔ cartão KPI (dir), bases alinhadas ──
   let concl = 0, totProc = 0;
   [processos, processosAcabamento].forEach((l) => { if (l && l.length) { totProc += l.length; concl += l.filter((p) => p.qtd >= pedido.total).length; } });
   const temProg = totProc > 0;
   const pctProg = temProg ? concl / totProc : 0;
-  const anelCx = larg - mx - 7.3, anelCy = 37.5, anelR = 7.3;
+
+  // cartão de KPI (direita)
+  const numTxt = String(dossie ? pedido.total : qtd);
+  doc.setFont("helvetica", "bold").setFontSize(19);
+  const wNum = doc.getTextWidth(numTxt);
+  doc.setFont("helvetica", "bold").setFontSize(6.5);
+  const kpiCS = 0.3;
+  const kpiRot = "TOTAL DE PEÇAS";
+  const wRotKpi = doc.getTextWidth(kpiRot) + kpiCS * (kpiRot.length - 1);
+  const padCard = 6, anelR = 6;
+  const wEsq = Math.max(wNum, wRotKpi);
+  const cardH = 20;
+  const cardW = padCard + wEsq + (temProg ? 4 + 0.3 + 4 + anelR * 2 : 0) + padCard;
+  const cardX = larg - mx - cardW;
+  const cardY = coverH - 7 - cardH;   // base do cartão = base da identidade
+  doc.setFillColor(...CARD_BG).setDrawColor(...CARD_BORDA).setLineWidth(0.35).roundedRect(cardX, cardY, cardW, cardH, 4, 4, "FD");
+  doc.setFont("helvetica", "bold").setFontSize(6.5).setTextColor(...CLARO);
+  doc.setCharSpace(kpiCS); doc.text(kpiRot, cardX + padCard, cardY + 6); doc.setCharSpace(0);
+  doc.setFont("helvetica", "bold").setFontSize(19).setTextColor(255);
+  doc.text(numTxt, cardX + padCard, cardY + 15.2);
   if (temProg) {
-    doc.setDrawColor(...ANEL_TRACK).setLineWidth(2).circle(anelCx, anelCy, anelR, "S");
-    doc.setDrawColor(...ANEL).setLineWidth(2); doc.setLineCap("round");
+    const divX = cardX + padCard + wEsq + 4;
+    doc.setDrawColor(...CARD_DIV).setLineWidth(0.3).line(divX, cardY + 4, divX, cardY + cardH - 4);
+    const aCx = divX + 4 + anelR, aCy = cardY + cardH / 2;
+    doc.setDrawColor(50, 82, 60).setLineWidth(1.8).circle(aCx, aCy, anelR, "S");
+    doc.setDrawColor(...ANEL).setLineWidth(1.8); doc.setLineCap("round");
     const segs = Math.max(1, Math.round(48 * pctProg));
     for (let i = 0; i < segs; i++) {
       const a0 = -Math.PI / 2 + 2 * Math.PI * pctProg * (i / segs);
       const a1 = -Math.PI / 2 + 2 * Math.PI * pctProg * ((i + 1) / segs);
-      doc.line(anelCx + anelR * Math.cos(a0), anelCy + anelR * Math.sin(a0), anelCx + anelR * Math.cos(a1), anelCy + anelR * Math.sin(a1));
+      doc.line(aCx + anelR * Math.cos(a0), aCy + anelR * Math.sin(a0), aCx + anelR * Math.cos(a1), aCy + anelR * Math.sin(a1));
     }
     doc.setLineCap("butt");
-    doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(255);
-    doc.text(`${Math.round(pctProg * 100)}%`, anelCx, anelCy + 0.2, { align: "center" });
-    doc.setFont("helvetica", "normal").setFontSize(5.5).setTextColor(...CLARO);
-    doc.text(`${concl}/${totProc}`, anelCx, anelCy + 3.6, { align: "center" });
+    doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(255);
+    doc.text(`${Math.round(pctProg * 100)}%`, aCx, aCy + 0.4, { align: "center" });
+    doc.setFont("helvetica", "normal").setFontSize(5).setTextColor(...CLARO);
+    doc.text(`${concl}/${totProc}`, aCx, aCy + 3.4, { align: "center" });
   }
-  // número + rótulo centralizado exatamente sob o número
-  const numTxt = String(dossie ? pedido.total : qtd);
-  const totalX = temProg ? anelCx - anelR - 7 : larg - mx;
-  doc.setFont("helvetica", "bold").setFontSize(17).setTextColor(255);
-  const wNum = doc.getTextWidth(numTxt);
-  doc.text(numTxt, totalX, 36.5, { align: "right" });
-  doc.setFont("helvetica", "normal").setFontSize(6.8).setTextColor(...CLARO);
-  doc.text("peças no total", totalX - wNum / 2, 41.3, { align: "center" });
 
-  // ── hero (esquerda): cliente + meta com rótulos ──
-  doc.setFont("helvetica", "bold").setFontSize(17).setTextColor(255);
-  const heroLarg = totalX - mx - 10;
-  doc.text(doc.splitTextToSize(String(cliente || pedido.referencia || "—"), heroLarg > 40 ? heroLarg : 90)[0] || "—", mx, 36.5);
+  // identidade (esquerda) — base alinhada com o cartão
+  doc.setFont("helvetica", "bold").setFontSize(19).setTextColor(255);
+  const heroLarg = cardX - mx - 10;
+  doc.text(doc.splitTextToSize(String(cliente || pedido.referencia || "—"), heroLarg > 40 ? heroLarg : 90)[0] || "—", mx, cardY + 6.5);
   let metaX = mx;
   [["REFERÊNCIA", pedido.referencia], ["ID DO CORTE", pedido.corte_id]].filter(([, v]) => v).forEach(([rot, val]) => {
     doc.setFont("helvetica", "bold").setFontSize(6.3).setTextColor(...FAINT).setCharSpace(0.35);
-    doc.text(rot, metaX, 43.5);
+    doc.text(rot, metaX, cardY + 12.6);
     const wRot = doc.getTextWidth(rot) + rot.length * 0.35;
     doc.setCharSpace(0);
-    doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(255);
-    const vx = metaX + wRot + 2.5;
-    doc.text(String(val), vx, 43.5);
-    metaX = vx + doc.getTextWidth(String(val)) + 7;
+    doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(234, 243, 236);
+    doc.text(String(val), metaX, cardY + 17.4);
+    metaX += Math.max(wRot, doc.getTextWidth(String(val))) + 11;
   });
 
   y = coverH + 11;
