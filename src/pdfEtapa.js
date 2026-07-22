@@ -446,27 +446,39 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     });
     y += 19;
 
-    let marcaAnterior = 0;
+    // moldura única (opção A): quadro arredondado com divisórias entre os processos
+    const inL = mx + 4.5, inR = larg - mx - 4.5;   // recuo interno do conteúdo
+    let quadroTop = y;
+    let primeiroDoQuadro = true;
+    const fechaQuadro = () => {
+      doc.setDrawColor(231, 234, 228).setLineWidth(0.4).roundedRect(mx, quadroTop, larg - mx * 2, y - quadroTop, 3, 3, "S");
+    };
+
     lista.forEach(({ nome, qtd: feitas, grade, obs, feito_em }) => {
       const completo = feitas >= pedido.total;
       const parcial = feitas > 0 && !completo;
       const cor = completo ? VERDE : parcial ? AMBAR : [190, 190, 185];
       const temGrade = parcial && grade && Object.entries(grade).some(([, q]) => (parseInt(q, 10) || 0) > 0);
-      const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, larg - mx * 2 - 14) : [];
-      const alturaItem = (parcial ? 12 : 8) + (temGrade ? 8 : 0) + obsLinhas.length * 4 + 4;
-      const yAntes = y;
-      quebraSePreciso(alturaItem);
-      if (y < yAntes) marcaAnterior = 0; // trocou de página: não liga a trilha
+      const obsLinhas = obs ? doc.splitTextToSize(`Obs: ${obs}`, inR - inL - 14) : [];
+      const alturaItem = 3 + (parcial ? 12 : 8) + (temGrade ? 8 : 0) + obsLinhas.length * 4 + 1.5;
 
-      const cx = mx + 3;
-      const marcaY = y + 1.2;
-
-      // trilha de ligação entre os marcadores
-      if (marcaAnterior > 0 && marcaY - marcaAnterior > 4.8 && marcaY - marcaAnterior < 70) {
-        doc.setDrawColor(222, 226, 219).setLineWidth(0.5);
-        doc.line(cx, marcaAnterior + 2.4, cx, marcaY - 2.4);
+      // quebra de página: fecha o quadro nesta página e reabre na próxima
+      if (y + alturaItem + 2 > 280) {
+        fechaQuadro();
+        quebraSePreciso(alturaItem + 2);
+        quadroTop = y;
+        primeiroDoQuadro = true;
       }
-      marcaAnterior = marcaY;
+
+      // divisória entre processos (não antes do primeiro do quadro)
+      if (!primeiroDoQuadro) {
+        doc.setDrawColor(240, 243, 238).setLineWidth(0.3).line(mx, y, larg - mx, y);
+      }
+      primeiroDoQuadro = false;
+      y += 3;   // respiro superior da linha
+
+      const cx = inL + 2.2;
+      const marcaY = y + 1.2;
 
       // marcador de status
       if (completo) {
@@ -489,14 +501,14 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
         const pctTxt = `${Math.round(pct * 100)}%`;
         doc.setFont("helvetica", "bold").setFontSize(7.5);
         const badgeW = doc.getTextWidth(pctTxt) + 6;
-        const badgeX = larg - mx - badgeW;
-        doc.setFillColor(251, 241, 223).roundedRect(badgeX, y - 1.6, badgeW, 5, 1, 1, "F");
+        const badgeX = inR - badgeW;
+        doc.setFillColor(251, 241, 223).roundedRect(badgeX, y - 1.6, badgeW, 5, 1.6, 1.6, "F");
         doc.setTextColor(...AMBAR).text(pctTxt, badgeX + 3, y + 1.8);
         doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...AMBAR);
         doc.text(`${feitas}/${pedido.total}`, badgeX - 4, y + 2, { align: "right" });
         y += 5;
         // barra arredondada
-        const barX = cx + 6, barW = larg - mx - barX, barY = y;
+        const barX = cx + 6, barW = inR - barX, barY = y;
         doc.setFillColor(240, 242, 238).roundedRect(barX, barY, barW, 2, 1, 1, "F");
         if (pct > 0) doc.setFillColor(...cor).roundedRect(barX, barY, barW * pct, 2, 1, 1, "F");
         y += 5;
@@ -515,7 +527,7 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
             doc.setFont("helvetica", "bold").setFontSize(7.5);
             const label = `${t}  ${q}`;
             const wChip = doc.getTextWidth(label) + 8;
-            if (chipX + wChip > larg - mx) { chipX = cx + 6; y += chipH + 2; }
+            if (chipX + wChip > inR) { chipX = cx + 6; y += chipH + 2; }
             doc.setFillColor(255, 255, 255).setDrawColor(230, 233, 227).setLineWidth(0.3).roundedRect(chipX, y, wChip, chipH, 2, 2, "FD");
             doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...TINTA).text(String(t), chipX + 3, y + 3.4);
             const wT = doc.getTextWidth(String(t));
@@ -526,13 +538,12 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
         }
       } else {
         // compacto (concluído em verde, não iniciado em cinza) — sem barra
-        const xr = larg - mx;
         doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...(completo ? VERDE_ESCURO : CINZA));
-        doc.text(`${feitas}/${pedido.total}`, xr, y + 2, { align: "right" });
+        doc.text(`${feitas}/${pedido.total}`, inR, y + 2, { align: "right" });
         if (completo && feito_em) {
           const wTot = doc.getTextWidth(`${feitas}/${pedido.total}`);
           doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
-          doc.text(String(feito_em), xr - wTot - 4, y + 2, { align: "right" });
+          doc.text(String(feito_em), inR - wTot - 4, y + 2, { align: "right" });
         }
         y += 6;
       }
@@ -543,11 +554,10 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
         y += obsLinhas.length * 4 + 1;
       }
 
-      // separador fino entre processos
-      doc.setDrawColor(240, 242, 238).setLineWidth(0.3).line(mx, y + 1.5, larg - mx, y + 1.5);
-      y += 5;
+      y += 1.5;   // respiro inferior da linha
     });
-    y += 2;
+    fechaQuadro();
+    y += 10;
   };
 
   if (dossie) {
