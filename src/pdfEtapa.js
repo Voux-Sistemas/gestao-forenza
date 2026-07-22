@@ -102,8 +102,8 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     y = boxTop + boxSize + 7;
   };
 
-  // ══════════════════ CAPA (degradê suave, grade 2×2 com respiro) ══════════════════
-  const coverH = 58;
+  // ══════════════════ CAPA (degradê suave, compacta) ══════════════════
+  const coverH = 46;
   const CAPA_A = [22, 55, 32], CAPA_B = [30, 72, 43];   // baixo contraste: sem faixas visíveis
   const CLARO = [167, 204, 174], FAINT = [127, 163, 135];
   const ANEL = [111, 208, 138];
@@ -122,7 +122,7 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       doc.rect(i * passoL - 0.3, 0, passoL + 0.9, coverH, "F");
     }
   }
-  // fio de acabamento: âmbar desvanecendo para o verde (sem corte seco)
+  // fio de acabamento: âmbar desvanecendo para o verde
   {
     const fioH = 1.2, fioY = coverH - fioH;
     const FIO_BASE = [18, 44, 26];
@@ -140,7 +140,7 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   }
 
   // ── LINHA 1 · marca (esq) ↔ documento (dir) ──
-  const yM = 13;
+  const yM = 11;
   doc.setDrawColor(255).setLineWidth(1.1).circle(mx + 4.3, yM, 4.3, "S");
   doc.setFillColor(...ANEL).circle(mx + 4.3, yM, 1.9, "F");
   doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(255);
@@ -153,60 +153,50 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...FAINT);
   doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 2.4, { align: "right" });
 
-  // chip da etapa — com folga do que vem abaixo
+  // chip da etapa
   const eyebrow = (dossie ? "DOSSIÊ" : rotuloLocal(local)).toUpperCase();
   const eyeCS = 0.5;
   doc.setFont("helvetica", "bold").setFontSize(7.5);
   const wTxtEye = doc.getTextWidth(eyebrow) + eyeCS * Math.max(0, eyebrow.length - 1);
   const padEye = 5.5, eyeH = 6.2;
   const wEye = wTxtEye + padEye * 2;
-  const eyeX = larg - mx - wEye, eyeY = yM + 6.6;
+  const eyeX = larg - mx - wEye, eyeY = yM + 5.6;
   doc.setFillColor(...AMBAR_CAPA).roundedRect(eyeX, eyeY, wEye, eyeH, eyeH / 2, eyeH / 2, "F");
   doc.setTextColor(28, 22, 8).setCharSpace(eyeCS);
   doc.text(eyebrow, eyeX + padEye, eyeY + eyeH * 0.665);
   doc.setCharSpace(0);
   if (totalPartes > 1) { doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...ANEL); doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, eyeY + eyeH + 4, { align: "right" }); }
 
-  // ── LINHA 2 · identidade (esq) ↔ cartão KPI (dir), bases alinhadas ──
+  // ── LINHA 2 · identidade (esq) ↔ cartão KPI achatado (dir) ──
   let concl = 0, totProc = 0;
   [processos, processosAcabamento].forEach((l) => { if (l && l.length) { totProc += l.length; concl += l.filter((p) => p.qtd >= pedido.total).length; } });
   const temProg = totProc > 0;
   const pctProg = temProg ? concl / totProc : 0;
 
   const numTxt = String(dossie ? pedido.total : qtd);
-  doc.setFont("helvetica", "bold").setFontSize(19);
+  doc.setFont("helvetica", "bold").setFontSize(15);
   const wNum = doc.getTextWidth(numTxt);
   doc.setFont("helvetica", "bold").setFontSize(6.5);
   const kpiCS = 0.3;
   const kpiRot = "TOTAL DE PEÇAS";
   const wRotKpi = doc.getTextWidth(kpiRot) + kpiCS * (kpiRot.length - 1);
-  const padCard = 6, anelR = 6;
-  const wEsq = Math.max(wNum, wRotKpi);
-  const cardH = 20;
-  const cardW = padCard + wEsq + (temProg ? 4 + 0.3 + 4 + anelR * 2 : 0) + padCard;
+  const padCard = 5.5, anelR = 4.3;
+  const cardH = 12;
+  const cardW = padCard + wRotKpi + 4 + wNum + (temProg ? 3.5 + 0.3 + 3.5 + anelR * 2 : 0) + padCard;
   const cardX = larg - mx - cardW;
-  const cardY = coverH - 6.5 - cardH;   // 6mm de folga do chip acima; base a 6,5mm do fio
-  doc.setFillColor(...CARD_BG).setDrawColor(...CARD_BORDA).setLineWidth(0.35).roundedRect(cardX, cardY, cardW, cardH, 4, 4, "FD");
+  const cardY = coverH - 6 - cardH;
+  const baseCard = cardY + 8;   // linha de base única do conteúdo
+  doc.setFillColor(...CARD_BG).setDrawColor(...CARD_BORDA).setLineWidth(0.35).roundedRect(cardX, cardY, cardW, cardH, 3.5, 3.5, "FD");
+  doc.setFont("helvetica", "bold").setFontSize(6.5).setTextColor(...CLARO);
+  doc.setCharSpace(kpiCS); doc.text(kpiRot, cardX + padCard, baseCard); doc.setCharSpace(0);
+  doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(255);
+  doc.text(numTxt, cardX + padCard + wRotKpi + 4, baseCard);
   if (temProg) {
-    // com anel: conteúdo à esquerda, divisória, anel à direita
-    doc.setFont("helvetica", "bold").setFontSize(6.5).setTextColor(...CLARO);
-    doc.setCharSpace(kpiCS); doc.text(kpiRot, cardX + padCard, cardY + 6); doc.setCharSpace(0);
-    doc.setFont("helvetica", "bold").setFontSize(19).setTextColor(255);
-    doc.text(numTxt, cardX + padCard, cardY + 15.2);
-  } else {
-    // sem anel: rótulo e número centralizados — bloco simétrico
-    const cxCard = cardX + cardW / 2;
-    doc.setFont("helvetica", "bold").setFontSize(6.5).setTextColor(...CLARO);
-    doc.setCharSpace(kpiCS); doc.text(kpiRot, cxCard - wRotKpi / 2, cardY + 6); doc.setCharSpace(0);
-    doc.setFont("helvetica", "bold").setFontSize(19).setTextColor(255);
-    doc.text(numTxt, cxCard, cardY + 15.2, { align: "center" });
-  }
-  if (temProg) {
-    const divX = cardX + padCard + wEsq + 4;
-    doc.setDrawColor(...CARD_DIV).setLineWidth(0.3).line(divX, cardY + 4, divX, cardY + cardH - 4);
-    const aCx = divX + 4 + anelR, aCy = cardY + cardH / 2;
-    doc.setDrawColor(52, 86, 62).setLineWidth(1.8).circle(aCx, aCy, anelR, "S");
-    doc.setDrawColor(...ANEL).setLineWidth(1.8); doc.setLineCap("round");
+    const divX = cardX + padCard + wRotKpi + 4 + wNum + 3.5;
+    doc.setDrawColor(...CARD_DIV).setLineWidth(0.3).line(divX, cardY + 2.8, divX, cardY + cardH - 2.8);
+    const aCx = divX + 3.5 + anelR, aCy = cardY + cardH / 2;
+    doc.setDrawColor(52, 86, 62).setLineWidth(1.4).circle(aCx, aCy, anelR, "S");
+    doc.setDrawColor(...ANEL).setLineWidth(1.4); doc.setLineCap("round");
     const segs = Math.max(1, Math.round(48 * pctProg));
     for (let i = 0; i < segs; i++) {
       const a0 = -Math.PI / 2 + 2 * Math.PI * pctProg * (i / segs);
@@ -214,24 +204,22 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       doc.line(aCx + anelR * Math.cos(a0), aCy + anelR * Math.sin(a0), aCx + anelR * Math.cos(a1), aCy + anelR * Math.sin(a1));
     }
     doc.setLineCap("butt");
-    doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(255);
-    doc.text(`${Math.round(pctProg * 100)}%`, aCx, aCy + 0.4, { align: "center" });
-    doc.setFont("helvetica", "normal").setFontSize(5).setTextColor(...CLARO);
-    doc.text(`${concl}/${totProc}`, aCx, aCy + 3.4, { align: "center" });
+    doc.setFont("helvetica", "bold").setFontSize(5.8).setTextColor(255);
+    doc.text(`${Math.round(pctProg * 100)}%`, aCx, aCy + 0.9, { align: "center" });
   }
 
   // identidade (esquerda) — base alinhada com o cartão
-  doc.setFont("helvetica", "bold").setFontSize(19).setTextColor(255);
+  doc.setFont("helvetica", "bold").setFontSize(18).setTextColor(255);
   const heroLarg = cardX - mx - 10;
-  doc.text(doc.splitTextToSize(String(cliente || pedido.referencia || "—"), heroLarg > 40 ? heroLarg : 90)[0] || "—", mx, cardY + 6.5);
+  doc.text(doc.splitTextToSize(String(cliente || pedido.referencia || "—"), heroLarg > 40 ? heroLarg : 90)[0] || "—", mx, cardY + 1.5);
   let metaX = mx;
   [["REFERÊNCIA", pedido.referencia], ["ID DO CORTE", pedido.corte_id]].filter(([, v]) => v).forEach(([rot, val]) => {
     doc.setFont("helvetica", "bold").setFontSize(6.3).setTextColor(...FAINT).setCharSpace(0.35);
-    doc.text(rot, metaX, cardY + 12.6);
+    doc.text(rot, metaX, cardY + 7.2);
     const wRot = doc.getTextWidth(rot) + rot.length * 0.35;
     doc.setCharSpace(0);
     doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(234, 243, 236);
-    doc.text(String(val), metaX, cardY + 17.4);
+    doc.text(String(val), metaX, cardY + 12);
     metaX += Math.max(wRot, doc.getTextWidth(String(val))) + 11;
   });
 
