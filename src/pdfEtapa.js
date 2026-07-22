@@ -372,87 +372,116 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       tituloSecao("Classificação por qualidade");
 
       const larguraTabela = larg - mx * 2;
+      const RAIO_C = 3, BORDA_C = [231, 234, 228];
       const colTam = 40;
       const cw = (larguraTabela - colTam) / 3; // 1ª, 2ª, Total
       const tot1 = tams.reduce((a, t) => a + (parseInt(g1[t], 10) || 0), 0);
       const tot2 = tams.reduce((a, t) => a + (parseInt(g2[t], 10) || 0), 0);
+      const tabTopC = y;
+      const xTotC = mx + colTam + cw * 2;
 
-      const cel = (cx, cy, cwid, texto, { fill, corTexto, bold, alinhar } = {}) => {
-        if (fill) { doc.setFillColor(...fill); doc.rect(cx, cy, cwid, hLinha, "F"); }
-        doc.setDrawColor(230).setLineWidth(0.2).rect(cx, cy, cwid, hLinha, "S");
-        doc.setFont("helvetica", bold ? "bold" : "normal").setFontSize(9).setTextColor(...(corTexto || TINTA));
+      const cel = (cx, cy, cwid, texto, { corTexto, bold, alinhar, header } = {}) => {
+        doc.setFont("helvetica", bold ? "bold" : "normal").setFontSize(header ? 7.5 : 9).setTextColor(...(corTexto || TINTA));
         const al = alinhar || "center";
-        const tx = al === "left" ? cx + 2 : al === "right" ? cx + cwid - 2 : cx + cwid / 2;
+        const tx = al === "left" ? cx + 3.5 : al === "right" ? cx + cwid - 3.5 : cx + cwid / 2;
         doc.text(String(texto), tx, cy + hLinha * 0.66, { align: al });
       };
 
-      // Cabeçalho
+      // Cabeçalho — faixa suave com topo arredondado
+      doc.setFillColor(246, 248, 244);
+      doc.roundedRect(mx, tabTopC, larguraTabela, hLinha, RAIO_C, RAIO_C, "F");
+      doc.rect(mx, tabTopC + hLinha - RAIO_C, larguraTabela, RAIO_C, "F");
       let x = mx;
-      cel(x, y, colTam, "TAMANHO", { fill: [240, 240, 237], corTexto: CINZA, bold: true, alinhar: "left" }); x += colTam;
-      cel(x, y, cw, "1ª QUALIDADE", { fill: [225, 240, 233], corTexto: VERDE_ESCURO, bold: true }); x += cw;
-      cel(x, y, cw, "2ª QUALIDADE", { fill: [250, 236, 220], corTexto: [150, 90, 20], bold: true }); x += cw;
-      cel(x, y, cw, "TOTAL", { fill: [240, 240, 237], corTexto: CINZA, bold: true });
+      cel(x, y, colTam, "TAMANHO", { corTexto: CINZA, bold: true, alinhar: "left", header: true }); x += colTam;
+      cel(x, y, cw, "1ª QUALIDADE", { corTexto: VERDE_ESCURO, bold: true, header: true }); x += cw;
+      cel(x, y, cw, "2ª QUALIDADE", { corTexto: [150, 90, 20], bold: true, header: true }); x += cw;
+      cel(x, y, cw, "TOTAL", { corTexto: CINZA, bold: true, header: true });
       y += hLinha;
 
-      // Linhas por tamanho
+      // Linhas por tamanho (coluna Total com leve verde)
       tams.forEach((t) => {
         const q1 = parseInt(g1[t], 10) || 0;
         const q2 = parseInt(g2[t], 10) || 0;
+        doc.setFillColor(242, 248, 239).rect(xTotC, y, cw - 0.4, hLinha, "F");
         x = mx;
         cel(x, y, colTam, t, { bold: true, alinhar: "left" }); x += colTam;
         cel(x, y, cw, q1 || "·", { corTexto: q1 ? TINTA : [190, 190, 185] }); x += cw;
         cel(x, y, cw, q2 || "·", { corTexto: q2 ? TINTA : [190, 190, 185] }); x += cw;
-        cel(x, y, cw, q1 + q2, { fill: [250, 250, 248], corTexto: VERDE_ESCURO, bold: true });
+        cel(x, y, cw, q1 + q2, { corTexto: VERDE_ESCURO, bold: true });
         y += hLinha;
       });
 
-      // Total
+      // Total — faixa escura com base arredondada
+      doc.setFillColor(...VERDE_ESCURO);
+      doc.roundedRect(mx, y, larguraTabela, hLinha, RAIO_C, RAIO_C, "F");
+      doc.rect(mx, y, larguraTabela, RAIO_C, "F");
       x = mx;
-      cel(x, y, colTam, "TOTAL", { fill: VERDE_ESCURO, corTexto: [255, 255, 255], bold: true, alinhar: "left" }); x += colTam;
-      cel(x, y, cw, tot1, { fill: VERDE_ESCURO, corTexto: [255, 255, 255], bold: true }); x += cw;
-      cel(x, y, cw, tot2, { fill: VERDE_ESCURO, corTexto: [255, 255, 255], bold: true }); x += cw;
-      cel(x, y, cw, tot1 + tot2, { fill: VERDE_ESCURO, corTexto: [255, 255, 255], bold: true });
-      y += hLinha + 13;
+      cel(x, y, colTam, "TOTAL", { corTexto: [255, 255, 255], bold: true, alinhar: "left" }); x += colTam;
+      cel(x, y, cw, tot1, { corTexto: [255, 255, 255], bold: true }); x += cw;
+      cel(x, y, cw, tot2, { corTexto: [255, 255, 255], bold: true }); x += cw;
+      cel(x, y, cw, tot1 + tot2, { corTexto: [255, 255, 255], bold: true });
+      y += hLinha;
+
+      // Divisórias finas + moldura arredondada
+      const fimVertC = y - hLinha;
+      doc.setDrawColor(...BORDA_C).setLineWidth(0.25);
+      doc.line(mx + colTam, tabTopC, mx + colTam, fimVertC);
+      doc.line(mx + colTam + cw, tabTopC, mx + colTam + cw, fimVertC);
+      doc.line(xTotC, tabTopC, xTotC, fimVertC);
+      for (let r = 1; r <= tams.length; r++) {
+        const py = tabTopC + hLinha * r;
+        if (py < fimVertC - 0.1) doc.line(mx, py, larg - mx, py);
+      }
+      doc.setDrawColor(...BORDA_C).setLineWidth(0.4).roundedRect(mx, tabTopC, larguraTabela, y - tabTopC, RAIO_C, RAIO_C, "S");
+      y += 12;
     }
   }
 
   // ── Rastreio dos processos (trilha visual) — reutilizável (corte/acabamento) ──
   const desenharProcessos = (titulo, lista) => {
     if (!lista || lista.length === 0) return;
-    quebraSePreciso(14);
+    quebraSePreciso(44);   // garante título + cabeçalho do quadro + 1ª linha na mesma página
     const concluidos = lista.filter((p) => p.qtd >= pedido.total).length;
     const somaFeitas = lista.reduce((s, p) => s + Math.min(p.qtd, pedido.total), 0);
     const pctPecas = pedido.total ? Math.round((somaFeitas / (pedido.total * lista.length)) * 100) : 0;
-    tituloSecao(titulo, `${concluidos} de ${lista.length} · ${pctPecas}% das peças`);
+    tituloSecao(titulo);
     y += 1;
 
-    // Resumo em 3 contadores (concluídos · em andamento · pendentes)
-    const nAndam = lista.filter((p) => p.qtd > 0 && p.qtd < pedido.total).length;
-    const nPend = lista.filter((p) => !p.qtd || p.qtd <= 0).length;
-    quebraSePreciso(16);
-    const gapC = 6, cW = (larg - mx * 2 - gapC * 2) / 3;
-    const contadores = [
-      [concluidos, "concluídos", VERDE, [231, 238, 226]],
-      [nAndam, "em andamento", AMBAR, [240, 231, 212]],
-      [nPend, "pendentes", [150, 158, 148], [230, 233, 228]],
-    ];
-    contadores.forEach(([num, rot, corNum, corBorda], i) => {
-      const x = mx + i * (cW + gapC);
-      doc.setFillColor(255, 255, 255).setDrawColor(...corBorda).setLineWidth(0.4).roundedRect(x, y, cW, 13, 3, 3, "FD");
-      doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(...corNum);
-      doc.text(String(num), x + 6, y + 8);
-      doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
-      doc.text(rot, x + 6 + doc.getTextWidth(String(num)) + 3, y + 8);
-    });
-    y += 19;
-
-    // moldura única (opção A): quadro arredondado com divisórias entre os processos
+    // moldura única da seção: cabeçalho de rastreio + barra geral + lista com divisórias
     const inL = mx + 4.5, inR = larg - mx - 4.5;   // recuo interno do conteúdo
     let quadroTop = y;
     let primeiroDoQuadro = true;
     const fechaQuadro = () => {
       doc.setDrawColor(231, 234, 228).setLineWidth(0.4).roundedRect(mx, quadroTop, larg - mx * 2, y - quadroTop, 3, 3, "S");
     };
+
+    // ── cabeçalho do quadro (fundo suave, topo arredondado) ──
+    {
+      const headerH = 14;
+      const wQ = larg - mx * 2;
+      doc.setFillColor(250, 251, 248);
+      doc.roundedRect(mx, quadroTop, wQ, headerH, 3, 3, "F");
+      doc.rect(mx, quadroTop + headerH - 3, wQ, 3, "F");   // base do cabeçalho reta
+      // rótulo à esquerda
+      doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(90, 100, 89);
+      doc.setCharSpace(0.7); doc.text("RASTREIO DOS PROCESSOS", inL, quadroTop + 5.8); doc.setCharSpace(0);
+      // resumo à direita: "N/M completos · P% das peças" (número em verde)
+      const resto = `/${lista.length} completos · ${pctPecas}% das peças`;
+      doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
+      const wResto = doc.getTextWidth(resto);
+      doc.text(resto, inR, quadroTop + 5.8, { align: "right" });
+      doc.setFont("helvetica", "bold").setFontSize(8.5).setTextColor(...VERDE_ESCURO);
+      doc.text(String(concluidos), inR - wResto, quadroTop + 5.8, { align: "right" });
+      // barra geral de progresso (das peças)
+      const barY = quadroTop + 8.6;
+      doc.setFillColor(233, 236, 230).roundedRect(inL, barY, inR - inL, 2.2, 1.1, 1.1, "F");
+      const fracPecas = Math.max(0, Math.min(1, pctPecas / 100));
+      if (fracPecas > 0) doc.setFillColor(...VERDE).roundedRect(inL, barY, (inR - inL) * fracPecas, 2.2, 1.1, 1.1, "F");
+      y = quadroTop + headerH;
+      // divisória sob o cabeçalho
+      doc.setDrawColor(238, 241, 236).setLineWidth(0.3).line(mx, y, larg - mx, y);
+      primeiroDoQuadro = true;   // a 1ª linha não desenha outra divisória
+    }
 
     lista.forEach(({ nome, qtd: feitas, grade, obs, feito_em }) => {
       const completo = feitas >= pedido.total;
@@ -567,24 +596,26 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     desenharProcessos("Processos", processos);
   }
 
-  // ── Observações gerais ──
+  // ── Observações gerais — caixinha de nota ──
   if (pedido.observacoes) {
-    const linhas = doc.splitTextToSize(pedido.observacoes, larg - mx * 2 - 10);
+    const linhas = doc.splitTextToSize(pedido.observacoes, larg - mx * 2 - 12);
     quebraSePreciso(14 + linhas.length * 4.6);
     tituloSecao("Observações do pedido");
-    doc.setFillColor(248, 248, 246).roundedRect(mx, y, larg - mx * 2, linhas.length * 4.6 + 6, 2, 2, "F");
-    doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(60);
-    doc.text(linhas, mx + 5, y + 6);
-    y += linhas.length * 4.6 + 12;
+    const hNota = linhas.length * 4.6 + 7;
+    doc.setFillColor(250, 251, 248).setDrawColor(231, 234, 228).setLineWidth(0.4).roundedRect(mx, y, larg - mx * 2, hNota, 3, 3, "FD");
+    doc.setFont("helvetica", "italic").setFontSize(9.5).setTextColor(58, 66, 58);
+    doc.text(linhas, mx + 6, y + 6.2);
+    y += hNota + 10;
   }
 
   // ── Remessas de oficina (para a etapa Oficina) ──
   if (remessasOficina && remessasOficina.length > 0) {
-    const hLinha = 7;
+    const hLinha = 7.5;
     quebraSePreciso(18 + remessasOficina.length * hLinha);
     tituloSecao("Remessas de oficina");
 
     const larguraTabela = larg - mx * 2;
+    const RAIO_R = 3, BORDA_R = [231, 234, 228];
     // oficina | saída | retorno | enviadas | retorn.
     const cols = [larguraTabela * 0.30, larguraTabela * 0.20, larguraTabela * 0.20, larguraTabela * 0.15, larguraTabela * 0.15];
     const fmtD = (d) => {
@@ -594,43 +625,50 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     };
     const headers = ["OFICINA", "SAÍDA", "RETORNO", "ENVIADAS", "RETORN."];
 
-    // Cabeçalho em faixa
-    doc.setFillColor(244, 244, 241).rect(mx, y, larguraTabela, hLinha, "F");
-    let x = mx;
-    doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...CINZA);
-    headers.forEach((h, i) => {
-      const alinhar = i >= 3 ? "right" : "left";
-      doc.text(h, alinhar === "right" ? x + cols[i] - 3 : x + 3, y + 4.7, { align: alinhar });
-      x += cols[i];
-    });
-    y += hLinha;
-
-    remessasOficina.forEach((r, idx) => {
-      quebraSePreciso(hLinha);
-      const emAberto = !r.retorno;
-      // Zebra
-      if (idx % 2 === 1) { doc.setFillColor(250, 250, 248).rect(mx, y, larguraTabela, hLinha, "F"); }
-      const vals = [r.oficina, fmtD(r.saida), emAberto ? "em aberto" : fmtD(r.retorno), String(r.enviada), String(r.retornada)];
-      x = mx;
-      vals.forEach((v, i) => {
+    let tabTopR = y;
+    const fechaTabR = () => {
+      doc.setDrawColor(...BORDA_R).setLineWidth(0.4).roundedRect(mx, tabTopR, larguraTabela, y - tabTopR, RAIO_R, RAIO_R, "S");
+    };
+    const cabecalhoR = () => {
+      doc.setFillColor(246, 248, 244);
+      doc.roundedRect(mx, y, larguraTabela, hLinha, RAIO_R, RAIO_R, "F");
+      doc.rect(mx, y + hLinha - RAIO_R, larguraTabela, RAIO_R, "F");
+      let x = mx;
+      doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...CINZA);
+      headers.forEach((h, i) => {
         const alinhar = i >= 3 ? "right" : "left";
-        doc.setFont("helvetica", i === 0 ? "bold" : "normal").setFontSize(8.5).setTextColor(...(emAberto ? AMBAR : i === 0 ? TINTA : [90, 88, 82]));
-        const txt = i === 0 ? (doc.splitTextToSize(v, cols[i] - 4)[0] || v) : v;
-        doc.text(txt, alinhar === "right" ? x + cols[i] - 3 : x + 3, y + 4.8, { align: alinhar });
+        doc.text(h, alinhar === "right" ? x + cols[i] - 3.5 : x + 3.5, y + 4.9, { align: alinhar });
         x += cols[i];
       });
       y += hLinha;
-      if (r.motivo) {
-        const linhas = doc.splitTextToSize(`Motivo do fechamento: ${r.motivo}`, larguraTabela - 6);
-        quebraSePreciso(linhas.length * 4 + 3);
+    };
+    cabecalhoR();
+
+    remessasOficina.forEach((r, idx) => {
+      const linhasMotivo = r.motivo ? doc.splitTextToSize(`Motivo do fechamento: ${r.motivo}`, larguraTabela - 8) : [];
+      const alturaLinha = hLinha + (linhasMotivo.length ? linhasMotivo.length * 4 + 2.5 : 0);
+      if (y + alturaLinha + 2 > 280) { fechaTabR(); quebraSePreciso(alturaLinha + hLinha + 2); tabTopR = y; cabecalhoR(); }
+      const emAberto = !r.retorno;
+      doc.setDrawColor(240, 243, 238).setLineWidth(0.3).line(mx, y, larg - mx, y);   // divisória
+      if (idx % 2 === 1) { doc.setFillColor(250, 251, 249).rect(mx + 0.3, y + 0.15, larguraTabela - 0.6, alturaLinha - 0.3, "F"); }
+      const vals = [r.oficina, fmtD(r.saida), emAberto ? "em aberto" : fmtD(r.retorno), String(r.enviada), String(r.retornada)];
+      let x = mx;
+      vals.forEach((v, i) => {
+        const alinhar = i >= 3 ? "right" : "left";
+        doc.setFont("helvetica", i === 0 ? "bold" : "normal").setFontSize(8.5).setTextColor(...(emAberto ? AMBAR : i === 0 ? TINTA : [90, 88, 82]));
+        const txt = i === 0 ? (doc.splitTextToSize(v, cols[i] - 5)[0] || v) : v;
+        doc.text(txt, alinhar === "right" ? x + cols[i] - 3.5 : x + 3.5, y + 5, { align: alinhar });
+        x += cols[i];
+      });
+      y += hLinha;
+      if (linhasMotivo.length) {
         doc.setFont("helvetica", "italic").setFontSize(7.5).setTextColor(...CINZA);
-        linhas.forEach((ln) => { doc.text(ln, mx + 3, y + 3); y += 4; });
-        y += 1.5;
+        linhasMotivo.forEach((ln) => { doc.text(ln, mx + 3.5, y + 2.6); y += 4; });
+        y += 2.5;
       }
     });
-    // Borda inferior da tabela
-    doc.setDrawColor(225).setLineWidth(0.25).line(mx, y, larg - mx, y);
-    y += 8;
+    fechaTabR();
+    y += 10;
   }
 
   // ── Aviamentos (para a etapa Aviamento) ──
@@ -640,22 +678,31 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
     tituloSecao("Aviamentos");
 
     const larguraTabela = larg - mx * 2;
+    const RAIO_A = 3, BORDA_A = [231, 234, 228];
     const colItem = larguraTabela * 0.3;
     const colDet = larguraTabela * 0.34;
     const colCons = larguraTabela * 0.2;
     const colQtd = larguraTabela * 0.16;
 
-    // Cabeçalho em faixa
-    doc.setFillColor(244, 244, 241).rect(mx, y, larguraTabela, hLinha, "F");
-    doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...CINZA);
-    doc.text("ITEM", mx + 3, y + 4.7);
-    doc.text("ESPECIFICAÇÃO", mx + colItem + 3, y + 4.7);
-    doc.text("CONSUMO", mx + colItem + colDet + 3, y + 4.7);
-    doc.text("QTD", larg - mx - 3, y + 4.7, { align: "right" });
-    y += hLinha;
+    let tabTopA = y;
+    const fechaTabA = () => {
+      doc.setDrawColor(...BORDA_A).setLineWidth(0.4).roundedRect(mx, tabTopA, larguraTabela, y - tabTopA, RAIO_A, RAIO_A, "S");
+    };
+    const cabecalhoA = () => {
+      doc.setFillColor(246, 248, 244);
+      doc.roundedRect(mx, y, larguraTabela, hLinha, RAIO_A, RAIO_A, "F");
+      doc.rect(mx, y + hLinha - RAIO_A, larguraTabela, RAIO_A, "F");
+      doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...CINZA);
+      doc.text("ITEM", mx + 3.5, y + 4.9);
+      doc.text("ESPECIFICAÇÃO", mx + colItem + 3.5, y + 4.9);
+      doc.text("CONSUMO", mx + colItem + colDet + 3.5, y + 4.9);
+      doc.text("QTD", larg - mx - 3.5, y + 4.9, { align: "right" });
+      y += hLinha;
+    };
+    cabecalhoA();
 
     aviamentos.forEach((a, idx) => {
-      quebraSePreciso(hLinha);
+      if (y + hLinha + 2 > 280) { fechaTabA(); quebraSePreciso(hLinha * 2 + 2); tabTopA = y; cabecalhoA(); }
       // Especificação conforme o tipo (o consumo agora vai em coluna própria).
       const partes = [];
       if (a.largura) partes.push(`largura ${a.largura}`);
@@ -667,21 +714,22 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       }
       const detalhe = partes.join(" · ") || "—";
 
-      if (idx % 2 === 1) { doc.setFillColor(250, 250, 248).rect(mx, y, larguraTabela, hLinha, "F"); }
+      doc.setDrawColor(240, 243, 238).setLineWidth(0.3).line(mx, y, larg - mx, y);   // divisória
+      if (idx % 2 === 1) { doc.setFillColor(250, 251, 249).rect(mx + 0.3, y + 0.15, larguraTabela - 0.6, hLinha - 0.3, "F"); }
       doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...TINTA);
-      doc.text(a.nome, mx + 3, y + 4.8);
+      doc.text(a.nome, mx + 3.5, y + 5);
       doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...CINZA);
-      doc.text(doc.splitTextToSize(detalhe, colDet - 4)[0] || detalhe, mx + colItem + 3, y + 4.8);
+      doc.text(doc.splitTextToSize(detalhe, colDet - 5)[0] || detalhe, mx + colItem + 3.5, y + 5);
       doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(...(a.consumo ? TINTA : [190, 190, 185]));
-      doc.text(a.consumo ? String(a.consumo) : "—", mx + colItem + colDet + 3, y + 4.8);
+      doc.text(a.consumo ? String(a.consumo) : "—", mx + colItem + colDet + 3.5, y + 5);
       if (a.qtd) {
         doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...TINTA);
-        doc.text(String(a.qtd), larg - mx - 3, y + 4.8, { align: "right" });
+        doc.text(String(a.qtd), larg - mx - 3.5, y + 5, { align: "right" });
       }
       y += hLinha;
     });
-    doc.setDrawColor(225).setLineWidth(0.25).line(mx, y, larg - mx, y);
-    y += 8;
+    fechaTabA();
+    y += 10;
   }
 
   // ── Imagens anexadas (referência e amostra) ──
@@ -708,8 +756,18 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       const h = im.h * escala;
       // Só quebra a partir da 2ª imagem (a 1ª já foi garantida junto com o título).
       if (i % 2 === 0) { if (i > 0) quebraSePreciso(h + 10); x = mx; }
-      doc.setDrawColor(210).setLineWidth(0.3).rect(x, y, w, h, "S");
-      try { doc.addImage(im.dataUrl, im.fmt, x, y, w, h); } catch { /* ignora imagem inválida */ }
+      // imagem com cantos arredondados (clip); se o clip falhar, cai no desenho normal
+      try {
+        doc.saveGraphicsState();
+        doc.roundedRect(x, y, w, h, 2.5, 2.5, null);
+        doc.clip();
+        doc.discardPath();
+        doc.addImage(im.dataUrl, im.fmt, x, y, w, h);
+        doc.restoreGraphicsState();
+      } catch {
+        try { doc.addImage(im.dataUrl, im.fmt, x, y, w, h); } catch { /* ignora imagem inválida */ }
+      }
+      doc.setDrawColor(224, 228, 221).setLineWidth(0.4).roundedRect(x, y, w, h, 2.5, 2.5, "S");
       if (im.rotulo) {
         doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...CINZA);
         doc.text(im.rotulo, x, y + h + 4);
@@ -779,32 +837,43 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
       return dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
     };
     const larguraTabela = larg - mx * 2;
+    const RAIO_L = 3, BORDA_L = [231, 234, 228];
     const colMov = larguraTabela * 0.5;
     const colQtd = larguraTabela * 0.16;
     const colData = larguraTabela - colMov - colQtd;
-    const cel = (cx, cwid, texto, { fill, corTexto, bold, alinhar } = {}) => {
-      if (fill) { doc.setFillColor(...fill); doc.rect(cx, y, cwid, hLinha, "F"); }
-      doc.setDrawColor(230).setLineWidth(0.2).rect(cx, y, cwid, hLinha, "S");
+    const cel = (cx, cwid, texto, { corTexto, bold, alinhar } = {}) => {
       doc.setFont("helvetica", bold ? "bold" : "normal").setFontSize(9).setTextColor(...(corTexto || TINTA));
       const al = alinhar || "center";
-      const tx = al === "left" ? cx + 2.5 : al === "right" ? cx + cwid - 2.5 : cx + cwid / 2;
+      const tx = al === "left" ? cx + 3.5 : al === "right" ? cx + cwid - 3.5 : cx + cwid / 2;
       doc.text(String(texto), tx, y + hLinha * 0.66, { align: al });
     };
-    let x = mx;
-    cel(x, colMov, "MOVIMENTO", { fill: [240, 240, 237], corTexto: CINZA, bold: true, alinhar: "left" }); x += colMov;
-    cel(x, colQtd, "PEÇAS", { fill: [240, 240, 237], corTexto: CINZA, bold: true }); x += colQtd;
-    cel(x, colData, "DATA", { fill: [240, 240, 237], corTexto: CINZA, bold: true });
-    y += hLinha;
+    let tabTopL = y;
+    const fechaTabL = () => {
+      doc.setDrawColor(...BORDA_L).setLineWidth(0.4).roundedRect(mx, tabTopL, larguraTabela, y - tabTopL, RAIO_L, RAIO_L, "S");
+    };
+    const cabecalhoL = () => {
+      doc.setFillColor(246, 248, 244);
+      doc.roundedRect(mx, y, larguraTabela, hLinha, RAIO_L, RAIO_L, "F");
+      doc.rect(mx, y + hLinha - RAIO_L, larguraTabela, RAIO_L, "F");
+      let x = mx;
+      cel(x, colMov, "MOVIMENTO", { corTexto: CINZA, bold: true, alinhar: "left" }); x += colMov;
+      cel(x, colQtd, "PEÇAS", { corTexto: CINZA, bold: true }); x += colQtd;
+      cel(x, colData, "DATA", { corTexto: CINZA, bold: true });
+      y += hLinha;
+    };
+    cabecalhoL();
     linhaTempo.forEach((m, i) => {
-      quebraSePreciso(hLinha);
-      x = mx;
-      if (i % 2 === 1) { doc.setFillColor(247, 249, 247).rect(mx, y, larguraTabela, hLinha, "F"); }
+      if (y + hLinha + 2 > 280) { fechaTabL(); quebraSePreciso(hLinha * 2 + 2); tabTopL = y; cabecalhoL(); }
+      doc.setDrawColor(240, 243, 238).setLineWidth(0.3).line(mx, y, larg - mx, y);
+      if (i % 2 === 1) { doc.setFillColor(250, 251, 249).rect(mx + 0.3, y + 0.15, larguraTabela - 0.6, hLinha - 0.3, "F"); }
+      let x = mx;
       cel(x, colMov, `${rotuloLocal(m.de_local)} > ${rotuloLocal(m.para_local)}`, { bold: true, alinhar: "left" }); x += colMov;
       cel(x, colQtd, m.qtd != null ? String(m.qtd) : "—", { corTexto: [70, 68, 62] }); x += colQtd;
       cel(x, colData, fmtDT(m.data), { corTexto: [70, 68, 62] });
       y += hLinha;
     });
-    y += 13;
+    fechaTabL();
+    y += 12;
   }
 
   rodape();
