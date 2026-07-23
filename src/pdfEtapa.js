@@ -157,16 +157,19 @@ async function desenharPedidoNoPdf(doc, { pedido, cliente, local, qtd, parte, to
   doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...FAINT);
   doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 2.4, { align: "right" });
 
-  // chip da etapa
+  // chip da etapa — cor do setor + texto de contraste automático
   const eyebrow = (dossie ? "DOSSIÊ" : rotuloLocal(local)).toUpperCase();
+  const corChip = dossie ? [70, 92, 78] : corDoSetor(local);
+  const lum = (corChip[0] * 299 + corChip[1] * 587 + corChip[2] * 114) / 1000;
+  const corTxtChip = lum > 145 ? [30, 24, 8] : [255, 255, 255];
   const eyeCS = 0.5;
   doc.setFont("helvetica", "bold").setFontSize(7.5);
   const wTxtEye = doc.getTextWidth(eyebrow) + eyeCS * Math.max(0, eyebrow.length - 1);
   const padEye = 5.5, eyeH = 6.2;
   const wEye = wTxtEye + padEye * 2;
   const eyeX = larg - mx - wEye, eyeY = yM + 5.6;
-  doc.setFillColor(...AMBAR_CAPA).roundedRect(eyeX, eyeY, wEye, eyeH, eyeH / 2, eyeH / 2, "F");
-  doc.setTextColor(28, 22, 8).setCharSpace(eyeCS);
+  doc.setFillColor(...corChip).roundedRect(eyeX, eyeY, wEye, eyeH, eyeH / 2, eyeH / 2, "F");
+  doc.setTextColor(...corTxtChip).setCharSpace(eyeCS);
   doc.text(eyebrow, eyeX + padEye, eyeY + eyeH * 0.665);
   doc.setCharSpace(0);
   if (totalPartes > 1) { doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...ANEL); doc.text(`PARTE ${parte} DE ${totalPartes}`, larg - mx, eyeY + eyeH + 4, { align: "right" }); }
@@ -999,14 +1002,17 @@ function desenharResumoColuna(doc, local, itens) {
   doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 2.4, { align: "right" });
 
   const eyebrow = rotuloLocal(local).toUpperCase();
+  const corChip = corDoSetor(local);
+  const lum = (corChip[0] * 299 + corChip[1] * 587 + corChip[2] * 114) / 1000;
+  const corTxtChip = lum > 145 ? [30, 24, 8] : [255, 255, 255];
   const eyeCS = 0.5;
   doc.setFont("helvetica", "bold").setFontSize(7.5);
   const wTxtEye = doc.getTextWidth(eyebrow) + eyeCS * Math.max(0, eyebrow.length - 1);
   const padEye = 5.5, eyeH = 6.2;
   const wEye = wTxtEye + padEye * 2;
   const eyeX = larg - mx - wEye, eyeY = yM + 5.6;
-  doc.setFillColor(...AMBAR_CAPA).roundedRect(eyeX, eyeY, wEye, eyeH, eyeH / 2, eyeH / 2, "F");
-  doc.setTextColor(28, 22, 8).setCharSpace(eyeCS);
+  doc.setFillColor(...corChip).roundedRect(eyeX, eyeY, wEye, eyeH, eyeH / 2, eyeH / 2, "F");
+  doc.setTextColor(...corTxtChip).setCharSpace(eyeCS);
   doc.text(eyebrow, eyeX + padEye, eyeY + eyeH * 0.665);
   doc.setCharSpace(0);
 
