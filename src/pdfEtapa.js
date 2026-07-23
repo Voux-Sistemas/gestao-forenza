@@ -949,49 +949,102 @@ function desenharResumoColuna(doc, local, itens) {
     doc.text("Gerado pelo sistema Forenza — Gestão de produção", mx, 291.5);
   };
 
-  // ── Faixa de cor no topo (mesmo degradê do romaneio individual) ──
-  const faixaH = 4, passos = 60;
-  for (let i = 0; i < passos; i++) {
-    const t = i / (passos - 1);
-    const r = Math.round(VERDE_ESCURO[0] + (VERDE[0] - VERDE_ESCURO[0]) * t);
-    const g = Math.round(VERDE_ESCURO[1] + (VERDE[1] - VERDE_ESCURO[1]) * t);
-    const b = Math.round(VERDE_ESCURO[2] + (VERDE[2] - VERDE_ESCURO[2]) * t);
-    doc.setFillColor(r, g, b).rect((larg * i) / passos, 0, larg / passos + 0.5, faixaH, "F");
-  }
-  y = 20;
-
-  // ── Cabeçalho: marca + selo do setor ──
-  doc.setDrawColor(...TINTA).setLineWidth(1.5).circle(mx + 5.5, y, 5.5, "S");
-  doc.setFillColor(...VERDE).circle(mx + 5.5, y, 2.4, "F");
-  doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(...TINTA);
-  doc.text("F O R E N Z A", mx + 15, y - 0.5);
-  doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
-  doc.text("GESTÃO DE PRODUÇÃO", mx + 15.5, y + 4.5);
-
-  const corSetor = corDoSetor(local);
-  const selo = rotuloLocal(local).toUpperCase();
-  doc.setFont("helvetica", "bold").setFontSize(9);
-  const wSelo = doc.getTextWidth(selo) + 12;
-  doc.setFillColor(...corSetor).roundedRect(larg - mx - wSelo, y - 4.5, wSelo, 7.5, 2, 2, "F");
-  doc.setTextColor(255).text(selo, larg - mx - wSelo / 2, y + 0.4, { align: "center" });
-  doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
-  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, y + 7, { align: "right" });
-  y += 15;
-
-  // ── Título ──
-  doc.setFont("helvetica", "bold").setFontSize(18).setTextColor(...TINTA);
-  doc.text("Romaneio geral", mx, y);
-  y += 3;
-  doc.setDrawColor(...TINTA).setLineWidth(0.8).line(mx, y, larg - mx, y);
-  y += 9;
-
-  // ── Subtítulo com contagem do lote ──
   const totalPecas = itens.reduce((a, it) => a + (Number(it.qtd) || 0), 0);
-  doc.setFont("helvetica", "normal").setFontSize(11).setTextColor(90);
-  doc.text(`${rotuloLocal(local)} · ${itens.length} pedido${itens.length === 1 ? "" : "s"} · ${totalPecas} peças na etapa`, mx, y);
-  y += 10;
 
-  // ── Tabela do lote ──
+  // ══ CAPA premium (mesma linguagem do romaneio individual) ══
+  const coverH = 46;
+  const CAPA_A = [22, 55, 32], CAPA_B = [30, 72, 43];
+  const CLARO = [167, 204, 174], FAINT = [127, 163, 135];
+  const ANEL = [111, 208, 138];
+  const CARD_BG = [45, 82, 56], CARD_BORDA = [60, 94, 70], CARD_DIV = [60, 94, 70];
+  const AMBAR_CAPA = [223, 162, 54];
+  {
+    const passos = 240, passoL = larg / passos;
+    for (let i = 0; i < passos; i++) {
+      const t = i / (passos - 1);
+      doc.setFillColor(
+        Math.round(CAPA_A[0] + (CAPA_B[0] - CAPA_A[0]) * t),
+        Math.round(CAPA_A[1] + (CAPA_B[1] - CAPA_A[1]) * t),
+        Math.round(CAPA_A[2] + (CAPA_B[2] - CAPA_A[2]) * t)
+      );
+      doc.rect(i * passoL - 0.3, 0, passoL + 0.9, coverH, "F");
+    }
+    const fioH = 1.2, fioY = coverH - fioH, FIO_BASE = [18, 44, 26];
+    doc.setFillColor(...FIO_BASE).rect(0, fioY, larg, fioH, "F");
+    const fadeW = larg * 0.55, nF = 120, wF = fadeW / nF;
+    for (let i = 0; i < nF; i++) {
+      const t = i / (nF - 1);
+      doc.setFillColor(
+        Math.round(AMBAR_CAPA[0] + (FIO_BASE[0] - AMBAR_CAPA[0]) * t),
+        Math.round(AMBAR_CAPA[1] + (FIO_BASE[1] - AMBAR_CAPA[1]) * t),
+        Math.round(AMBAR_CAPA[2] + (FIO_BASE[2] - AMBAR_CAPA[2]) * t)
+      );
+      doc.rect(i * wF - 0.2, fioY, wF + 0.6, fioH, "F");
+    }
+  }
+  const yM = 11;
+  doc.setDrawColor(255).setLineWidth(1.1).circle(mx + 4.3, yM, 4.3, "S");
+  doc.setFillColor(...ANEL).circle(mx + 4.3, yM, 1.9, "F");
+  doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(255);
+  doc.setCharSpace(1.4); doc.text("FORENZA", mx + 11.5, yM - 0.4); doc.setCharSpace(0);
+  doc.setFont("helvetica", "normal").setFontSize(6.5).setTextColor(...FAINT);
+  doc.setCharSpace(0.4); doc.text("GESTÃO DE PRODUÇÃO", mx + 12, yM + 3.6); doc.setCharSpace(0);
+
+  const docTitulo = "ROMANEIO GERAL";
+  const docCS = 0.6;
+  doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...CLARO);
+  const wDocTit = doc.getTextWidth(docTitulo) + docCS * (docTitulo.length - 1);
+  doc.setCharSpace(docCS); doc.text(docTitulo, larg - mx - wDocTit, yM - 1.6); doc.setCharSpace(0);
+  doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...FAINT);
+  doc.text(`Emitido ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`, larg - mx, yM + 2.4, { align: "right" });
+
+  const eyebrow = rotuloLocal(local).toUpperCase();
+  const eyeCS = 0.5;
+  doc.setFont("helvetica", "bold").setFontSize(7.5);
+  const wTxtEye = doc.getTextWidth(eyebrow) + eyeCS * Math.max(0, eyebrow.length - 1);
+  const padEye = 5.5, eyeH = 6.2;
+  const wEye = wTxtEye + padEye * 2;
+  const eyeX = larg - mx - wEye, eyeY = yM + 5.6;
+  doc.setFillColor(...AMBAR_CAPA).roundedRect(eyeX, eyeY, wEye, eyeH, eyeH / 2, eyeH / 2, "F");
+  doc.setTextColor(28, 22, 8).setCharSpace(eyeCS);
+  doc.text(eyebrow, eyeX + padEye, eyeY + eyeH * 0.665);
+  doc.setCharSpace(0);
+
+  // cartão KPI (linha única nivelada)
+  const numTxt = String(totalPecas);
+  doc.setFont("helvetica", "bold").setFontSize(15);
+  const wNum = doc.getTextWidth(numTxt);
+  doc.setFont("helvetica", "bold").setFontSize(6.5);
+  const kpiCS = 0.3, kpiRot = "TOTAL DE PEÇAS";
+  const wRotKpi = doc.getTextWidth(kpiRot) + kpiCS * (kpiRot.length - 1);
+  const padCard = 5.5, cardH = 12;
+  const cardW = padCard + wRotKpi + 3.5 + 0.3 + 3.5 + wNum + padCard;
+  const cardX = larg - mx - cardW;
+  const cardY = coverH - 6 - cardH;
+  doc.setFillColor(...CARD_BG).setDrawColor(...CARD_BORDA).setLineWidth(0.35).roundedRect(cardX, cardY, cardW, cardH, cardH / 2, cardH / 2, "FD");
+  doc.setFont("helvetica", "bold").setFontSize(6.5).setTextColor(...CLARO);
+  doc.setCharSpace(kpiCS); doc.text(kpiRot, cardX + padCard, cardY + cardH / 2 + 0.85); doc.setCharSpace(0);
+  const div1X = cardX + padCard + wRotKpi + 3.5;
+  doc.setDrawColor(...CARD_DIV).setLineWidth(0.3).line(div1X, cardY + 3, div1X, cardY + cardH - 3);
+  doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(255);
+  doc.text(numTxt, div1X + 0.3 + 3.5, cardY + cardH / 2 + 1.9);
+
+  // identidade (esquerda)
+  doc.setFont("helvetica", "bold").setFontSize(18).setTextColor(255);
+  doc.text("Romaneio geral", mx, cardY + 1.5);
+  let metaX = mx;
+  [["ETAPA", rotuloLocal(local)], ["PEDIDOS", `${itens.length}`]].forEach(([rot, val]) => {
+    doc.setFont("helvetica", "bold").setFontSize(6.3).setTextColor(...FAINT).setCharSpace(0.35);
+    doc.text(rot, metaX, cardY + 7.2);
+    const wRot = doc.getTextWidth(rot) + rot.length * 0.35;
+    doc.setCharSpace(0);
+    doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(234, 243, 236);
+    doc.text(String(val), metaX, cardY + 12);
+    metaX += Math.max(wRot, doc.getTextWidth(String(val))) + 11;
+  });
+  y = coverH + 11;
+
+  // ── Tabela do lote (moldura arredondada + faixa de cabeçalho + zebra) ──
   const cols = [
     { rot: "#", w: 9, al: "left" },
     { rot: "REFERÊNCIA", w: 34, al: "left" },
@@ -1002,13 +1055,20 @@ function desenharResumoColuna(doc, local, itens) {
     { rot: "PRAZO", w: 22, al: "right" },
   ];
   const hLinha = 8;
-
+  const larguraTabela = larg - mx * 2;
+  const RAIO_T = 3, BORDA_T = [231, 234, 228];
+  let tabTop = y;
+  const fechaTab = () => {
+    doc.setDrawColor(...BORDA_T).setLineWidth(0.4).roundedRect(mx, tabTop, larguraTabela, y - tabTop, RAIO_T, RAIO_T, "S");
+  };
   const cabecalhoTabela = () => {
-    doc.setFillColor(225, 240, 233).rect(mx, y, larg - mx * 2, hLinha, "F");
-    doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...VERDE_ESCURO);
+    doc.setFillColor(246, 248, 244);
+    doc.roundedRect(mx, y, larguraTabela, hLinha, RAIO_T, RAIO_T, "F");
+    doc.rect(mx, y + hLinha - RAIO_T, larguraTabela, RAIO_T, "F");
+    doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...CINZA);
     let cx = mx;
     cols.forEach((c) => {
-      const tx = c.al === "right" ? cx + c.w - 2 : cx + 2;
+      const tx = c.al === "right" ? cx + c.w - 3 : cx + 3;
       doc.text(c.rot, tx, y + hLinha * 0.66, { align: c.al });
       cx += c.w;
     });
@@ -1017,8 +1077,9 @@ function desenharResumoColuna(doc, local, itens) {
 
   cabecalhoTabela();
   itens.forEach((it, i) => {
-    if (y + hLinha > 282) { rodape(); doc.addPage(); y = 18; cabecalhoTabela(); }
-    if (i % 2 === 1) { doc.setFillColor(247, 249, 247).rect(mx, y, larg - mx * 2, hLinha, "F"); }
+    if (y + hLinha + 2 > 280) { fechaTab(); rodape(); doc.addPage(); y = 18; tabTop = y; cabecalhoTabela(); }
+    doc.setDrawColor(240, 243, 238).setLineWidth(0.3).line(mx, y, larg - mx, y);
+    if (i % 2 === 1) { doc.setFillColor(250, 251, 249).rect(mx + 0.3, y + 0.15, larguraTabela - 0.6, hLinha - 0.3, "F"); }
     const valores = [
       String(i + 1),
       it.pedido?.referencia || "—",
@@ -1031,17 +1092,17 @@ function desenharResumoColuna(doc, local, itens) {
     let cx = mx;
     cols.forEach((c, ci) => {
       doc.setFont("helvetica", ci === 1 ? "bold" : "normal").setFontSize(9).setTextColor(...(ci === 1 ? TINTA : [70, 68, 62]));
-      const txt = doc.splitTextToSize(valores[ci], c.w - 3)[0] || "";
-      const tx = c.al === "right" ? cx + c.w - 2 : cx + 2;
+      const txt = doc.splitTextToSize(valores[ci], c.w - 4)[0] || "";
+      const tx = c.al === "right" ? cx + c.w - 3 : cx + 3;
       doc.text(txt, tx, y + hLinha * 0.66, { align: c.al });
       cx += c.w;
     });
-    doc.setDrawColor(232).setLineWidth(0.2).line(mx, y + hLinha, larg - mx, y + hLinha);
     y += hLinha;
   });
+  fechaTab();
 
   // Linha de total
-  y += 2;
+  y += 4;
   doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...VERDE_ESCURO);
   doc.text(`Total do lote: ${totalPecas} peças na etapa`, larg - mx, y + 2, { align: "right" });
 
