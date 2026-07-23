@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { LogOut, Moon, Sun, LayoutGrid, Users, Bell, Factory, Package, Inbox, Home, Receipt, Archive, Menu, X } from "lucide-react";
+import { LogOut, Moon, Sun, LayoutGrid, Users, Bell, Factory, Package, Inbox, Home, Receipt, Archive, Menu, X, Table } from "lucide-react";
 import Logo from "./Logo.jsx";
 import { rotuloLocal } from "../etapas.js";
 import Dashboard from "./Dashboard.jsx";
@@ -13,6 +13,7 @@ import Triagem from "./Triagem.jsx";
 import Portal from "./Portal.jsx";
 import ContasAPagar from "./ContasAPagar.jsx";
 import Historico from "./Historico.jsx";
+import Tabela from "./Tabela.jsx";
 
 const PAPEL_LABEL = {
   funcionario: "Funcionário", chefe_setor: "Chefe de setor",
@@ -30,6 +31,7 @@ const ITENS_TOPO = [
 // Lateral premium: acesso fixo + sessão.
 const ITENS_LATERAL = [
   { id: "inicio", label: "Início", icon: Home },
+  { id: "tabela", label: "Tabela", icon: Table },
   { id: "atrasos", label: "Notificações", icon: Bell },
   { id: "contas", label: "Contas a Pagar", icon: Receipt },
   { id: "historico", label: "Histórico", icon: Archive },
@@ -84,6 +86,7 @@ export default function Shell({ session }) {
     if (pagina === "oficinas" && podeAdministrar) return <ControleOficinas session={session} perfil={perfil} />;
     if (pagina === "contas" && podeAdministrar) return <ContasAPagar />;
     if (pagina === "historico" && podeAdministrar) return <Historico ehMaster={perfil?.papel === "master"} />;
+    if (pagina === "tabela" && podeAdministrar) return <Tabela />;
     return <Quadro session={session} perfil={perfil} />;
   }
 
