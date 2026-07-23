@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Download, Search, Check, X, Filter } from "lucide-react";
+import { Download, Search, Check, X, Filter, Calendar } from "lucide-react";
 import { supabase } from "../supabaseClient.js";
 import { PRODUCAO, rotuloLocal, calcularSaldos } from "../etapas.js";
 import { gerarPainelEtapa } from "../pdfPainel.js";
+import { CalendarioRange } from "./CalendarioRange.jsx";
 
 // Painel "Tabela" — visão da direção. Uma etapa por vez, com filtros e edição inline
 // da nova data de entrega (prorrogação) e da observação da diretora.
@@ -33,6 +34,10 @@ export default function Tabela() {
 
   const [etapa, setEtapa] = useState("__tudo__");   // "__tudo__" = todas as etapas
   const [fMarca, setFMarca] = useState("");        // filtro por marca/cliente
+  const [perEtapa, setPerEtapa] = useState("tudo"); // preset do "na etapa"
+  const [popEtapa, setPopEtapa] = useState(false);
+  const [perEntrega, setPerEntrega] = useState("tudo");
+  const [popEntrega, setPopEntrega] = useState(false);
   const [fEtapaDe, setFEtapaDe] = useState("");     // entrou na etapa a partir de
   const [fEtapaAte, setFEtapaAte] = useState("");   // entrou na etapa até
   const [fEntregaDe, setFEntregaDe] = useState(""); // entrega a partir de
@@ -67,6 +72,25 @@ export default function Tabela() {
 
   const tudo = etapa === "__tudo__";
 
+  // Traduz os presets de período em intervalos de data efetivos.
+  const rangeEtapa = useMemo(() => {
+    const d = (off) => { const x = new Date(); x.setDate(x.getDate() + off); return x.toISOString().slice(0, 10); };
+    if (perEtapa === "hoje") return { de: d(0), ate: d(0) };
+    if (perEtapa === "ontem") return { de: d(-1), ate: d(-1) };
+    if (perEtapa === "7") return { de: d(-7), ate: d(0) };
+    if (perEtapa === "custom") return { de: fEtapaDe, ate: fEtapaAte };
+    return { de: "", ate: "" };
+  }, [perEtapa, fEtapaDe, fEtapaAte]);
+
+  const rangeEntrega = useMemo(() => {
+    const d = (off) => { const x = new Date(); x.setDate(x.getDate() + off); return x.toISOString().slice(0, 10); };
+    if (perEntrega === "atrasadas") return { de: "", ate: d(-1) };   // vence antes de hoje
+    if (perEntrega === "7") return { de: d(0), ate: d(7) };
+    if (perEntrega === "30") return { de: d(0), ate: d(30) };
+    if (perEntrega === "custom") return { de: fEntregaDe, ate: fEntregaAte };
+    return { de: "", ate: "" };
+  }, [perEntrega, fEntregaDe, fEntregaAte]);
+
   // Momento em que o pedido entrou numa etapa = data da última movimentação para ela.
   const entradaNaEtapa = useCallback((pedidoId, et) => {
     const movs = movimentos.filter((m) => m.pedido_id === pedidoId && m.para_local === et);
@@ -91,11 +115,11 @@ export default function Tabela() {
           if (!alvo.includes(fMarca.toLowerCase())) continue;
         }
         const entrada = soData(entradaNaEtapa(pe.id, et));
-        if (fEtapaDe && (!entrada || entrada < fEtapaDe)) continue;
-        if (fEtapaAte && (!entrada || entrada > fEtapaAte)) continue;
+        if (rangeEtapa.de && (!entrada || entrada < rangeEtapa.de)) continue;
+        if (rangeEtapa.ate && (!entrada || entrada > rangeEtapa.ate)) continue;
         const entrega = soData(pe.nova_entrega || pe.prazo);
-        if (fEntregaDe && (!entrega || entrega < fEntregaDe)) continue;
-        if (fEntregaAte && (!entrega || entrega > fEntregaAte)) continue;
+        if (rangeEntrega.de && (!entrega || entrega < rangeEntrega.de)) continue;
+        if (rangeEntrega.ate && (!entrega || entrega > rangeEntrega.ate)) continue;
 
         const prazoBase = soData(pe.prazo);
         const atrasado = prazoBase && prazoBase < hoje() && !pe.nova_entrega;
@@ -111,7 +135,17 @@ export default function Tabela() {
     }
     out.sort((a, b) => a.marca.localeCompare(b.marca) || String(a.pe.referencia).localeCompare(String(b.pe.referencia)));
     return out;
-  }, [pedidos, movimentos, etapa, tudo, fMarca, fEtapaDe, fEtapaAte, fEntregaDe, fEntregaAte, nomeCliente, entradaNaEtapa]);
+  }, [pedidos, movimentos, etapa, tudo, fMarca, rangeEtapa, rangeEntrega, nomeCliente, entradaNaEtapa]);
+
+  // Lista de marcas para o dropdown (distintas, ordenadas).
+  const marcasDisponiveis = useMemo(() => {
+    const set = new Set();
+    for (const pe of pedidos) {
+      const m = pe.marca || nomeCliente(pe.cliente_id);
+      if (m && m !== "—") set.add(m);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [pedidos, nomeCliente]);
 
   // Agrupa: por ETAPA quando é "Tudo"; por MARCA quando é etapa única.
   const blocos = useMemo(() => {
@@ -182,13 +216,13 @@ export default function Tabela() {
           atrasado: i.atrasado,
         })),
       })),
-      filtros: { marca: fMarca, etapaDe: fEtapaDe, etapaAte: fEtapaAte, entregaDe: fEntregaDe, entregaAte: fEntregaAte },
+      filtros: { marca: fMarca, etapaDe: rangeEtapa.de, etapaAte: rangeEtapa.ate, entregaDe: rangeEntrega.de, entregaAte: rangeEntrega.ate },
       totais: { pedidos: linhas.length, pecas: totalPecas, atrasados: totalAtrasados },
     });
   };
 
-  const limparFiltros = () => { setFMarca(""); setFEtapaDe(""); setFEtapaAte(""); setFEntregaDe(""); setFEntregaAte(""); };
-  const temFiltro = fMarca || fEtapaDe || fEtapaAte || fEntregaDe || fEntregaAte;
+  const limparFiltros = () => { setFMarca(""); setPerEtapa("tudo"); setPerEntrega("tudo"); setFEtapaDe(""); setFEtapaAte(""); setFEntregaDe(""); setFEntregaAte(""); };
+  const temFiltro = fMarca || perEtapa !== "tudo" || perEntrega !== "tudo";
 
   return (
     <div style={{ padding: "22px 26px", maxWidth: 1400, margin: "0 auto" }}>
@@ -216,15 +250,86 @@ export default function Tabela() {
         })}
       </div>
 
-      {/* Filtros — estilo pílula, como no Quadro */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
-        <span style={{ fontSize: 12, color: "var(--text-3)", marginRight: 2, display: "inline-flex", alignItems: "center", gap: 4 }}><Filter size={12} /> Filtrar:</span>
-        <span style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-          <Search size={13} style={{ position: "absolute", left: 11, color: "var(--text-3)", pointerEvents: "none" }} />
-          <input value={fMarca} onChange={(e) => setFMarca(e.target.value)} placeholder="Todas as marcas" style={{ ...selectPill, paddingLeft: 28, width: 150 }} />
-        </span>
-        <PresetEtapa de={fEtapaDe} ate={fEtapaAte} setDe={setFEtapaDe} setAte={setFEtapaAte} />
-        <PillData label="Entrega" de={fEntregaDe} ate={fEntregaAte} setDe={setFEntregaDe} setAte={setFEntregaAte} />
+      {/* Filtros — dropdowns como no Quadro (marca) e no Controle de Oficinas (período) */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+        <span style={{ fontSize: 12.5, color: "var(--text-3)", display: "inline-flex", alignItems: "center", gap: 5 }}><Filter size={13} /> Filtrar:</span>
+
+        {/* Marca — select simples (igual "Todos os clientes" do Quadro) */}
+        <select value={fMarca} onChange={(e) => setFMarca(e.target.value)} style={selectPill}>
+          <option value="">Todas as marcas</option>
+          {marcasDisponiveis.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+
+        {/* Na etapa — dropdown de período + calendário no Personalizado */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>Na etapa</span>
+          <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <select value={perEtapa} onChange={(e) => { const v = e.target.value; setPerEtapa(v); setPopEtapa(v === "custom"); if (v !== "custom") { setFEtapaDe(""); setFEtapaAte(""); } }} style={selectPill}>
+              <option value="tudo">Qualquer data</option>
+              <option value="hoje">Hoje</option>
+              <option value="ontem">Ontem</option>
+              <option value="7">Últimos 7 dias</option>
+              <option value="custom">Personalizado</option>
+            </select>
+            {perEtapa === "custom" && !popEtapa && (
+              <button onClick={() => setPopEtapa(true)} style={{ ...selectPill, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Calendar size={13} style={{ color: "var(--accent)" }} />
+                {fEtapaDe || fEtapaAte ? `${fEtapaDe ? fmt(fEtapaDe) : "início"} – ${fEtapaAte ? fmt(fEtapaAte) : "hoje"}` : "definir datas"}
+              </button>
+            )}
+            {perEtapa === "custom" && popEtapa && (
+              <>
+                <div onClick={() => setPopEtapa(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                <div style={{ position: "absolute", top: 42, left: 0, zIndex: 41, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-card)", padding: 14, width: 268 }}>
+                  <CalendarioRange de={fEtapaDe} ate={fEtapaAte} onChange={(d, a) => { setFEtapaDe(d); setFEtapaAte(a); }} />
+                  <div style={{ fontSize: 11.5, color: "var(--text-2)", textAlign: "center", margin: "10px 0 8px" }}>
+                    {fEtapaDe ? fmt(fEtapaDe) : "início"} — {fEtapaAte ? fmt(fEtapaAte) : (fEtapaDe ? "selecione o fim" : "hoje")}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => { setFEtapaDe(""); setFEtapaAte(""); }} style={{ ...btnGhost, flex: 1, padding: "7px 10px" }}>Limpar</button>
+                    <button onClick={() => setPopEtapa(false)} style={{ ...btnPrimary, flex: 1, padding: "7px 10px" }}>Aplicar</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Entrega — mesmo dropdown de período + calendário */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12.5, color: "var(--text-3)" }}>Entrega</span>
+          <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <select value={perEntrega} onChange={(e) => { const v = e.target.value; setPerEntrega(v); setPopEntrega(v === "custom"); if (v !== "custom") { setFEntregaDe(""); setFEntregaAte(""); } }} style={selectPill}>
+              <option value="tudo">Qualquer data</option>
+              <option value="atrasadas">Vencidas</option>
+              <option value="7">Próximos 7 dias</option>
+              <option value="30">Próximos 30 dias</option>
+              <option value="custom">Personalizado</option>
+            </select>
+            {perEntrega === "custom" && !popEntrega && (
+              <button onClick={() => setPopEntrega(true)} style={{ ...selectPill, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Calendar size={13} style={{ color: "var(--accent)" }} />
+                {fEntregaDe || fEntregaAte ? `${fEntregaDe ? fmt(fEntregaDe) : "início"} – ${fEntregaAte ? fmt(fEntregaAte) : "fim"}` : "definir datas"}
+              </button>
+            )}
+            {perEntrega === "custom" && popEntrega && (
+              <>
+                <div onClick={() => setPopEntrega(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                <div style={{ position: "absolute", top: 42, left: 0, zIndex: 41, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-card)", padding: 14, width: 268 }}>
+                  <CalendarioRange de={fEntregaDe} ate={fEntregaAte} onChange={(d, a) => { setFEntregaDe(d); setFEntregaAte(a); }} />
+                  <div style={{ fontSize: 11.5, color: "var(--text-2)", textAlign: "center", margin: "10px 0 8px" }}>
+                    {fEntregaDe ? fmt(fEntregaDe) : "início"} — {fEntregaAte ? fmt(fEntregaAte) : (fEntregaDe ? "selecione o fim" : "fim")}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => { setFEntregaDe(""); setFEntregaAte(""); }} style={{ ...btnGhost, flex: 1, padding: "7px 10px" }}>Limpar</button>
+                    <button onClick={() => setPopEntrega(false)} style={{ ...btnPrimary, flex: 1, padding: "7px 10px" }}>Aplicar</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
         {temFiltro && (
           <button onClick={limparFiltros} style={{ ...selectPill, border: "none", color: "var(--text-3)", display: "inline-flex", alignItems: "center", gap: 4 }}>
             <X size={12} /> Limpar
@@ -344,49 +449,6 @@ function Kpi({ rot, val, destaque }) {
 
 const selectPill = { padding: "6px 12px", fontSize: 12, borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer", boxSizing: "border-box" };
 
-// Filtro "na etapa": atalhos Hoje / Ontem / Personalizado (revela de→até).
-function PresetEtapa({ de, ate, setDe, setAte }) {
-  const diaISO = (offset = 0) => { const d = new Date(); d.setDate(d.getDate() + offset); return d.toISOString().slice(0, 10); };
-  const hojeStr = diaISO(0), ontemStr = diaISO(-1);
-  const ehHoje = de === hojeStr && ate === hojeStr;
-  const ehOntem = de === ontemStr && ate === ontemStr;
-  const [perso, setPerso] = useState(false);
-  const custom = (de || ate) && !ehHoje && !ehOntem;
-  const abrirPerso = custom || perso;
-
-  const setDia = (s) => { setDe(s); setAte(s); setPerso(false); };
-  const pill = (ativo) => ({ ...selectPill, padding: "5px 12px", border: `1px solid ${ativo ? "var(--accent)" : "var(--border)"}`, background: ativo ? "var(--accent-bg)" : "var(--surface)", color: ativo ? "var(--accent)" : "var(--text-2)", fontWeight: ativo ? 700 : 500 });
-
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--border)", borderRadius: 99, padding: "3px 5px 3px 10px", background: "var(--surface)" }}>
-      <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 600 }}>Na etapa:</span>
-      <button onClick={() => setDia(hojeStr)} style={pill(ehHoje)}>Hoje</button>
-      <button onClick={() => setDia(ontemStr)} style={pill(ehOntem)}>Ontem</button>
-      <button onClick={() => { setPerso((v) => !v); }} style={pill(!!custom)}>Personalizado</button>
-      {abrirPerso && (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, paddingLeft: 2 }}>
-          <input type="date" value={de} onChange={(e) => setDe(e.target.value)} style={pillInput} title="de" />
-          <span style={{ color: "var(--text-3)", fontSize: 11 }}>→</span>
-          <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} style={pillInput} title="até" />
-        </span>
-      )}
-    </span>
-  );
-}
-
-// Pílula de intervalo de datas (de / até) para os filtros.
-function PillData({ label, de, ate, setDe, setAte }) {
-  const ativo = de || ate;
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, border: `1px solid ${ativo ? "var(--accent)" : "var(--border)"}`, background: ativo ? "var(--accent-bg)" : "var(--surface)", borderRadius: 99, padding: "3px 10px" }}>
-      <span style={{ fontSize: 11, color: ativo ? "var(--accent)" : "var(--text-3)", fontWeight: 600 }}>{label}:</span>
-      <input type="date" value={de} onChange={(e) => setDe(e.target.value)} style={pillInput} title="de" />
-      <span style={{ color: "var(--text-3)", fontSize: 11 }}>→</span>
-      <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} style={pillInput} title="até" />
-    </span>
-  );
-}
-const pillInput = { border: "none", background: "transparent", color: "var(--text-2)", fontSize: 11.5, padding: "2px 0", outline: "none", cursor: "pointer", width: 92 };
 
 const lbl = { display: "block", fontSize: 10.5, fontWeight: 600, color: "var(--text-2)", marginBottom: 4 };
 const inp = { padding: "8px 10px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" };
