@@ -72,7 +72,7 @@ export default function Tabela() {
     const movs = movimentos.filter((m) => m.pedido_id === pedidoId && m.para_local === et);
     if (!movs.length) return null;
     const ultimo = movs.reduce((a, b) => (a.id > b.id ? a : b));
-    return ultimo.criado_em || null;
+    return ultimo.data || ultimo.criado_em || null;
   }, [movimentos]);
 
   // Linhas: pedidos com saldo > 0. Em "Tudo", uma linha por etapa onde há peças.
