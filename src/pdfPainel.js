@@ -25,7 +25,8 @@ const fmt = (d) => {
 };
 
 // Painel da etapa (visão da direção) — paisagem, uma linha por pedido, agrupado por marca.
-export function gerarPainelEtapa({ etapa, grupos, filtros, totais }) {
+export function gerarPainelEtapa({ etapa, tudo, grupos, filtros, totais }) {
+  const tituloEtapa = tudo ? "Produção" : rotuloLocal(etapa);
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
   const larg = doc.internal.pageSize.getWidth();   // 297
   const alt = doc.internal.pageSize.getHeight();   // 210
@@ -75,7 +76,7 @@ export function gerarPainelEtapa({ etapa, grupos, filtros, totais }) {
   doc.setFont("helvetica", "normal").setFontSize(6.5).setTextColor(...FAINT);
   doc.setCharSpace(0.5); doc.text("FORENZA · GESTÃO DE PRODUÇÃO", mx + 10, 8); doc.setCharSpace(0);
   doc.setFont("helvetica", "bold").setFontSize(17).setTextColor(255);
-  doc.text(`Painel de ${rotuloLocal(etapa)}`, mx + 10, 17.5);
+  doc.text(`Painel de ${tituloEtapa}`, mx + 10, 17.5);
 
   // descrição dos filtros (à esquerda, abaixo do título)
   const partes = [];
@@ -110,18 +111,30 @@ export function gerarPainelEtapa({ etapa, grupos, filtros, totais }) {
   y = coverH + 8;
 
   // ── Tabela ──
-  // Colunas (mm) somando ~ larg - 2*mx (273)
-  const cols = [
-    { rot: "PRODUTO", w: 46, al: "left" },
-    { rot: "REFERÊNCIA", w: 30, al: "left" },
-    { rot: "PEDIDO", w: 24, al: "left" },
-    { rot: "EMISSÃO", w: 20, al: "left" },
-    { rot: "QTD", w: 16, al: "right" },
-    { rot: "CORTE", w: 16, al: "right" },
-    { rot: "ENTREGA", w: 34, al: "left" },
-    { rot: "OFICINA", w: 30, al: "left" },
-    { rot: "OBSERVAÇÃO", w: 57, al: "left" },
+  // Colunas (mm) somando ~ larg - 2*mx (273). Em "Tudo", entra a coluna ETAPA.
+  const cols = tudo ? [
+    { key: "etapa", rot: "ETAPA", w: 26, al: "left" },
+    { key: "produto", rot: "PRODUTO", w: 38, al: "left" },
+    { key: "referencia", rot: "REFERÊNCIA", w: 27, al: "left" },
+    { key: "pedido", rot: "PEDIDO", w: 21, al: "left" },
+    { key: "emissao", rot: "EMISSÃO", w: 18, al: "left" },
+    { key: "qtd", rot: "QTD", w: 14, al: "right" },
+    { key: "corte", rot: "CORTE", w: 14, al: "right" },
+    { key: "entrega", rot: "ENTREGA", w: 32, al: "left" },
+    { key: "oficina", rot: "OFICINA", w: 26, al: "left" },
+    { key: "obs", rot: "OBSERVAÇÃO", w: 47, al: "left" },
+  ] : [
+    { key: "produto", rot: "PRODUTO", w: 46, al: "left" },
+    { key: "referencia", rot: "REFERÊNCIA", w: 30, al: "left" },
+    { key: "pedido", rot: "PEDIDO", w: 24, al: "left" },
+    { key: "emissao", rot: "EMISSÃO", w: 20, al: "left" },
+    { key: "qtd", rot: "QTD", w: 16, al: "right" },
+    { key: "corte", rot: "CORTE", w: 16, al: "right" },
+    { key: "entrega", rot: "ENTREGA", w: 34, al: "left" },
+    { key: "oficina", rot: "OFICINA", w: 30, al: "left" },
+    { key: "obs", rot: "OBSERVAÇÃO", w: 57, al: "left" },
   ];
+  const idx = (k) => cols.findIndex((c) => c.key === k);
   const larguraTabela = cols.reduce((a, c) => a + c.w, 0);
   const hLinha = 7;
   const RAIO = 3, BORDA = [231, 234, 228];
@@ -149,7 +162,7 @@ export function gerarPainelEtapa({ etapa, grupos, filtros, totais }) {
   grupos.forEach((g) => {
     quebra(hLinha + 6);
     // faixa do grupo (marca)
-    const cor = COR_SETOR[etapa] || VERDE;
+    const cor = (!tudo && COR_SETOR[etapa]) || VERDE;
     doc.setDrawColor(240, 243, 238).setLineWidth(0.3).line(mx, y, larg - mx, y);
     doc.setFillColor(250, 251, 249).rect(mx + 0.3, y + 0.15, larguraTabela - 0.6, 6.4, "F");
     doc.setFillColor(...cor).roundedRect(mx + 3, y + 1.8, 3, 3, 0.6, 0.6, "F");
@@ -159,46 +172,54 @@ export function gerarPainelEtapa({ etapa, grupos, filtros, totais }) {
     doc.text(`${g.itens.length} pedido(s) · ${g.pecas.toLocaleString("pt-BR")} peças`, mx + 8 + doc.getTextWidth(g.marca) + 4, y + 4.6);
     y += 6.6;
 
-    g.itens.forEach((it, idx) => {
-      const obsLinhas = it.obs ? doc.splitTextToSize(it.obs, cols[8].w - 4) : [];
+    const iObs = idx("obs");
+    g.itens.forEach((it, ri) => {
+      const obsLinhas = it.obs ? doc.splitTextToSize(it.obs, cols[iObs].w - 4) : [];
       const hCel = Math.max(hLinha, 4 + obsLinhas.length * 3.4 + 2.5);
       quebra(hCel);
-      if (idx % 2 === 1) { doc.setFillColor(250, 251, 249).rect(mx + 0.3, y, larguraTabela - 0.6, hCel, "F"); }
+      if (ri % 2 === 1) { doc.setFillColor(250, 251, 249).rect(mx + 0.3, y, larguraTabela - 0.6, hCel, "F"); }
       if (it.atrasado) { doc.setFillColor(251, 236, 236).rect(mx + 0.3, y, larguraTabela - 0.6, hCel, "F"); }
       doc.setDrawColor(240, 243, 238).setLineWidth(0.3).line(mx, y, larg - mx, y);
 
       const baseY = y + 4.6;
-      const val = (i, txt, bold, cor) => {
+      const val = (k, txt, bold, cor) => {
+        const i = idx(k); if (i < 0) return;
         doc.setFont("helvetica", bold ? "bold" : "normal").setFontSize(8).setTextColor(...(cor || [70, 68, 62]));
         const x = posX(i);
         const t = doc.splitTextToSize(String(txt), cols[i].w - 4)[0] || String(txt);
         doc.text(t, cols[i].al === "right" ? x + cols[i].w - 3 : x + 3, baseY, { align: cols[i].al });
       };
-      val(0, it.produto || "—", true, TINTA);
-      val(1, it.referencia || "—");
-      val(2, it.pedido || "—");
-      val(3, fmt(it.emissao));
-      val(4, it.qtd, true, TINTA);
-      val(5, it.corte);
+      // Etapa (só no modo Tudo) — texto na cor da etapa
+      if (tudo) {
+        const i = idx("etapa");
+        const corEt = COR_SETOR[Object.keys(COR_SETOR).find((k) => rotuloLocal(k) === it.etapa)] || TINTA;
+        doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...corEt);
+        doc.text(String(it.etapa), posX(i) + 3, baseY);
+      }
+      val("produto", it.produto || "—", true, TINTA);
+      val("referencia", it.referencia || "—");
+      val("pedido", it.pedido || "—");
+      val("emissao", fmt(it.emissao));
+      val("qtd", it.qtd, true, TINTA);
+      val("corte", it.corte);
       // entrega + prorrogação
-      const ex = posX(6);
+      const ex = posX(idx("entrega"));
       if (it.novaEntrega) {
         doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...CINZA);
         const orig = fmt(it.entrega);
         doc.text(orig, ex + 3, baseY);
         const wo = doc.getTextWidth(orig);
-        doc.setDrawColor(...CINZA).setLineWidth(0.3).line(ex + 3, baseY - 1, ex + 3 + wo, baseY - 1); // risco
+        doc.setDrawColor(...CINZA).setLineWidth(0.3).line(ex + 3, baseY - 1, ex + 3 + wo, baseY - 1);
         doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...VERMELHO);
         doc.text(`> ${fmt(it.novaEntrega)}`, ex + 3 + wo + 3, baseY);
       } else {
         doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...(it.atrasado ? VERMELHO : VERDE_ESCURO));
         doc.text(fmt(it.entrega), ex + 3, baseY);
       }
-      val(7, it.oficina || "—");
-      // observação (pode ter várias linhas)
+      val("oficina", it.oficina || "—");
       if (obsLinhas.length) {
         doc.setFont("helvetica", "italic").setFontSize(7.5).setTextColor(...AMBAR_TXT);
-        doc.text(obsLinhas, posX(8) + 3, baseY);
+        doc.text(obsLinhas, posX(iObs) + 3, baseY);
       }
       y += hCel;
     });
@@ -206,5 +227,5 @@ export function gerarPainelEtapa({ etapa, grupos, filtros, totais }) {
   fecha();
 
   rodape();
-  doc.save(`painel-${rotuloLocal(etapa).replace(/[^a-zA-Z0-9-_]/g, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`painel-${tituloEtapa.replace(/[^a-zA-Z0-9-_]/g, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
