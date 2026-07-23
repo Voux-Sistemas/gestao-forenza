@@ -4,6 +4,9 @@
   --text:#23231F;--text-2:#6C6C65;--text-3:#9A9A91;
   --accent:#3C8F2E;--accent-2:#54AC3C;--accent-bg:#E9F4E4;--brand:#4BA02D;
   --zona-grad:linear-gradient(135deg,#DCEFD4 0%,#B9DCAC 100%);--zona-borda:#A9D199;
+  /* Casca escura da gaveta — mesmo degradê da capa do PDF */
+  --gaveta-casca:linear-gradient(150deg,#16371F 0%,#1E482A 100%);--gaveta-casca-borda:#25502F;
+  --gaveta-casca-texto:#FFFFFF;--gaveta-casca-texto-2:#A7CCAE;
   --success:#178A5A;--success-bg:#E6F4EC;
   --warning:#B07407;--warning-bg:#FAF0DC;
   --danger:#CB3A3A;--danger-bg:#FBE8E8;
@@ -22,6 +25,8 @@ html[data-theme="dark"]{
   --text:#ECECEA;--text-2:#A2A29B;--text-3:#74746D;
   --accent:#5FBF45;--accent-2:#76CB5C;--accent-bg:#162913;--brand:#5FBE3A;
   --zona-grad:linear-gradient(135deg,#1B3016 0%,#223F1B 100%);--zona-borda:#33502A;
+  --gaveta-casca:linear-gradient(150deg,#12301B 0%,#1A4326 100%);--gaveta-casca-borda:#2A4E33;
+  --gaveta-casca-texto:#FFFFFF;--gaveta-casca-texto-2:#A7CCAE;
   --success:#43B080;--success-bg:#15291F;
   --warning:#D49A40;--warning-bg:#2B2310;
   --danger:#E26565;--danger-bg:#2E1818;
