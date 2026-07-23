@@ -7,6 +7,15 @@ import { gerarPainelEtapa } from "../pdfPainel.js";
 // Painel "Tabela" — visão da direção. Uma etapa por vez, com filtros e edição inline
 // da nova data de entrega (prorrogação) e da observação da diretora.
 
+const CORES_ETAPA_HEX = {
+  "Ficha Técnica de Corte": "var(--teal)",
+  "Corte": "var(--azul)",
+  "Amostra": "var(--rosa)",
+  "Oficina": "var(--warning)",
+  "Aviação": "var(--roxo)",
+  "Acabamento": "var(--orange)",
+};
+
 const hoje = () => new Date().toISOString().slice(0, 10);
 const fmt = (d) => {
   if (!d) return "—";
@@ -22,7 +31,7 @@ export default function Tabela() {
   const [oficinas, setOficinas] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
-  const [etapa, setEtapa] = useState("Acabamento");
+  const [etapa, setEtapa] = useState("__tudo__");   // "__tudo__" = todas as etapas
   const [fMarca, setFMarca] = useState("");        // filtro por marca/cliente
   const [fEtapaDe, setFEtapaDe] = useState("");     // entrou na etapa a partir de
   const [fEtapaAte, setFEtapaAte] = useState("");   // entrou na etapa até
@@ -56,47 +65,53 @@ export default function Tabela() {
   const nomeCliente = useCallback((id) => clientes.find((c) => c.id === id)?.nome || "—", [clientes]);
   const nomeOficina = useCallback((id) => oficinas.find((o) => o.id === id)?.nome_empresa || "", [oficinas]);
 
-  // Momento em que o pedido entrou na etapa selecionada = data da última movimentação para essa etapa.
-  const entradaNaEtapa = useCallback((pedidoId) => {
-    const movs = movimentos.filter((m) => m.pedido_id === pedidoId && m.para_local === etapa);
+  const tudo = etapa === "__tudo__";
+
+  // Momento em que o pedido entrou numa etapa = data da última movimentação para ela.
+  const entradaNaEtapa = useCallback((pedidoId, et) => {
+    const movs = movimentos.filter((m) => m.pedido_id === pedidoId && m.para_local === et);
     if (!movs.length) return null;
     const ultimo = movs.reduce((a, b) => (a.id > b.id ? a : b));
     return ultimo.criado_em || null;
-  }, [movimentos, etapa]);
+  }, [movimentos]);
 
-  // Linhas: pedidos com saldo > 0 na etapa selecionada, após filtros.
+  // Linhas: pedidos com saldo > 0. Em "Tudo", uma linha por etapa onde há peças.
   const linhas = useMemo(() => {
     const out = [];
     for (const pe of pedidos) {
       const saldos = calcularSaldos(pe.id, pe.total, movimentos);
-      const naEtapa = saldos[etapa] || 0;
-      if (naEtapa <= 0) continue;
+      const etapasAlvo = tudo ? PRODUCAO.filter((et) => (saldos[et] || 0) > 0) : [etapa];
 
-      if (fMarca) {
-        const alvo = `${pe.marca || ""} ${nomeCliente(pe.cliente_id)}`.toLowerCase();
-        if (!alvo.includes(fMarca.toLowerCase())) continue;
+      for (const et of etapasAlvo) {
+        const naEtapa = saldos[et] || 0;
+        if (naEtapa <= 0) continue;
+
+        if (fMarca) {
+          const alvo = `${pe.marca || ""} ${nomeCliente(pe.cliente_id)}`.toLowerCase();
+          if (!alvo.includes(fMarca.toLowerCase())) continue;
+        }
+        const entrada = soData(entradaNaEtapa(pe.id, et));
+        if (fEtapaDe && (!entrada || entrada < fEtapaDe)) continue;
+        if (fEtapaAte && (!entrada || entrada > fEtapaAte)) continue;
+        const entrega = soData(pe.nova_entrega || pe.prazo);
+        if (fEntregaDe && (!entrega || entrega < fEntregaDe)) continue;
+        if (fEntregaAte && (!entrega || entrega > fEntregaAte)) continue;
+
+        const prazoBase = soData(pe.prazo);
+        const atrasado = prazoBase && prazoBase < hoje() && !pe.nova_entrega;
+        out.push({
+          pe,
+          etapaLinha: et,
+          marca: pe.marca || nomeCliente(pe.cliente_id) || "—",
+          naEtapa,
+          entrada,
+          atrasado,
+        });
       }
-      const entrada = soData(entradaNaEtapa(pe.id));
-      if (fEtapaDe && (!entrada || entrada < fEtapaDe)) continue;
-      if (fEtapaAte && (!entrada || entrada > fEtapaAte)) continue;
-      const entrega = soData(pe.nova_entrega || pe.prazo);
-      if (fEntregaDe && (!entrega || entrega < fEntregaDe)) continue;
-      if (fEntregaAte && (!entrega || entrega > fEntregaAte)) continue;
-
-      const prazoBase = soData(pe.prazo);
-      const atrasado = prazoBase && prazoBase < hoje() && !pe.nova_entrega;
-      out.push({
-        pe,
-        marca: pe.marca || nomeCliente(pe.cliente_id) || "—",
-        naEtapa,
-        entrada,
-        atrasado,
-      });
     }
-    // ordena por marca, depois referência
     out.sort((a, b) => a.marca.localeCompare(b.marca) || String(a.pe.referencia).localeCompare(String(b.pe.referencia)));
     return out;
-  }, [pedidos, movimentos, etapa, fMarca, fEtapaDe, fEtapaAte, fEntregaDe, fEntregaAte, nomeCliente, entradaNaEtapa]);
+  }, [pedidos, movimentos, etapa, tudo, fMarca, fEtapaDe, fEtapaAte, fEntregaDe, fEntregaAte, nomeCliente, entradaNaEtapa]);
 
   // Agrupa por marca com subtotais.
   const grupos = useMemo(() => {
@@ -136,10 +151,12 @@ export default function Tabela() {
   const baixarPdf = () => {
     gerarPainelEtapa({
       etapa,
+      tudo,
       grupos: grupos.map((g) => ({
         marca: g.marca,
         pecas: g.pecas,
         itens: g.itens.map((i) => ({
+          etapa: rotuloLocal(i.etapaLinha),
           produto: i.pe.descricao || i.pe.produto || "—",
           referencia: i.pe.referencia,
           pedido: i.pe.corte_id || "—",
@@ -176,12 +193,13 @@ export default function Tabela() {
 
       {/* Seletor de etapa */}
       <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 14 }}>
-        {PRODUCAO.map((et) => {
-          const ativo = et === etapa;
+        {[["__tudo__", "Tudo"], ...PRODUCAO.map((et) => [et, rotuloLocal(et)])].map(([id, label]) => {
+          const ativo = id === etapa;
+          const ehTudo = id === "__tudo__";
           return (
-            <button key={et} onClick={() => setEtapa(et)}
-              style={{ padding: "7px 14px", borderRadius: 9, border: `1px solid ${ativo ? "var(--accent)" : "var(--border)"}`, background: ativo ? "var(--accent-bg)" : "var(--surface)", color: ativo ? "var(--accent)" : "var(--text-2)", fontWeight: ativo ? 700 : 500, fontSize: 13, cursor: "pointer" }}>
-              {rotuloLocal(et)}
+            <button key={id} onClick={() => setEtapa(id)}
+              style={{ padding: "7px 14px", borderRadius: 9, border: `1px solid ${ativo ? "var(--accent)" : "var(--border)"}`, background: ativo ? "var(--accent-bg)" : "var(--surface)", color: ativo ? "var(--accent)" : "var(--text-2)", fontWeight: ativo || ehTudo ? 700 : 500, fontSize: 13, cursor: "pointer" }}>
+              {label}
             </button>
           );
         })}
@@ -227,15 +245,15 @@ export default function Tabela() {
         <div style={{ textAlign: "center", padding: 40, color: "var(--text-2)" }}>Carregando…</div>
       ) : linhas.length === 0 ? (
         <div style={{ textAlign: "center", padding: 48, color: "var(--text-2)", border: "1px dashed var(--border)", borderRadius: 12 }}>
-          Nenhum pedido em <b>{rotuloLocal(etapa)}</b>{temFiltro ? " com esses filtros" : ""}.
+          Nenhum pedido em <b>{tudo ? "produção" : rotuloLocal(etapa)}</b>{temFiltro ? " com esses filtros" : ""}.
         </div>
       ) : (
         <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 1050 }}>
             <thead>
               <tr style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>
-                {["Produto", "Referência", "Pedido", "Emissão", "Qtd", "Corte", "Entrega", "Oficina", "Observação"].map((h, i) => (
-                  <th key={h} style={{ ...th, textAlign: i >= 4 && i <= 5 ? "right" : "left" }}>{h}</th>
+                {[...(tudo ? ["Etapa"] : []), "Produto", "Referência", "Pedido", "Emissão", "Qtd", "Corte", "Entrega", "Oficina", "Observação"].map((h) => (
+                  <th key={h} style={{ ...th, textAlign: h === "Qtd" || h === "Corte" ? "right" : "left" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -243,13 +261,14 @@ export default function Tabela() {
               {grupos.map((g) => (
                 <React.Fragment key={g.marca}>
                   <tr>
-                    <td colSpan={9} style={{ padding: "9px 12px 5px", background: "var(--surface)" }}>
+                    <td colSpan={tudo ? 10 : 9} style={{ padding: "9px 12px 5px", background: "var(--surface)" }}>
                       <span style={{ fontWeight: 800, fontSize: 13 }}>{g.marca}</span>
                       <span style={{ fontSize: 11, color: "var(--text-3)", marginLeft: 8 }}>{g.itens.length} pedido(s) · {g.pecas.toLocaleString("pt-BR")} peças</span>
                     </td>
                   </tr>
-                  {g.itens.map(({ pe, naEtapa, atrasado }) => (
-                    <tr key={pe.id} style={{ borderTop: "1px solid var(--border)", background: atrasado ? "var(--danger-bg)" : "transparent" }}>
+                  {g.itens.map(({ pe, naEtapa, atrasado, etapaLinha }, li) => (
+                    <tr key={pe.id + "-" + etapaLinha + "-" + li} style={{ borderTop: "1px solid var(--border)", background: atrasado ? "var(--danger-bg)" : "transparent" }}>
+                      {tudo && <td style={td}><span style={{ fontSize: 10.5, fontWeight: 700, color: CORES_ETAPA_HEX[etapaLinha] || "var(--text-2)", background: "var(--surface-2)", borderRadius: 6, padding: "2px 7px" }}>{rotuloLocal(etapaLinha)}</span></td>}
                       <td style={td}>{pe.descricao || pe.produto || "—"}</td>
                       <td style={{ ...td, fontWeight: 600 }}>{pe.referencia}</td>
                       <td style={td}>{pe.corte_id || "—"}</td>
