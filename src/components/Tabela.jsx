@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Download, Search, Check, X } from "lucide-react";
+import { Download, Search, Check, X, Filter } from "lucide-react";
 import { supabase } from "../supabaseClient.js";
 import { PRODUCAO, rotuloLocal, calcularSaldos } from "../etapas.js";
 import { gerarPainelEtapa } from "../pdfPainel.js";
@@ -216,32 +216,20 @@ export default function Tabela() {
         })}
       </div>
 
-      {/* Filtros */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "13px 15px", marginBottom: 16 }}>
-        <div style={{ flex: "1 1 200px", minWidth: 160 }}>
-          <label style={lbl}>Marca / cliente</label>
-          <div style={{ position: "relative" }}>
-            <Search size={14} style={{ position: "absolute", left: 10, top: 9, color: "var(--text-3)" }} />
-            <input value={fMarca} onChange={(e) => setFMarca(e.target.value)} placeholder="Todas" style={{ ...inp, paddingLeft: 30 }} />
-          </div>
-        </div>
-        <div>
-          <label style={lbl}>Entrou na etapa — de</label>
-          <input type="date" value={fEtapaDe} onChange={(e) => setFEtapaDe(e.target.value)} style={inp} />
-        </div>
-        <div>
-          <label style={lbl}>até</label>
-          <input type="date" value={fEtapaAte} onChange={(e) => setFEtapaAte(e.target.value)} style={inp} />
-        </div>
-        <div>
-          <label style={lbl}>Entrega — de</label>
-          <input type="date" value={fEntregaDe} onChange={(e) => setFEntregaDe(e.target.value)} style={inp} />
-        </div>
-        <div>
-          <label style={lbl}>até</label>
-          <input type="date" value={fEntregaAte} onChange={(e) => setFEntregaAte(e.target.value)} style={inp} />
-        </div>
-        {temFiltro && <button onClick={limparFiltros} style={btnGhost}>Limpar</button>}
+      {/* Filtros — estilo pílula, como no Quadro */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+        <span style={{ fontSize: 12, color: "var(--text-3)", marginRight: 2, display: "inline-flex", alignItems: "center", gap: 4 }}><Filter size={12} /> Filtrar:</span>
+        <span style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+          <Search size={13} style={{ position: "absolute", left: 11, color: "var(--text-3)", pointerEvents: "none" }} />
+          <input value={fMarca} onChange={(e) => setFMarca(e.target.value)} placeholder="Todas as marcas" style={{ ...selectPill, paddingLeft: 28, width: 150 }} />
+        </span>
+        <PresetEtapa de={fEtapaDe} ate={fEtapaAte} setDe={setFEtapaDe} setAte={setFEtapaAte} />
+        <PillData label="Entrega" de={fEntregaDe} ate={fEntregaAte} setDe={setFEntregaDe} setAte={setFEntregaAte} />
+        {temFiltro && (
+          <button onClick={limparFiltros} style={{ ...selectPill, border: "none", color: "var(--text-3)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <X size={12} /> Limpar
+          </button>
+        )}
       </div>
 
       {/* Totais */}
@@ -259,68 +247,65 @@ export default function Tabela() {
           Nenhum pedido em <b>{tudo ? "produção" : rotuloLocal(etapa)}</b>{temFiltro ? " com esses filtros" : ""}.
         </div>
       ) : (
-        <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 1180 }}>
-            <tbody>
-              {blocos.map((b) => (
-                <React.Fragment key={b.chave}>
-                  {/* título do bloco (etapa ou marca) */}
-                  <tr>
-                    <td colSpan={12} style={{ padding: "10px 12px 4px", background: "var(--surface-2)", borderTop: "1px solid var(--border)" }}>
-                      <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 3, background: tudo ? (CORES_ETAPA_HEX[b.chave] || "var(--accent)") : "var(--accent)", marginRight: 7, verticalAlign: "middle" }} />
-                      <span style={{ fontWeight: 800, fontSize: 13, verticalAlign: "middle" }}>{tudo ? rotuloLocal(b.chave) : b.chave}</span>
-                      <span style={{ fontSize: 11, color: "var(--text-3)", marginLeft: 8 }}>{b.itens.length} pedido(s) · {b.pecas.toLocaleString("pt-BR")} peças</span>
-                    </td>
-                  </tr>
-                  {/* cabeçalho de colunas — repetido por bloco */}
-                  <tr style={{ background: "var(--surface)", color: "var(--text-3)" }}>
-                    {["Marca", "Produto", "Referência", "Pedido", "Qtd", "Corte", "Nº Corte", "Oficina", "Entrega", "Prorrog.", "Oficial", "Obs"].map((h) => (
-                      <th key={h} style={{ ...th, textAlign: h === "Qtd" || h === "Corte" ? "right" : "left" }}>{h}</th>
-                    ))}
-                  </tr>
-                  {b.itens.map(({ pe, marca, naEtapa, atrasado, etapaLinha }, li) => (
-                    <tr key={pe.id + "-" + (etapaLinha || "") + "-" + li} style={{ borderTop: "1px solid var(--border)", background: atrasado ? "var(--danger-bg)" : "transparent" }}>
-                      <td style={{ ...td, fontWeight: 700 }}>{marca}</td>
-                      <td style={td}>{pe.descricao || pe.produto || "—"}</td>
-                      <td style={{ ...td, fontWeight: 600 }}>{pe.referencia}</td>
-                      <td style={{ ...td, color: "var(--text-2)" }}>{pe.pedido_num || pe.pedido || "—"}</td>
-                      <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>{naEtapa}</td>
-                      <td style={{ ...td, textAlign: "right", color: "var(--text-2)" }}>{pe.total}</td>
-                      <td style={{ ...td, color: "var(--text-2)" }}>{pe.corte_id || "—"}</td>
-                      <td style={{ ...td, color: "var(--text-2)" }}>{nomeOficina(pe.oficina_id) || "—"}</td>
-                      {/* Entrega (original, riscada se prorrogada) */}
-                      <td style={{ ...td, whiteSpace: "nowrap" }}>
-                        {pe.nova_entrega
-                          ? <span style={{ textDecoration: "line-through", color: "var(--text-3)", fontSize: 11 }}>{fmt(pe.prazo)}</span>
-                          : <span style={{ color: atrasado ? "var(--danger)" : "var(--success)", fontWeight: 600 }}>{fmt(pe.prazo)}</span>}
-                      </td>
-                      {/* Prorrogada (edição inline) */}
-                      <CelulaData pe={pe} campo="nova_entrega" valor={pe.nova_entrega} corValor="var(--danger)" placeholder="+ prorrogar"
-                        edit={edit} rascunho={rascunho} setRascunho={setRascunho} abrir={abrirEdicao} salvar={salvarEdicao} cancelar={cancelarEdicao} />
-                      {/* Oficial (edição inline) */}
-                      <CelulaData pe={pe} campo="data_oficial" valor={pe.data_oficial} corValor="var(--text)" placeholder="+ definir"
-                        edit={edit} rascunho={rascunho} setRascunho={setRascunho} abrir={abrirEdicao} salvar={salvarEdicao} cancelar={cancelarEdicao} />
-                      {/* Observação (edição inline) */}
-                      <td style={{ ...td, minWidth: 150 }}>
-                        {edit?.id === pe.id && edit?.campo === "obs_diretora" ? (
-                          <span style={{ display: "inline-flex", gap: 4, alignItems: "center", width: "100%" }}>
-                            <input value={rascunho} onChange={(e) => setRascunho(e.target.value)} placeholder="Anotação…" style={{ ...inp, padding: "4px 8px", flex: 1 }} autoFocus
-                              onKeyDown={(e) => { if (e.key === "Enter") salvarEdicao(); if (e.key === "Escape") cancelarEdicao(); }} />
-                            <button onClick={salvarEdicao} style={iconOk}><Check size={13} /></button>
-                            <button onClick={cancelarEdicao} style={iconNo}><X size={13} /></button>
-                          </span>
-                        ) : (
-                          <span onClick={() => abrirEdicao(pe.id, "obs_diretora", pe.obs_diretora)} style={{ cursor: "pointer", color: pe.obs_diretora ? "var(--warning)" : "var(--text-3)", fontStyle: pe.obs_diretora ? "italic" : "normal" }} title="Clique para anotar">
-                            {salvandoId === pe.id ? "salvando…" : (pe.obs_diretora || "+ anotar")}
-                          </span>
-                        )}
-                      </td>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {blocos.map((b) => (
+            <div key={b.chave} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.04)" }}>
+              {/* cabeçalho do bloco */}
+              <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 16px", background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ width: 11, height: 11, borderRadius: 3, background: tudo ? (CORES_ETAPA_HEX[b.chave] || "var(--accent)") : "var(--accent)" }} />
+                <span style={{ fontWeight: 800, fontSize: 14 }}>{tudo ? rotuloLocal(b.chave) : b.chave}</span>
+                <span style={{ fontSize: 11.5, color: "var(--text-3)" }}>{b.itens.length} pedido(s) · {b.pecas.toLocaleString("pt-BR")} peças</span>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 1180 }}>
+                  <thead>
+                    <tr style={{ color: "var(--text-3)" }}>
+                      {["Marca", "Produto", "Referência", "Pedido", "Qtd", "Corte", "Nº Corte", "Oficina", "Entrega", "Prorrog.", "Oficial", "Obs"].map((h) => (
+                        <th key={h} style={{ ...th, textAlign: h === "Qtd" || h === "Corte" ? "right" : "left" }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                  </thead>
+                  <tbody>
+                    {b.itens.map(({ pe, marca, naEtapa, atrasado, etapaLinha }, li) => (
+                      <tr key={pe.id + "-" + (etapaLinha || "") + "-" + li} style={{ borderTop: "1px solid var(--border)", background: atrasado ? "var(--danger-bg)" : (li % 2 ? "var(--surface-2)" : "transparent") }}>
+                        <td style={{ ...td, fontWeight: 700 }}>{marca}</td>
+                        <td style={td}>{pe.descricao || pe.produto || "—"}</td>
+                        <td style={{ ...td, fontWeight: 600 }}>{pe.referencia}</td>
+                        <td style={{ ...td, color: "var(--text-2)" }}>{pe.pedido_num || pe.pedido || "—"}</td>
+                        <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>{naEtapa}</td>
+                        <td style={{ ...td, textAlign: "right", color: "var(--text-2)" }}>{pe.total}</td>
+                        <td style={{ ...td, color: "var(--text-2)" }}>{pe.corte_id || "—"}</td>
+                        <td style={{ ...td, color: "var(--text-2)" }}>{nomeOficina(pe.oficina_id) || "—"}</td>
+                        <td style={{ ...td, whiteSpace: "nowrap" }}>
+                          {pe.nova_entrega
+                            ? <span style={{ textDecoration: "line-through", color: "var(--text-3)", fontSize: 11 }}>{fmt(pe.prazo)}</span>
+                            : <span style={{ color: atrasado ? "var(--danger)" : "var(--success)", fontWeight: 600 }}>{fmt(pe.prazo)}</span>}
+                        </td>
+                        <CelulaData pe={pe} campo="nova_entrega" valor={pe.nova_entrega} corValor="var(--danger)" placeholder="+ prorrogar"
+                          edit={edit} rascunho={rascunho} setRascunho={setRascunho} abrir={abrirEdicao} salvar={salvarEdicao} cancelar={cancelarEdicao} />
+                        <CelulaData pe={pe} campo="data_oficial" valor={pe.data_oficial} corValor="var(--text)" placeholder="+ definir"
+                          edit={edit} rascunho={rascunho} setRascunho={setRascunho} abrir={abrirEdicao} salvar={salvarEdicao} cancelar={cancelarEdicao} />
+                        <td style={{ ...td, minWidth: 150 }}>
+                          {edit?.id === pe.id && edit?.campo === "obs_diretora" ? (
+                            <span style={{ display: "inline-flex", gap: 4, alignItems: "center", width: "100%" }}>
+                              <input value={rascunho} onChange={(e) => setRascunho(e.target.value)} placeholder="Anotação…" style={{ ...inp, padding: "4px 8px", flex: 1 }} autoFocus
+                                onKeyDown={(e) => { if (e.key === "Enter") salvarEdicao(); if (e.key === "Escape") cancelarEdicao(); }} />
+                              <button onClick={salvarEdicao} style={iconOk}><Check size={13} /></button>
+                              <button onClick={cancelarEdicao} style={iconNo}><X size={13} /></button>
+                            </span>
+                          ) : (
+                            <span onClick={() => abrirEdicao(pe.id, "obs_diretora", pe.obs_diretora)} style={{ cursor: "pointer", color: pe.obs_diretora ? "var(--warning)" : "var(--text-3)", fontStyle: pe.obs_diretora ? "italic" : "normal" }} title="Clique para anotar">
+                              {salvandoId === pe.id ? "salvando…" : (pe.obs_diretora || "+ anotar")}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -356,6 +341,52 @@ function Kpi({ rot, val, destaque }) {
     </div>
   );
 }
+
+const selectPill = { padding: "6px 12px", fontSize: 12, borderRadius: 99, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-2)", cursor: "pointer", boxSizing: "border-box" };
+
+// Filtro "na etapa": atalhos Hoje / Ontem / Personalizado (revela de→até).
+function PresetEtapa({ de, ate, setDe, setAte }) {
+  const diaISO = (offset = 0) => { const d = new Date(); d.setDate(d.getDate() + offset); return d.toISOString().slice(0, 10); };
+  const hojeStr = diaISO(0), ontemStr = diaISO(-1);
+  const ehHoje = de === hojeStr && ate === hojeStr;
+  const ehOntem = de === ontemStr && ate === ontemStr;
+  const [perso, setPerso] = useState(false);
+  const custom = (de || ate) && !ehHoje && !ehOntem;
+  const abrirPerso = custom || perso;
+
+  const setDia = (s) => { setDe(s); setAte(s); setPerso(false); };
+  const pill = (ativo) => ({ ...selectPill, padding: "5px 12px", border: `1px solid ${ativo ? "var(--accent)" : "var(--border)"}`, background: ativo ? "var(--accent-bg)" : "var(--surface)", color: ativo ? "var(--accent)" : "var(--text-2)", fontWeight: ativo ? 700 : 500 });
+
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--border)", borderRadius: 99, padding: "3px 5px 3px 10px", background: "var(--surface)" }}>
+      <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 600 }}>Na etapa:</span>
+      <button onClick={() => setDia(hojeStr)} style={pill(ehHoje)}>Hoje</button>
+      <button onClick={() => setDia(ontemStr)} style={pill(ehOntem)}>Ontem</button>
+      <button onClick={() => { setPerso((v) => !v); }} style={pill(!!custom)}>Personalizado</button>
+      {abrirPerso && (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, paddingLeft: 2 }}>
+          <input type="date" value={de} onChange={(e) => setDe(e.target.value)} style={pillInput} title="de" />
+          <span style={{ color: "var(--text-3)", fontSize: 11 }}>→</span>
+          <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} style={pillInput} title="até" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// Pílula de intervalo de datas (de / até) para os filtros.
+function PillData({ label, de, ate, setDe, setAte }) {
+  const ativo = de || ate;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, border: `1px solid ${ativo ? "var(--accent)" : "var(--border)"}`, background: ativo ? "var(--accent-bg)" : "var(--surface)", borderRadius: 99, padding: "3px 10px" }}>
+      <span style={{ fontSize: 11, color: ativo ? "var(--accent)" : "var(--text-3)", fontWeight: 600 }}>{label}:</span>
+      <input type="date" value={de} onChange={(e) => setDe(e.target.value)} style={pillInput} title="de" />
+      <span style={{ color: "var(--text-3)", fontSize: 11 }}>→</span>
+      <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} style={pillInput} title="até" />
+    </span>
+  );
+}
+const pillInput = { border: "none", background: "transparent", color: "var(--text-2)", fontSize: 11.5, padding: "2px 0", outline: "none", cursor: "pointer", width: 92 };
 
 const lbl = { display: "block", fontSize: 10.5, fontWeight: 600, color: "var(--text-2)", marginBottom: 4 };
 const inp = { padding: "8px 10px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" };
