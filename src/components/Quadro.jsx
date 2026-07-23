@@ -598,11 +598,11 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 10 }}>
         <div style={{ width: 104 }}>
-          <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 4 }}>{local === "Oficina" ? "Qtd. voltou" : "Quantidade"}</div>
+          <div style={{ fontSize: 11, color: "var(--gaveta-casca-texto-2)", marginBottom: 4 }}>{local === "Oficina" ? "Qtd. voltou" : "Quantidade"}</div>
           <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={{ ...inp, boxSizing: "border-box" }} />
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 4 }}>Enviar para</div>
+          <div style={{ fontSize: 11, color: "var(--gaveta-casca-texto-2)", marginBottom: 4 }}>Enviar para</div>
           <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
             <option value="">Selecionar…</option>
             {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
@@ -621,35 +621,35 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   );
 
   return (
-    <Overlay onFechar={onFechar} rodape={rodape} bgRodape="var(--zona-grad)" bgCorpo="var(--surface-2)" bordaRodape="var(--zona-borda)" ocultarFechar>
-      <div style={{ margin: "-22px -22px 16px", padding: "18px 22px 0", background: "var(--zona-grad)", borderBottom: "1px solid var(--zona-borda)" }}>
+    <Overlay onFechar={onFechar} rodape={rodape} bgRodape="var(--gaveta-casca)" bgCorpo="var(--surface-2)" bordaRodape="var(--gaveta-casca-borda)" ocultarFechar>
+      <div style={{ margin: "-22px -22px 16px", padding: "18px 22px 0", background: "var(--gaveta-casca)", borderBottom: "1px solid var(--gaveta-casca-borda)", color: "var(--gaveta-casca-texto)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0 }}>
-            <MarcaForenza size={36} />
+            <MarcaForenza size={36} mono="#fff" />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".09em", textTransform: "uppercase", color: "var(--accent)" }}>{rotuloLocal(local)}</div>
-              <h3 style={{ fontSize: 18, fontWeight: 600, margin: "1px 0 0", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cliente}</h3>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".09em", textTransform: "uppercase", color: "var(--gaveta-casca-texto-2)" }}>{rotuloLocal(local)}</div>
+              <h3 style={{ fontSize: 18, fontWeight: 600, margin: "1px 0 0", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--gaveta-casca-texto)" }}>{cliente}</h3>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
             <button type="button" onClick={baixarPdf} disabled={gerandoPdf}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", borderRadius: 9, border: "1px solid var(--zona-borda)", background: "var(--surface)", color: "var(--text-2)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", borderRadius: 9, border: "none", background: "var(--surface)", color: "var(--text)", cursor: gerandoPdf ? "default" : "pointer", fontSize: 12.5, fontWeight: 600 }}>
               <FileDown size={15} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "PDF"}
             </button>
             <button type="button" onClick={onFechar} aria-label="Fechar"
-              style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", color: "var(--text-2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", color: "var(--gaveta-casca-texto-2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <X size={17} />
             </button>
           </div>
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 11 }}>
+        <div style={{ fontSize: 12, color: "var(--gaveta-casca-texto-2)", marginTop: 11 }}>
           {["Ref " + pedido.referencia, pedido.corte_id, saldo + " peças"].filter(Boolean).join("  ·  ")}
         </div>
 
         <div style={{ display: "flex", gap: 20, marginTop: 14 }}>
           {[["etapa", "Etapa"], ["detalhes", "Detalhes"]].map(([k, label]) => (
             <button key={k} type="button" onClick={() => setAba(k)}
-              style={{ padding: "0 0 9px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: aba === k ? 700 : 500, color: aba === k ? "var(--text)" : "var(--text-2)", borderBottom: aba === k ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1 }}>{label}</button>
+              style={{ padding: "0 0 9px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: aba === k ? 700 : 500, color: aba === k ? "#fff" : "var(--gaveta-casca-texto-2)", borderBottom: aba === k ? "2px solid var(--gaveta-casca-texto)" : "2px solid transparent", marginBottom: -1 }}>{label}</button>
           ))}
         </div>
       </div>

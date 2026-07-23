@@ -315,7 +315,7 @@ function ModalDetalhes({ item, nomeCliente, oficinas, movimentos, onFechar, onAb
       titulo={
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: 17, fontWeight: 700 }}>{nomeCliente(pe.cliente_id)}</span>
-          {pe.marca && <span style={pillMarca}>{pe.marca}</span>}
+          {pe.marca && <span style={{ ...pillMarca, background: "rgba(255,255,255,.14)", color: "var(--gaveta-casca-texto-2)" }}>{pe.marca}</span>}
         </div>
       }
       subtitulo={`${pe.referencia} · ${pe.total} peça${pe.total === 1 ? "" : "s"}`}

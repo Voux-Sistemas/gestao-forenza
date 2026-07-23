@@ -112,8 +112,8 @@ export default function Pilotagem({ solicitacao, clientes, oficinas, onFechar, o
         <div style={{ display: "flex", gap: 12 }}>
           {sol.imagem_url && <img src={sol.imagem_url} alt="Referência" style={{ width: 46, height: 46, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />}
           <div>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>Pilotagem — {nomeCliente}</div>
-            <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{sol.descricao}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--gaveta-casca-texto)" }}>Pilotagem — {nomeCliente}</div>
+            <div style={{ fontSize: 13, color: "var(--gaveta-casca-texto-2)", marginTop: 2 }}>{sol.descricao}</div>
           </div>
         </div>
       }

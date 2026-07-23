@@ -36,11 +36,13 @@ export default function Gaveta({ children, onFechar, rodape, largura = 480, zInd
 
   const temTitulo = titulo != null;
   const corpoBg = bgCorpo ?? (temTitulo ? "var(--surface-2)" : "var(--surface)");
-  const rodapeBg = bgRodape ?? (temTitulo ? "var(--zona-grad)" : "var(--surface)");
-  const rodapeBorda = bordaRodape ?? (temTitulo ? "var(--zona-borda)" : "var(--border)");
+  const rodapeBg = bgRodape ?? (temTitulo ? "var(--gaveta-casca)" : "var(--surface)");
+  const rodapeBorda = bordaRodape ?? (temTitulo ? "var(--gaveta-casca-borda)" : "var(--border)");
+  // No topo com título, a casca é escura → botão fechar claro; sem título, sobre fundo branco → escuro.
+  const corFechar = temTitulo ? "var(--gaveta-casca-texto-2)" : "var(--text-2)";
 
   const botaoFechar = (
-    <button onClick={onFechar} aria-label="Fechar" style={{ flexShrink: 0, width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", cursor: "pointer", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <button onClick={onFechar} aria-label="Fechar" style={{ flexShrink: 0, width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", cursor: "pointer", color: corFechar, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <X size={17} />
     </button>
   );
@@ -49,12 +51,12 @@ export default function Gaveta({ children, onFechar, rodape, largura = 480, zInd
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", justifyContent: "flex-end", zIndex }}>
       <div onClick={(e) => e.stopPropagation()} className="drawer-in" style={{ position: "relative", width: `min(${largura}px, 100%)`, height: "100%", background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "var(--shadow-lg)", display: "flex", flexDirection: "column" }}>
         {temTitulo ? (
-          <div style={{ flexShrink: 0, padding: "16px 22px", background: "var(--zona-grad)", borderBottom: "1px solid var(--zona-borda)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+          <div style={{ flexShrink: 0, padding: "16px 22px", background: "var(--gaveta-casca)", borderBottom: "1px solid var(--gaveta-casca-borda)", color: "var(--gaveta-casca-texto)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
             <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0, flex: 1 }}>
-              <MarcaForenza size={34} />
+              <MarcaForenza size={34} mono="#fff" />
               <div style={{ minWidth: 0 }}>
-                {typeof titulo === "string" ? <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{titulo}</h3> : titulo}
-                {subtitulo && <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2 }}>{subtitulo}</div>}
+                {typeof titulo === "string" ? <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: "var(--gaveta-casca-texto)" }}>{titulo}</h3> : titulo}
+                {subtitulo && <div style={{ fontSize: 13, color: "var(--gaveta-casca-texto-2)", marginTop: 2 }}>{subtitulo}</div>}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
