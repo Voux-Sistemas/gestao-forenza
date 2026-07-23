@@ -113,19 +113,29 @@ export default function Tabela() {
     return out;
   }, [pedidos, movimentos, etapa, tudo, fMarca, fEtapaDe, fEtapaAte, fEntregaDe, fEntregaAte, nomeCliente, entradaNaEtapa]);
 
-  // Agrupa por marca com subtotais.
-  const grupos = useMemo(() => {
+  // Agrupa: por ETAPA quando é "Tudo"; por MARCA quando é etapa única.
+  const blocos = useMemo(() => {
     const map = new Map();
+    const chaveDe = (l) => (tudo ? l.etapaLinha : l.marca);
     for (const l of linhas) {
-      if (!map.has(l.marca)) map.set(l.marca, []);
-      map.get(l.marca).push(l);
+      const k = chaveDe(l);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(l);
     }
-    return [...map.entries()].map(([marca, itens]) => ({
-      marca,
+    let entradas = [...map.entries()];
+    if (tudo) {
+      // ordena os blocos na ordem das etapas de produção
+      entradas.sort((a, b) => PRODUCAO.indexOf(a[0]) - PRODUCAO.indexOf(b[0]));
+    } else {
+      entradas.sort((a, b) => a[0].localeCompare(b[0]));
+    }
+    return entradas.map(([chave, itens]) => ({
+      chave,
+      titulo: tudo ? rotuloLocal(chave) : chave,
       itens,
       pecas: itens.reduce((a, i) => a + i.naEtapa, 0),
     }));
-  }, [linhas]);
+  }, [linhas, tudo]);
 
   const totalPecas = linhas.reduce((a, l) => a + l.naEtapa, 0);
   const totalAtrasados = linhas.filter((l) => l.atrasado).length;
@@ -149,26 +159,27 @@ export default function Tabela() {
   };
 
   const baixarPdf = () => {
+    const CORES = { "Ficha Técnica de Corte": [14, 138, 138], "Corte": [45, 108, 179], "Amostra": [196, 60, 122], "Oficina": [186, 117, 23], "Aviação": [107, 95, 196], "Acabamento": [217, 101, 12], "Entrada": [130, 128, 120] };
     gerarPainelEtapa({
-      etapa,
-      tudo,
-      grupos: grupos.map((g) => ({
-        marca: g.marca,
-        pecas: g.pecas,
-        itens: g.itens.map((i) => ({
-          etapa: rotuloLocal(i.etapaLinha),
+      etapa, tudo,
+      blocos: blocos.map((b) => ({
+        chave: b.chave,
+        titulo: b.titulo,
+        cor: tudo ? (CORES[b.chave] || [29, 158, 117]) : (CORES[etapa] || [29, 158, 117]),
+        itens: b.itens.map((i) => ({
+          marca: i.marca,
           produto: i.pe.descricao || i.pe.produto || "—",
           referencia: i.pe.referencia,
-          pedido: i.pe.corte_id || "—",
-          emissao: i.pe.emissao || i.pe.created_at,
+          pedido: i.pe.pedido_num || i.pe.pedido || "—",
           qtd: i.naEtapa,
           corte: i.pe.total,
-          entrega: i.pe.prazo,
-          novaEntrega: i.pe.nova_entrega,
-          atrasado: i.atrasado,
+          ncorte: i.pe.corte_id || "—",
           oficina: nomeOficina(i.pe.oficina_id),
+          entrega: i.pe.prazo,
+          prorrog: i.pe.nova_entrega,
+          oficial: i.pe.data_oficial,
           obs: i.pe.obs_diretora,
-          entrada: i.entrada,
+          atrasado: i.atrasado,
         })),
       })),
       filtros: { marca: fMarca, etapaDe: fEtapaDe, etapaAte: fEtapaAte, entregaDe: fEntregaDe, entregaAte: fEntregaAte },
@@ -249,56 +260,48 @@ export default function Tabela() {
         </div>
       ) : (
         <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 1050 }}>
-            <thead>
-              <tr style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>
-                {[...(tudo ? ["Etapa"] : []), "Produto", "Referência", "Pedido", "Emissão", "Qtd", "Corte", "Entrega", "Oficina", "Observação"].map((h) => (
-                  <th key={h} style={{ ...th, textAlign: h === "Qtd" || h === "Corte" ? "right" : "left" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 1180 }}>
             <tbody>
-              {grupos.map((g) => (
-                <React.Fragment key={g.marca}>
+              {blocos.map((b) => (
+                <React.Fragment key={b.chave}>
+                  {/* título do bloco (etapa ou marca) */}
                   <tr>
-                    <td colSpan={tudo ? 10 : 9} style={{ padding: "9px 12px 5px", background: "var(--surface)" }}>
-                      <span style={{ fontWeight: 800, fontSize: 13 }}>{g.marca}</span>
-                      <span style={{ fontSize: 11, color: "var(--text-3)", marginLeft: 8 }}>{g.itens.length} pedido(s) · {g.pecas.toLocaleString("pt-BR")} peças</span>
+                    <td colSpan={12} style={{ padding: "10px 12px 4px", background: "var(--surface-2)", borderTop: "1px solid var(--border)" }}>
+                      <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 3, background: tudo ? (CORES_ETAPA_HEX[b.chave] || "var(--accent)") : "var(--accent)", marginRight: 7, verticalAlign: "middle" }} />
+                      <span style={{ fontWeight: 800, fontSize: 13, verticalAlign: "middle" }}>{tudo ? rotuloLocal(b.chave) : b.chave}</span>
+                      <span style={{ fontSize: 11, color: "var(--text-3)", marginLeft: 8 }}>{b.itens.length} pedido(s) · {b.pecas.toLocaleString("pt-BR")} peças</span>
                     </td>
                   </tr>
-                  {g.itens.map(({ pe, naEtapa, atrasado, etapaLinha }, li) => (
-                    <tr key={pe.id + "-" + etapaLinha + "-" + li} style={{ borderTop: "1px solid var(--border)", background: atrasado ? "var(--danger-bg)" : "transparent" }}>
-                      {tudo && <td style={td}><span style={{ fontSize: 10.5, fontWeight: 700, color: CORES_ETAPA_HEX[etapaLinha] || "var(--text-2)", background: "var(--surface-2)", borderRadius: 6, padding: "2px 7px" }}>{rotuloLocal(etapaLinha)}</span></td>}
+                  {/* cabeçalho de colunas — repetido por bloco */}
+                  <tr style={{ background: "var(--surface)", color: "var(--text-3)" }}>
+                    {["Marca", "Produto", "Referência", "Pedido", "Qtd", "Corte", "Nº Corte", "Oficina", "Entrega", "Prorrog.", "Oficial", "Obs"].map((h) => (
+                      <th key={h} style={{ ...th, textAlign: h === "Qtd" || h === "Corte" ? "right" : "left" }}>{h}</th>
+                    ))}
+                  </tr>
+                  {b.itens.map(({ pe, marca, naEtapa, atrasado, etapaLinha }, li) => (
+                    <tr key={pe.id + "-" + (etapaLinha || "") + "-" + li} style={{ borderTop: "1px solid var(--border)", background: atrasado ? "var(--danger-bg)" : "transparent" }}>
+                      <td style={{ ...td, fontWeight: 700 }}>{marca}</td>
                       <td style={td}>{pe.descricao || pe.produto || "—"}</td>
                       <td style={{ ...td, fontWeight: 600 }}>{pe.referencia}</td>
-                      <td style={td}>{pe.corte_id || "—"}</td>
-                      <td style={{ ...td, color: "var(--text-2)" }}>{fmt(pe.emissao || pe.created_at)}</td>
+                      <td style={{ ...td, color: "var(--text-2)" }}>{pe.pedido_num || pe.pedido || "—"}</td>
                       <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>{naEtapa}</td>
                       <td style={{ ...td, textAlign: "right", color: "var(--text-2)" }}>{pe.total}</td>
-                      {/* Entrega + prorrogação (edição inline) */}
-                      <td style={{ ...td, whiteSpace: "nowrap" }}>
-                        {edit?.id === pe.id && edit?.campo === "nova_entrega" ? (
-                          <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-                            <input type="date" value={rascunho} onChange={(e) => setRascunho(e.target.value)} style={{ ...inp, padding: "4px 6px", width: 130 }} autoFocus />
-                            <button onClick={salvarEdicao} style={iconOk}><Check size={13} /></button>
-                            <button onClick={cancelarEdicao} style={iconNo}><X size={13} /></button>
-                          </span>
-                        ) : (
-                          <span onClick={() => abrirEdicao(pe.id, "nova_entrega", pe.nova_entrega)} style={{ cursor: "pointer" }} title="Clique para prorrogar">
-                            {pe.nova_entrega ? (
-                              <>
-                                <span style={{ textDecoration: "line-through", color: "var(--text-3)", fontSize: 11 }}>{fmt(pe.prazo)}</span>{" "}
-                                <b style={{ color: "var(--danger)" }}>▸ {fmt(pe.nova_entrega)}</b>
-                              </>
-                            ) : (
-                              <span style={{ color: atrasado ? "var(--danger)" : "var(--success)", fontWeight: 600 }}>{fmt(pe.prazo)}</span>
-                            )}
-                          </span>
-                        )}
-                      </td>
+                      <td style={{ ...td, color: "var(--text-2)" }}>{pe.corte_id || "—"}</td>
                       <td style={{ ...td, color: "var(--text-2)" }}>{nomeOficina(pe.oficina_id) || "—"}</td>
+                      {/* Entrega (original, riscada se prorrogada) */}
+                      <td style={{ ...td, whiteSpace: "nowrap" }}>
+                        {pe.nova_entrega
+                          ? <span style={{ textDecoration: "line-through", color: "var(--text-3)", fontSize: 11 }}>{fmt(pe.prazo)}</span>
+                          : <span style={{ color: atrasado ? "var(--danger)" : "var(--success)", fontWeight: 600 }}>{fmt(pe.prazo)}</span>}
+                      </td>
+                      {/* Prorrogada (edição inline) */}
+                      <CelulaData pe={pe} campo="nova_entrega" valor={pe.nova_entrega} corValor="var(--danger)" placeholder="+ prorrogar"
+                        edit={edit} rascunho={rascunho} setRascunho={setRascunho} abrir={abrirEdicao} salvar={salvarEdicao} cancelar={cancelarEdicao} />
+                      {/* Oficial (edição inline) */}
+                      <CelulaData pe={pe} campo="data_oficial" valor={pe.data_oficial} corValor="var(--text)" placeholder="+ definir"
+                        edit={edit} rascunho={rascunho} setRascunho={setRascunho} abrir={abrirEdicao} salvar={salvarEdicao} cancelar={cancelarEdicao} />
                       {/* Observação (edição inline) */}
-                      <td style={{ ...td, minWidth: 180 }}>
+                      <td style={{ ...td, minWidth: 150 }}>
                         {edit?.id === pe.id && edit?.campo === "obs_diretora" ? (
                           <span style={{ display: "inline-flex", gap: 4, alignItems: "center", width: "100%" }}>
                             <input value={rascunho} onChange={(e) => setRascunho(e.target.value)} placeholder="Anotação…" style={{ ...inp, padding: "4px 8px", flex: 1 }} autoFocus
@@ -321,6 +324,27 @@ export default function Tabela() {
         </div>
       )}
     </div>
+  );
+}
+
+// Célula de data com edição inline (prorrogada / oficial).
+function CelulaData({ pe, campo, valor, corValor, placeholder, edit, rascunho, setRascunho, abrir, salvar, cancelar }) {
+  const editando = edit?.id === pe.id && edit?.campo === campo;
+  const fmt = (d) => { if (!d) return ""; const dt = new Date(String(d).slice(0, 10) + "T12:00"); return isNaN(dt) ? "" : dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }); };
+  return (
+    <td style={{ ...td, whiteSpace: "nowrap" }}>
+      {editando ? (
+        <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+          <input type="date" value={rascunho} onChange={(e) => setRascunho(e.target.value)} style={{ padding: "4px 6px", fontSize: 12, borderRadius: 7, border: "1px solid var(--border)", width: 128 }} autoFocus />
+          <button onClick={salvar} style={iconOk}><Check size={13} /></button>
+          <button onClick={cancelar} style={iconNo}><X size={13} /></button>
+        </span>
+      ) : (
+        <span onClick={() => abrir(pe.id, campo, valor)} style={{ cursor: "pointer", color: valor ? corValor : "var(--text-3)", fontWeight: valor ? 700 : 400 }} title="Clique para editar">
+          {valor ? fmt(valor) : placeholder}
+        </span>
+      )}
+    </td>
   );
 }
 
