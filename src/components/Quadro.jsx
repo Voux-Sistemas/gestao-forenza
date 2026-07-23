@@ -12,7 +12,7 @@ import { ITENS_AVIAMENTO, LARGURAS_ELASTICO, TIPOS_ZIPER, TAMANHOS_ZIPER, TAMANH
 import GradeEditor, { limparGrade } from "./GradeEditor.jsx";
 
 import Toast, { avisoDeMovimento } from "./Toast.jsx";
-import Overlay, { Bloco } from "./Gaveta.jsx";
+import Overlay, { Bloco, pelePorCor } from "./Gaveta.jsx";
 import { LOCAIS, COLUNAS, CORES_ETAPA as CORES, calcularSaldos, somaProducao, rotuloLocal } from "../etapas.js";
 
 const ICONES_COLUNA = {
@@ -423,6 +423,7 @@ export default function Quadro({ session, perfil }) {
 
 function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar, ehMaster, podeAdministrar, onFechar, onOk }) {
   const { pedido, local, saldo, destinoInicial, cliente, parte, totalPartes } = dados;
+  const pele = pelePorCor(CORES[local]);   // casca clara na cor do setor
   const destinos = LOCAIS.filter((l) => l !== local);
   const [editarGrade, setEditarGrade] = useState(false);
   const [aba, setAba] = useState("etapa");
@@ -598,11 +599,11 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
       {erro && <p style={{ fontSize: 12, color: "var(--danger)", margin: "0 0 10px" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 10 }}>
         <div style={{ width: 104 }}>
-          <div style={{ fontSize: 11, color: "var(--gaveta-casca-texto-2)", marginBottom: 4 }}>{local === "Oficina" ? "Qtd. voltou" : "Quantidade"}</div>
+          <div style={{ fontSize: 11, color: pele.texto2, marginBottom: 4 }}>{local === "Oficina" ? "Qtd. voltou" : "Quantidade"}</div>
           <input type="number" min="1" max={saldo} value={qtd} onChange={(e) => setQtd(e.target.value)} style={{ ...inp, boxSizing: "border-box" }} />
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, color: "var(--gaveta-casca-texto-2)", marginBottom: 4 }}>Enviar para</div>
+          <div style={{ fontSize: 11, color: pele.texto2, marginBottom: 4 }}>Enviar para</div>
           <select value={destino} onChange={(e) => setDestino(e.target.value)} style={inp}>
             <option value="">Selecionar…</option>
             {destinos.map((d) => <option key={d} value={d}>{rotuloLocal(d)}</option>)}
@@ -621,14 +622,14 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
   );
 
   return (
-    <Overlay onFechar={onFechar} rodape={rodape} bgRodape="var(--gaveta-casca)" bgCorpo="var(--surface-2)" bordaRodape="var(--gaveta-casca-borda)" ocultarFechar>
-      <div style={{ margin: "-22px -22px 16px", padding: "18px 22px 0", background: "var(--gaveta-casca)", borderBottom: "1px solid var(--gaveta-casca-borda)", color: "var(--gaveta-casca-texto)" }}>
+    <Overlay onFechar={onFechar} rodape={rodape} cor={CORES[local]} bgRodape={pele.bg} bgCorpo="var(--surface-2)" bordaRodape={pele.borda} ocultarFechar>
+      <div style={{ margin: "-22px -22px 16px", padding: "18px 22px 0", background: pele.bg, borderBottom: `1px solid ${pele.borda}`, color: pele.texto }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0 }}>
-            <MarcaForenza size={36} mono="#fff" />
+            <MarcaForenza size={36} corAnel={pele.marca} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".09em", textTransform: "uppercase", color: "var(--gaveta-casca-texto-2)" }}>{rotuloLocal(local)}</div>
-              <h3 style={{ fontSize: 18, fontWeight: 600, margin: "1px 0 0", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--gaveta-casca-texto)" }}>{cliente}</h3>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".09em", textTransform: "uppercase", color: pele.texto2 }}>{rotuloLocal(local)}</div>
+              <h3 style={{ fontSize: 18, fontWeight: 600, margin: "1px 0 0", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: pele.texto }}>{cliente}</h3>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
@@ -637,19 +638,19 @@ function ModalMover({ dados, oficinas, remessas, movimentos, session, podeEditar
               <FileDown size={15} style={{ color: "var(--accent)" }} /> {gerandoPdf ? "Gerando…" : "PDF"}
             </button>
             <button type="button" onClick={onFechar} aria-label="Fechar"
-              style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", color: "var(--gaveta-casca-texto-2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", color: pele.texto2, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <X size={17} />
             </button>
           </div>
         </div>
-        <div style={{ fontSize: 12, color: "var(--gaveta-casca-texto-2)", marginTop: 11 }}>
+        <div style={{ fontSize: 12, color: pele.texto2, marginTop: 11 }}>
           {["Ref " + pedido.referencia, pedido.corte_id, saldo + " peças"].filter(Boolean).join("  ·  ")}
         </div>
 
         <div style={{ display: "flex", gap: 20, marginTop: 14 }}>
           {[["etapa", "Etapa"], ["detalhes", "Detalhes"]].map(([k, label]) => (
             <button key={k} type="button" onClick={() => setAba(k)}
-              style={{ padding: "0 0 9px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: aba === k ? 700 : 500, color: aba === k ? "#fff" : "var(--gaveta-casca-texto-2)", borderBottom: aba === k ? "2px solid var(--gaveta-casca-texto)" : "2px solid transparent", marginBottom: -1 }}>{label}</button>
+              style={{ padding: "0 0 9px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: aba === k ? 700 : 500, color: aba === k ? pele.texto : pele.texto2, borderBottom: aba === k ? `2px solid ${pele.texto}` : "2px solid transparent", marginBottom: -1 }}>{label}</button>
           ))}
         </div>
       </div>

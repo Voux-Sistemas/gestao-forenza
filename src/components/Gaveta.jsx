@@ -19,7 +19,36 @@ import { MarcaForenza } from "./Logo.jsx";
 //   largura   – largura máxima em px (padrão 480)
 //   zIndex    – para empilhar gavetas (padrão 100)
 //   bgCorpo/bgRodape/bordaRodape – sobrescrevem a casca padrão, se preciso
-export default function Gaveta({ children, onFechar, rodape, largura = 480, zIndex = 100, titulo, subtitulo, acaoTopo, bgRodape, bgCorpo, bordaRodape, ocultarFechar = false }) {
+//   cor       – [r,g,b] do setor: tinge a casca (cabeçalho/rodapé) nessa cor.
+//               Sem `cor`, usa o verde-claro padrão do sistema.
+
+// Monta a "pele" (casca clara colorida) a partir de uma cor [r,g,b] do setor.
+// Degradê suave claro + texto escuro na mesma matiz, legível e discreto.
+export function pelePorCor(cor) {
+  if (!Array.isArray(cor) || cor.length < 3) {
+    // padrão: verde-claro do tema
+    return { bg: "var(--zona-grad)", borda: "var(--zona-borda)", texto: "var(--text)", texto2: "var(--text-2)", marca: null };
+  }
+  const [r, g, b] = cor;
+  const mix = (a, alvo, t) => Math.round(a + (alvo - a) * t);
+  // fundo: dois tons bem claros da cor (clareia ~82% e ~72% em direção ao branco)
+  const c1 = [mix(r, 255, 0.86), mix(g, 255, 0.86), mix(b, 255, 0.86)];
+  const c2 = [mix(r, 255, 0.74), mix(g, 255, 0.74), mix(b, 255, 0.74)];
+  const borda = [mix(r, 255, 0.55), mix(g, 255, 0.55), mix(b, 255, 0.55)];
+  // texto: escurece a cor (~62% em direção ao preto) para contraste sobre o fundo claro
+  const txt = [mix(r, 0, 0.55), mix(g, 0, 0.55), mix(b, 0, 0.55)];
+  const txt2 = [mix(r, 0, 0.3), mix(g, 0, 0.3), mix(b, 0, 0.3)];
+  const rgb = (a) => `rgb(${a[0]},${a[1]},${a[2]})`;
+  return {
+    bg: `linear-gradient(135deg, ${rgb(c1)}, ${rgb(c2)})`,
+    borda: rgb(borda),
+    texto: rgb(txt),
+    texto2: rgb(txt2),
+    marca: rgb([r, g, b]),   // anel da logo na cor cheia do setor
+  };
+}
+
+export default function Gaveta({ children, onFechar, rodape, largura = 480, zIndex = 100, titulo, subtitulo, acaoTopo, cor, bgRodape, bgCorpo, bordaRodape, ocultarFechar = false }) {
   // Trava a rolagem da página enquanto a gaveta está aberta.
   useEffect(() => {
     const anterior = document.body.style.overflow;
@@ -35,11 +64,12 @@ export default function Gaveta({ children, onFechar, rodape, largura = 480, zInd
   }, [onFechar]);
 
   const temTitulo = titulo != null;
+  // Casca clara na cor do setor (opção C). Sem `cor`, usa o verde-claro padrão do tema.
+  const pele = pelePorCor(cor);
   const corpoBg = bgCorpo ?? (temTitulo ? "var(--surface-2)" : "var(--surface)");
-  const rodapeBg = bgRodape ?? (temTitulo ? "var(--gaveta-casca)" : "var(--surface)");
-  const rodapeBorda = bordaRodape ?? (temTitulo ? "var(--gaveta-casca-borda)" : "var(--border)");
-  // No topo com título, a casca é escura → botão fechar claro; sem título, sobre fundo branco → escuro.
-  const corFechar = temTitulo ? "var(--gaveta-casca-texto-2)" : "var(--text-2)";
+  const cascaBg = bgRodape ?? (temTitulo ? pele.bg : "var(--surface)");
+  const cascaBorda = bordaRodape ?? (temTitulo ? pele.borda : "var(--border)");
+  const corFechar = temTitulo ? pele.texto2 : "var(--text-2)";
 
   const botaoFechar = (
     <button onClick={onFechar} aria-label="Fechar" style={{ flexShrink: 0, width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", cursor: "pointer", color: corFechar, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -51,12 +81,12 @@ export default function Gaveta({ children, onFechar, rodape, largura = 480, zInd
     <div onClick={onFechar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", justifyContent: "flex-end", zIndex }}>
       <div onClick={(e) => e.stopPropagation()} className="drawer-in" style={{ position: "relative", width: `min(${largura}px, 100%)`, height: "100%", background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "var(--shadow-lg)", display: "flex", flexDirection: "column" }}>
         {temTitulo ? (
-          <div style={{ flexShrink: 0, padding: "16px 22px", background: "var(--gaveta-casca)", borderBottom: "1px solid var(--gaveta-casca-borda)", color: "var(--gaveta-casca-texto)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+          <div style={{ flexShrink: 0, padding: "16px 22px", background: cascaBg, borderBottom: `1px solid ${cascaBorda}`, color: pele.texto, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
             <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0, flex: 1 }}>
-              <MarcaForenza size={34} mono="#fff" />
+              <MarcaForenza size={34} corAnel={pele.marca} />
               <div style={{ minWidth: 0 }}>
-                {typeof titulo === "string" ? <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: "var(--gaveta-casca-texto)" }}>{titulo}</h3> : titulo}
-                {subtitulo && <div style={{ fontSize: 13, color: "var(--gaveta-casca-texto-2)", marginTop: 2 }}>{subtitulo}</div>}
+                {typeof titulo === "string" ? <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: pele.texto }}>{titulo}</h3> : titulo}
+                {subtitulo && <div style={{ fontSize: 13, color: pele.texto2, marginTop: 2 }}>{subtitulo}</div>}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
@@ -71,7 +101,7 @@ export default function Gaveta({ children, onFechar, rodape, largura = 480, zInd
           {children}
         </div>
         {rodape && (
-          <div style={{ flexShrink: 0, padding: "14px 22px", borderTop: `1px solid ${rodapeBorda}`, background: rodapeBg }}>
+          <div style={{ flexShrink: 0, padding: "14px 22px", borderTop: `1px solid ${cascaBorda}`, background: cascaBg }}>
             {rodape}
           </div>
         )}
